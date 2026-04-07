@@ -36,7 +36,7 @@ class TechnicalAnalyzer:
         return df
 
     @staticmethod
-    def get_valuation(stock_obj, df, price):
+    def analyze_valuation(stock_obj, df, price):
         try:
             yh, yl = df['High'].tail(250).max(), df['Low'].tail(250).min()
             pct = int(((price - yl) / (yh - yl)) * 100)
