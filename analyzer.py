@@ -25,7 +25,7 @@ class TechnicalAnalyzer:
     def identify_patterns(df):
         o, c, h, l = df['Open'], df['Close'], df['High'], df['Low']
         body = abs(c - o)
-        patterns = [None, None]
+        patterns = ["", ""]
         for i in range(2, len(df)):
             sig = []
             if (l.iloc[i] - min(o.iloc[i], c.iloc[i])) > body.iloc[i]*2: sig.append("錘子線")
