@@ -14,8 +14,8 @@ class StrategyEngine:
             signals.append("破月線")
         if latest['Close'] > latest['MA5'] > latest['MA20']: 
             score += 3
-        pattern_val = latest['Pattern']
-        if isinstance(pattern_val, str) and pattern_val != "":
+        pattern_val = str(latest['Pattern']) if latest['Pattern'] is not None else ""
+        if pattern_val != "" and pattern_val != "nan":
             signals.append(pattern_val)
             if "吞噬" in pattern_val:
                 score += 4
