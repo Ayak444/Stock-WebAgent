@@ -35,13 +35,26 @@ class TechnicalAnalyzer:
         df['Pattern'] = patterns
         return df
 
-    @staticmethod
-    def analyze_valuation(stock_obj, df, price):
+@staticmethod
+    def get_valuation(stock_obj, df, price):
         try:
-            yh, yl = df['High'].tail(250).max(), df['Low'].tail(250).min()
+            yh = df['High'].tail(250).max()
+            yl = df['Low'].tail(250).min()
+            
+            if pd.isna(yh) or pd.isna(yl) or yh == yl:
+                return "無法計算位階"
+                
             pct = int(((price - yl) / (yh - yl)) * 100)
-            pe = stock_obj.info.get('trailingPE', 0)
             status = "便宜" if pct < 20 else "昂貴" if pct > 80 else "合理"
-            return f"{status} ({pct}%|PE:{pe:.1f})"
-        except:
-            return "數據錯誤"
+            
+            info = stock_obj.info if stock_obj is not None else {}
+            pe = info.get('trailingPE', None)
+            
+            if pe is not None:
+                return f"{status} ({pct}%|PE:{pe:.1f})"
+            else:
+                return f"{status} ({pct}%)" 
+                
+        except Exception as e:
+            print(f"Valuation Error: {e}") 
+            return "數據缺失"
