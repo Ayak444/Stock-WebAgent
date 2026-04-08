@@ -1,5 +1,3 @@
-#專責技術指標與型態分析
-
 import pandas as pd
 import numpy as np
 
@@ -25,17 +23,17 @@ class TechnicalAnalyzer:
     def identify_patterns(df):
         o, c, h, l = df['Open'], df['Close'], df['High'], df['Low']
         body = abs(c - o)
-        patterns = ["", ""]
+        patterns = [None, None]
         for i in range(2, len(df)):
             sig = []
             if (l.iloc[i] - min(o.iloc[i], c.iloc[i])) > body.iloc[i]*2: sig.append("錘子線")
             if c.iloc[i-1] < o.iloc[i-1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > (c.iloc[i-1] + (o.iloc[i-1]-c.iloc[i-1])/2): sig.append("刺透")
             if c.iloc[i-1] < o.iloc[i-1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > o.iloc[i-1] and o.iloc[i] < c.iloc[i-1]: sig.append("吞噬")
-            patterns.append(",".join(sig) if sig else "")
+            patterns.append(",".join(sig) if sig else None)
         df['Pattern'] = patterns
         return df
 
-@staticmethod
+    @staticmethod
     def get_valuation(stock_obj, df, price):
         try:
             yh = df['High'].tail(250).max()
@@ -53,7 +51,7 @@ class TechnicalAnalyzer:
             if pe is not None:
                 return f"{status} ({pct}%|PE:{pe:.1f})"
             else:
-                return f"{status} ({pct}%)" 
+                return f"{status} ({pct}%)"
                 
         except Exception as e:
             print(f"Valuation Error: {e}") 
