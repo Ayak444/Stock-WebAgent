@@ -9,6 +9,7 @@ from data_provider import MarketDataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
 from notifier import TelegramNotifier
+import time
 
 app = FastAPI()
 notifier = TelegramNotifier()
@@ -72,6 +73,8 @@ def analyze_custom(targets: List[TargetItem]):
     
     results = []
     for t_item in targets:
+        time.sleep(0.5) 
+        
         t = StockTarget(t_item.id, t_item.name, t_item.type, t_item.cost, t_item.shares)
         
         try:
