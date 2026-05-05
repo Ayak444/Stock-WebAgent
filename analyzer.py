@@ -35,30 +35,28 @@ class TechnicalAnalyzer:
         return df
 
     @staticmethod
-    def get_valuation(stock_obj, df, price):
-        try:
-            yh = df['High'].tail(250).max()
-            yl = df['Low'].tail(250).min()
-            
-            if pd.isna(yh) or pd.isna(yl) or pd.isna(price) or yh == yl:
-                return "無法計算位階"
+        def get_valuation(stock_obj, df, price):
+            import math
+            try:
+                yh = df['High'].tail(250).max()
+                yl = df['Low'].tail(250).min()
                 
-            raw_pct = ((price - yl) / (yh - yl)) * 100
-            
-            if math.isnan(raw_pct) or math.isinf(raw_pct):
-                return "無法計算位階"
+                # 1. 阻擋所有空值 (NaN) 與極端狀況
+                if pd.isna(yh) or pd.isna(yl) or pd.isna(price) or yh == yl:
+                    return "無法計算位階"
+                    
+                raw_pct = ((price - yl) / (yh - yl)) * 100
                 
-            pct = int(raw_pct)
-            status = "便宜" if pct < 20 else "昂貴" if pct > 80 else "合理"
-            
-            info = stock_obj.info if stock_obj is not None else {}
-            pe = info.get('trailingPE', None)
-            
-            if pe is not None:
-                return f"{status} ({pct}%|PE:{pe:.1f})"
-            else:
+                # 2. 再次確認計算結果不是 NaN 且不是無限大
+                if math.isnan(raw_pct) or math.isinf(raw_pct):
+                    return "無法計算位階"
+                    
+                pct = int(raw_pct)
+                status = "便宜" if pct < 20 else "昂貴" if pct > 80 else "合理"
+                
+                # 3. 捨棄容易被封鎖的 stock_obj.info，單純回傳位階
                 return f"{status} ({pct}%)"
-                
-        except Exception as e:
-            print(f"Valuation Error: {e}") 
-            return "數據缺失"
+                    
+            except Exception as e:
+                # 不再印出錯誤，保持伺服器 Log 乾淨
+                return "數據缺失"
