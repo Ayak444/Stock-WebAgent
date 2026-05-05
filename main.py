@@ -3,7 +3,9 @@ from pydantic import BaseModel
 from typing import List
 import uvicorn
 import os
+import google.generativeai as genai
 from models import StockTarget
+from fastapi import FastAPI
 from data_provider import MarketDataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
@@ -12,6 +14,9 @@ from notifier import TelegramNotifier
 app = FastAPI()
 notifier = TelegramNotifier()
 
+genai.configure(api_key=os.environ.get("AIzaSyAluwC73YuHjFqBaNuGCp90ijSTUz4cJH4"))
+model = genai.GenerativeModel('gemini-2.5-flash')
+
 class TargetItem(BaseModel):
     id: str
     name: str
@@ -19,9 +24,25 @@ class TargetItem(BaseModel):
     cost: float
     shares: int
 
+class ChatRequest(BaseModel):
+    message: str
+
+
 @app.get("/")
 def home():
     return {"status": "Bot is alive and running!"}
+
+@app.post("/chat")
+def handle_chat(req: ChatRequest):
+    system_prompt = "你是一位專業的台灣股市投資助理。請用簡明扼要、客觀的語氣回答使用者的問題。請勿提供絕對的投資建議。"
+    
+    full_prompt = f"{system_prompt}\n\n使用者問題：{req.message}"
+    
+    try:
+        response = model.generate_content(full_prompt)
+        return {"status": "success", "reply": response.text}
+    except Exception as e:
+        return {"status": "error", "reply": "AI 目前無法回應，請稍後再試。"}
 
 @app.post("/analyze")
 def analyze_custom(targets: List[TargetItem]):
