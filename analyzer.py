@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import math
 
 class TechnicalAnalyzer:
     @staticmethod
@@ -39,10 +40,15 @@ class TechnicalAnalyzer:
             yh = df['High'].tail(250).max()
             yl = df['Low'].tail(250).min()
             
-            if pd.isna(yh) or pd.isna(yl) or yh == yl:
+            if pd.isna(yh) or pd.isna(yl) or pd.isna(price) or yh == yl:
                 return "無法計算位階"
                 
-            pct = int(((price - yl) / (yh - yl)) * 100)
+            raw_pct = ((price - yl) / (yh - yl)) * 100
+            
+            if math.isnan(raw_pct) or math.isinf(raw_pct):
+                return "無法計算位階"
+                
+            pct = int(raw_pct)
             status = "便宜" if pct < 20 else "昂貴" if pct > 80 else "合理"
             
             info = stock_obj.info if stock_obj is not None else {}
