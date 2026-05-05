@@ -1,11 +1,10 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+import os
 from typing import List
 import uvicorn
-import os
+from fastapi import FastAPI
+from pydantic import BaseModel
 import google.generativeai as genai
 from models import StockTarget
-from fastapi import FastAPI
 from data_provider import MarketDataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
@@ -14,7 +13,7 @@ from notifier import TelegramNotifier
 app = FastAPI()
 notifier = TelegramNotifier()
 
-genai.configure(api_key=os.environ.get("AIzaSyAluwC73YuHjFqBaNuGCp90ijSTUz4cJH4"))
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 model = genai.GenerativeModel('gemini-2.5-flash')
 
 class TargetItem(BaseModel):
@@ -27,6 +26,8 @@ class TargetItem(BaseModel):
 class ChatRequest(BaseModel):
     message: str
 
+class NewsRequest(BaseModel):
+    news_content: str
 
 @app.get("/")
 def home():
@@ -35,7 +36,6 @@ def home():
 @app.post("/chat")
 def handle_chat(req: ChatRequest):
     system_prompt = "你是一位專業的台灣股市投資助理。請用簡明扼要、客觀的語氣回答使用者的問題。請勿提供絕對的投資建議。"
-    
     full_prompt = f"{system_prompt}\n\n使用者問題：{req.message}"
     
     try:
@@ -43,6 +43,27 @@ def handle_chat(req: ChatRequest):
         return {"status": "success", "reply": response.text}
     except Exception as e:
         return {"status": "error", "reply": "AI 目前無法回應，請稍後再試。"}
+
+@app.post("/analyze_news")
+def analyze_business_news(req: NewsRequest):
+    analysis_prompt = f"""
+    請閱讀以下財經新聞，並嚴格按照以下 JSON 格式回傳分析結果，不要加入任何其他文字：
+    {{
+        "summary": "一句話總結新聞核心",
+        "sentiment": "利多 / 利空 / 中立",
+        "impact_stocks": ["股票代號1", "股票代號2"],
+        "reasoning": "簡述判斷原因"
+    }}
+    
+    新聞內容：
+    {req.news_content}
+    """
+    
+    try:
+        response = model.generate_content(analysis_prompt)
+        return {"status": "success", "analysis": response.text}
+    except Exception as e:
+        return {"status": "error"}
 
 @app.post("/analyze")
 def analyze_custom(targets: List[TargetItem]):
