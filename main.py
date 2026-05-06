@@ -43,28 +43,34 @@ def handle_chat(req: ChatRequest):
         response = model.generate_content(full_prompt)
         return {"status": "success", "reply": response.text}
     except Exception as e:
-        return {"status": "error", "reply": str(e)}
+        return {"status": "error", "reply": f"AI 模型錯誤: {str(e)}"}
 
 @app.get("/auto_news")
 def get_auto_news():
     try:
         import yfinance as yf
+        
+        vix_df = yf.Ticker("^VIX").history(period="1d")
+        vix_current = round(vix_df['Close'].iloc[-1], 2) if not vix_df.empty else "無數據"
+        
         ticker = yf.Ticker("0050.TW")
         news_list = ticker.news
         
-        if not news_list:
-            return {"status": "error", "analysis": "目前找不到最新新聞資料"}
+        news_text = "目前無最新新聞。"
+        if news_list:
+            news_text = "\n".join([f"標題: {n.get('title', '')} (來源: {n.get('publisher', '')})" for n in news_list[:5]])
             
-        news_text = "\n".join([f"標題: {n.get('title', '')} (來源: {n.get('publisher', '')})" for n in news_list[:5]])
-        
         analysis_prompt = f"""
-        請閱讀以下台灣股市最新新聞，並嚴格按照以下 JSON 格式回傳分析結果，不要加入任何其他文字：
+        請閱讀以下台灣股市最新新聞與當前全球恐慌指數(VIX)，並嚴格按照以下 JSON 格式回傳分析結果，不要加入任何其他文字：
         {{
-            "summary": "一句話總結新聞核心",
+            "summary": "一句話總結新聞與市場氛圍",
             "sentiment": "利多 / 利空 / 中立",
+            "vix_analysis": "針對當前 VIX 指數的簡短解讀",
             "impact_stocks": ["股票代號1", "股票代號2"],
             "reasoning": "簡述判斷原因"
         }}
+        
+        當前恐慌指數 (VIX): {vix_current}
         
         新聞內容：
         {news_text}
@@ -72,7 +78,7 @@ def get_auto_news():
         response = model.generate_content(analysis_prompt)
         return {"status": "success", "analysis": response.text}
     except Exception as e:
-        return {"status": "error", "analysis": str(e)}
+        return {"status": "error", "analysis": f"伺服器錯誤: {str(e)}"}
 
 @app.post("/analyze")
 def analyze_custom(targets: List[TargetItem]):
