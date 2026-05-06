@@ -3,747 +3,662 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>台股智能分析儀表板</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.min.js"></script>
+<title>台股智能分析系統 v3.0</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1429 100%);
-    color: #e4e6f1;
+    background: #0f172a;
+    color: #e2e8f0;
     min-height: 100vh;
-    padding: 20px;
   }
-  .container { max-width: 1400px; margin: 0 auto; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
 
   /* Header */
-  .header {
-    text-align: center;
-    padding: 30px 20px;
-    margin-bottom: 25px;
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  .header h1 {
-    font-size: 2.3em;
-    background: linear-gradient(90deg, #00d4ff, #7b61ff, #ff61dc);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 10px;
-    font-weight: 800;
-  }
-  .header p { color: #8892b0; font-size: 1em; }
-  .status-bar {
-    display: inline-flex; align-items: center; gap: 8px;
-    margin-top: 12px; padding: 5px 14px;
-    background: rgba(0, 212, 170, 0.1);
-    border: 1px solid rgba(0, 212, 170, 0.3);
-    border-radius: 20px; font-size: 0.85em;
-  }
-  .status-dot {
-    width: 8px; height: 8px; background: #00d4aa;
-    border-radius: 50%; animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.7); }
-    50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(0, 212, 170, 0); }
-  }
-
-  /* Config */
-  .config-box {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+  header {
+    background: linear-gradient(135deg, #1e3a8a, #3730a3);
+    padding: 20px;
     border-radius: 12px;
-    padding: 12px 18px;
     margin-bottom: 20px;
-    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   }
-  .config-box label { color: #8892b0; font-size: 0.9em; white-space: nowrap; }
-  .config-box input {
-    flex: 1; min-width: 200px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e4e6f1; padding: 8px 12px;
-    border-radius: 8px; font-size: 0.9em;
+  header h1 { font-size: 28px; margin-bottom: 8px; }
+  .status-bar {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    opacity: 0.9;
   }
+  .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .status-dot.ok { background: #22c55e; }
+  .status-dot.err { background: #ef4444; }
+  .status-dot.warn { background: #f59e0b; }
 
   /* Tabs */
   .tabs {
-    display: flex; flex-wrap: wrap; gap: 8px;
+    display: flex;
+    gap: 4px;
+    background: #1e293b;
+    padding: 6px;
+    border-radius: 10px;
     margin-bottom: 20px;
-    background: rgba(255,255,255,0.03);
-    padding: 8px; border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.05);
+    overflow-x: auto;
   }
   .tab-btn {
-    flex: 1; min-width: 110px;
-    background: transparent; border: none;
-    color: #8892b0; padding: 10px 14px;
-    border-radius: 8px; cursor: pointer;
-    font-size: 0.9em; font-weight: 600;
-    transition: all 0.3s ease;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 18px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 15px;
+    white-space: nowrap;
+    transition: all 0.2s;
   }
-  .tab-btn:hover { background: rgba(255,255,255,0.05); color: #e4e6f1; }
-  .tab-btn.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-  }
+  .tab-btn:hover { background: #334155; color: #fff; }
+  .tab-btn.active { background: #3b82f6; color: #fff; font-weight: 600; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
 
   /* Panel */
   .panel {
-    display: none;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 25px;
-    backdrop-filter: blur(10px);
-    animation: fadeIn 0.4s ease;
+    background: #1e293b;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
   }
-  .panel.active { display: block; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  .panel h2 { margin-bottom: 15px; font-size: 1.4em; color: #00d4ff; }
-  .panel .desc { color: #8892b0; margin-bottom: 18px; font-size: 0.95em; }
+  .panel h2 { margin-bottom: 12px; color: #60a5fa; }
+  .panel p { color: #94a3b8; margin-bottom: 12px; }
 
   /* Buttons */
-  .btn {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white; border: none;
-    padding: 10px 22px;
-    border-radius: 8px; cursor: pointer;
-    font-size: 0.95em; font-weight: 600;
-    transition: all 0.3s ease;
+  button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s;
+    margin: 4px;
   }
-  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .btn-secondary {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.1);
+  .btn-primary { background: #3b82f6; color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-secondary { background: #475569; color: #fff; }
+  .btn-secondary:hover { background: #334155; }
+  .btn-danger { background: #dc2626; color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Inputs */
+  input[type="text"], input[type="number"], textarea, select {
+    width: 100%;
+    padding: 10px 12px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 14px;
+    margin-bottom: 10px;
   }
-  .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
-  .btn-sm { padding: 6px 14px; font-size: 0.85em; }
+  input:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+  textarea { min-height: 120px; resize: vertical; font-family: inherit; }
+
+  label { display: inline-flex; align-items: center; gap: 6px; margin: 6px 12px 6px 0; cursor: pointer; }
+  label input[type="checkbox"] { width: auto; margin: 0; }
+
+  /* Stats */
+  .stat-box {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: #fff;
+    margin-right: 10px;
+    font-weight: 500;
+  }
+
+  /* Cards */
+  .news-card, .stock-card {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 14px;
+    margin: 10px 0;
+    border-left: 4px solid #3b82f6;
+  }
+  .news-card h3 { margin: 8px 0; font-size: 16px; }
+  .news-card a { text-decoration: none; }
+  .news-card a:hover { text-decoration: underline; }
 
   /* Chat */
   .chat-box {
-    background: rgba(0,0,0,0.2);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 12px;
-    padding: 18px; height: 420px;
-    overflow-y: auto; margin-bottom: 12px;
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 300px;
+    max-height: 500px;
+    overflow-y: auto;
+    margin-bottom: 12px;
   }
-  .msg {
-    padding: 10px 14px; margin-bottom: 10px;
-    border-radius: 10px; max-width: 85%;
-    word-wrap: break-word; white-space: pre-wrap;
-    line-height: 1.5;
+  .chat-msg {
+    padding: 10px 14px;
+    margin: 8px 0;
+    border-radius: 10px;
+    max-width: 85%;
   }
-  .msg.user {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    margin-left: auto; color: white;
+  .chat-msg.user { background: #3b82f6; color: #fff; margin-left: auto; }
+  .chat-msg.bot { background: #334155; color: #e2e8f0; }
+
+  /* Portfolio Row */
+  .target-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 100px 100px 100px 40px;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
   }
-  .msg.bot {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.08);
+  .target-row input, .target-row select { margin: 0; }
+  @media (max-width: 768px) {
+    .target-row { grid-template-columns: 1fr 1fr; }
   }
-  .input-row { display: flex; gap: 10px; }
-  .input-row input, .input-row textarea {
-    flex: 1; background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e4e6f1; padding: 10px 14px;
-    border-radius: 8px; font-size: 0.95em;
-    font-family: inherit;
-  }
-  textarea { resize: vertical; min-height: 100px; }
-  .input-row input:focus, textarea:focus {
-    outline: none; border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102,126,234,0.2);
+
+  /* Result */
+  .result-area {
+    margin-top: 20px;
+    background: #0f172a;
+    padding: 16px;
+    border-radius: 8px;
+    max-height: 600px;
+    overflow-y: auto;
   }
 
   /* Loader */
-  .loader { display: none; text-align: center; padding: 30px; }
-  .loader.active { display: block; }
-  .spinner {
-    width: 42px; height: 42px;
-    border: 3px solid rgba(255,255,255,0.1);
-    border-top-color: #667eea;
+  .loader {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 12px;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loader-text { color: #8892b0; font-size: 0.9em; }
 
-  /* Result Cards */
-  .result-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-left: 4px solid #667eea;
-    border-radius: 10px;
-    padding: 16px; margin-top: 14px;
-    line-height: 1.7; white-space: pre-wrap;
-  }
-  .result-card strong { color: #00d4ff; }
-
-  /* Stock Cards */
-  .stock-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-    gap: 15px; margin-top: 18px;
-  }
-  .stock-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 16px;
-    transition: all 0.3s ease;
-  }
-  .stock-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(102,126,234,0.4);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-  }
-  .stock-head {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 10px;
-  }
-  .stock-name { font-size: 1.05em; font-weight: 700; }
-  .stock-ticker { font-size: 0.8em; color: #8892b0; margin-left: 6px; }
-  .score-badge {
-    padding: 4px 10px; border-radius: 6px;
-    font-size: 0.8em; font-weight: 700;
-  }
-  .score-high { background: rgba(0,212,170,0.2); color: #00d4aa; }
-  .score-mid { background: rgba(251,191,36,0.2); color: #fbbf24; }
-  .score-low { background: rgba(239,68,68,0.2); color: #ef4444; }
-  .stock-info { font-size: 0.9em; color: #c9d1d9; margin: 4px 0; }
-  .stock-info b { color: #e4e6f1; }
-  .advice-tag {
-    display: inline-block; padding: 3px 10px;
-    border-radius: 6px; font-size: 0.8em; font-weight: 600;
-    margin-top: 8px;
-  }
-  .advice-強力買進 { background: rgba(0,212,170,0.2); color: #00d4aa; }
-  .advice-偏多 { background: rgba(96,165,250,0.2); color: #60a5fa; }
-  .advice-觀察 { background: rgba(251,191,36,0.2); color: #fbbf24; }
-  .advice-避險, .advice-鎖倉 { background: rgba(239,68,68,0.2); color: #ef4444; }
-  .advice-default { background: rgba(139,148,158,0.2); color: #8b949e; }
-  .pl-positive { color: #00d4aa; font-weight: 700; }
-  .pl-negative { color: #ef4444; font-weight: 700; }
-  .signal-item {
-    font-size: 0.85em; color: #c9d1d9;
-    padding: 3px 0; border-bottom: 1px dashed rgba(255,255,255,0.05);
-  }
-  .signal-item:last-child { border-bottom: none; }
-
-  /* Target Editor */
-  .target-row {
-    display: grid;
-    grid-template-columns: 2fr 2fr 1.5fr 1fr 1fr 0.5fr;
-    gap: 8px; margin-bottom: 8px;
-    align-items: center;
-  }
-  .target-row.header {
-    color: #8892b0; font-size: 0.85em;
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 10px;
-  }
-  .target-row input, .target-row select {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e4e6f1; padding: 7px 10px;
-    border-radius: 6px; font-size: 0.9em;
-    width: 100%;
-  }
-  .remove-btn {
-    background: rgba(239,68,68,0.2);
-    border: 1px solid rgba(239,68,68,0.3);
-    color: #ef4444; cursor: pointer;
-    padding: 6px 10px; border-radius: 6px;
-    font-size: 0.85em;
-  }
-
-  /* K-line */
-  #klineChart {
-    height: 400px; width: 100%;
-    background: rgba(0,0,0,0.2);
-    border-radius: 10px; margin-top: 15px;
-  }
-  .kline-controls {
-    display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;
-  }
-  .kline-controls input, .kline-controls select {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e4e6f1; padding: 8px 12px;
-    border-radius: 6px;
-  }
-
-  /* History */
-  .history-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto auto;
-    gap: 12px; align-items: center;
-    padding: 10px 14px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 8px; margin-bottom: 6px;
-    font-size: 0.9em;
-  }
-  .history-time { color: #8892b0; font-size: 0.85em; }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    .header h1 { font-size: 1.7em; }
-    .tab-btn { min-width: 45%; font-size: 0.85em; }
-    .target-row { grid-template-columns: 1fr 1fr; }
-    .target-row.header { display: none; }
-    .history-item {
-      grid-template-columns: 1fr 1fr;
-      font-size: 0.85em;
-    }
-  }
+  /* Score */
+  .score { font-size: 24px; font-weight: bold; }
+  .score.high { color: #22c55e; }
+  .score.mid { color: #f59e0b; }
+  .score.low { color: #ef4444; }
 </style>
 </head>
 <body>
 <div class="container">
 
   <!-- Header -->
-  <div class="header">
-    <h1>📈 台股智能分析儀表板</h1>
-    <p>AI 驅動的投資決策助手 · 技術分析 × 籌碼分析 × 新聞情緒</p>
+  <header>
+    <h1>📈 台股智能分析系統 <span style="font-size:14px; opacity:0.7;">v3.0</span></h1>
     <div class="status-bar">
-      <span class="status-dot"></span>
-      <span id="statusText">系統就緒</span>
+      <span><span class="status-dot ok" id="dot-api"></span><span id="status-api">連線檢查中...</span></span>
+      <span><span class="status-dot warn" id="dot-ai"></span><span id="status-ai">AI 檢查中...</span></span>
+      <span><span class="status-dot warn" id="dot-email"></span><span id="status-email">Email 檢查中...</span></span>
     </div>
-  </div>
-
-  <!-- API Config -->
-  <div class="config-box">
-    <label>🔗 後端 API：</label>
-    <input type="text" id="apiBase" value="" placeholder="自動偵測目前網域">
-    <button class="btn btn-secondary btn-sm" onclick="testConnection()">測試連線</button>
-  </div>
+  </header>
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('chat')">💬 AI 助理</button>
-    <button class="tab-btn" onclick="switchTab('autonews')">📰 自動新聞</button>
-    <button class="tab-btn" onclick="switchTab('news')">🔍 新聞分析</button>
-    <button class="tab-btn" onclick="switchTab('portfolio')">💼 自選股</button>
-    <button class="tab-btn" onclick="switchTab('kline')">📊 K線圖</button>
-    <button class="tab-btn" onclick="switchTab('history')">📋 歷史紀錄</button>
+    <button class="tab-btn active" onclick="switchTab('portfolio')">💼 自選股</button>
+    <button class="tab-btn" onclick="switchTab('kline')">📊 K 線圖</button>
+    <button class="tab-btn" onclick="switchTab('news')">🗞️ 新聞分析</button>
+    <button class="tab-btn" onclick="switchTab('chat')">🤖 AI 助理</button>
+    <button class="tab-btn" onclick="switchTab('settings')">⚙️ 設定</button>
   </div>
 
-  <!-- Panel: Chat -->
-  <div class="panel active" id="panel-chat">
-    <h2>💬 AI 投資助理</h2>
-    <div class="chat-box" id="chatBox">
-      <div class="msg bot">您好！我是您的台股投資助理 🤖
+  <!-- 💼 自選股 -->
+  <div id="tab-portfolio" class="tab-content active">
+    <div class="panel">
+      <h2>💼 自選股分析</h2>
+      <p>輸入您的持股資訊，AI 將給出買賣建議與風險評分</p>
 
-您可以問我：
-• 市場動態、大盤走勢
-• 個股分析（例：「台積電最近怎麼樣？」）
-• 投資觀念與技術指標解釋
-• 產業趨勢分析</div>
-    </div>
-    <div class="input-row">
-      <input type="text" id="chatInput" placeholder="請輸入您的問題..." onkeypress="if(event.key==='Enter') sendChat()">
-      <button class="btn" onclick="sendChat()" id="chatBtn">送出</button>
+      <div id="targets-container"></div>
+
+      <button onclick="addTarget()" class="btn-secondary">➕ 新增股票</button>
+      <button onclick="analyzePortfolio()" class="btn-primary">🔍 開始分析</button>
+      <button onclick="loadPresetTargets()" class="btn-secondary">📌 載入範例</button>
+
+      <div id="portfolio-result" class="result-area" style="display:none;"></div>
     </div>
   </div>
 
-  <!-- Panel: Auto News -->
-  <div class="panel" id="panel-autonews">
-    <h2>📰 自動新聞解讀</h2>
-    <p class="desc">一鍵取得最新台股新聞摘要，由 AI 自動分析市場氛圍與大盤影響。</p>
-    <button class="btn" onclick="fetchAutoNews()" id="autoNewsBtn">🔄 取得今日分析</button>
-    <div class="loader" id="autoNewsLoader">
-      <div class="spinner"></div>
-      <div class="loader-text">正在抓取新聞與分析市場...</div>
+  <!-- 📊 K 線圖 -->
+  <div id="tab-kline" class="tab-content">
+    <div class="panel">
+      <h2>📊 K 線圖查詢</h2>
+      <p>輸入股票代號（例如 2330.TW）查看歷史 K 線</p>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <input type="text" id="kline-symbol" placeholder="2330.TW" value="2330.TW" style="flex:1; min-width:200px;">
+        <button onclick="fetchKline()" class="btn-primary">📈 查詢</button>
+      </div>
+
+      <div id="kline-result" class="result-area" style="display:none;"></div>
     </div>
-    <div id="autoNewsResult"></div>
   </div>
 
-  <!-- Panel: News Analysis -->
-  <div class="panel" id="panel-news">
-    <h2>🔍 財經新聞分析</h2>
-    <p class="desc">貼上任何財經新聞內容，AI 會判斷利多利空、可能影響的個股與推論原因。</p>
-    <textarea id="newsInput" placeholder="請貼上新聞內容..."></textarea>
-    <div class="input-row" style="margin-top:10px;">
-      <button class="btn" onclick="analyzeNews()" id="newsBtn">🔬 分析新聞</button>
+  <!-- 🗞️ 新聞分析 -->
+  <div id="tab-news" class="tab-content">
+    <div class="panel">
+      <h2>🗞️ 多源財經新聞利多利空分析</h2>
+      <p>整合 Bloomberg、Investing.com、工商時報、經濟日報、鉅亨網</p>
+
+      <!-- 來源勾選 -->
+      <div style="margin: 15px 0;">
+        <label><input type="checkbox" class="news-src" value="bloomberg" checked> 🌐 Bloomberg</label>
+        <label><input type="checkbox" class="news-src" value="investing" checked> 💹 Investing.com</label>
+        <label><input type="checkbox" class="news-src" value="ctee" checked> 📰 工商時報</label>
+        <label><input type="checkbox" class="news-src" value="udn_money" checked> 💰 經濟日報</label>
+        <label><input type="checkbox" class="news-src" value="udn_stock" checked> 📊 經濟日報-股市</label>
+        <label><input type="checkbox" class="news-src" value="cnyes" checked> 🔔 鉅亨網</label>
+      </div>
+
+      <div style="margin: 10px 0;">
+        <label>每來源抓取:
+          <select id="news-limit" style="width:auto; display:inline-block;">
+            <option value="3" selected>3 則</option>
+            <option value="5">5 則</option>
+            <option value="10">10 則</option>
+          </select>
+        </label>
+      </div>
+
+      <button onclick="analyzeNews()" class="btn-primary">🤖 AI 分析利多利空</button>
+      <button onclick="fetchNewsOnly()" class="btn-secondary">📥 只抓新聞（不分析）</button>
+
+      <!-- 統計面板 -->
+      <div id="news-stats" style="display:none; margin: 20px 0;">
+        <span class="stat-box" style="background:#16a34a">利多: <b id="stat-bull">0</b></span>
+        <span class="stat-box" style="background:#dc2626">利空: <b id="stat-bear">0</b></span>
+        <span class="stat-box" style="background:#64748b">中立: <b id="stat-neutral">0</b></span>
+        <span class="stat-box" style="background:#475569">總計: <b id="stat-total">0</b></span>
+      </div>
+
+      <div id="news-list" class="result-area" style="display:none;"></div>
     </div>
-    <div class="loader" id="newsLoader">
-      <div class="spinner"></div>
-      <div class="loader-text">AI 正在解讀新聞...</div>
-    </div>
-    <div id="newsResult"></div>
   </div>
 
-  <!-- Panel: Portfolio -->
-  <div class="panel" id="panel-portfolio">
-    <h2>💼 自選股投資組合分析</h2>
-    <p class="desc">輸入您的持股，系統會執行技術分析、籌碼分析並給出評分與建議。</p>
+  <!-- 🤖 AI 助理 -->
+  <div id="tab-chat" class="tab-content">
+    <div class="panel">
+      <h2>🤖 AI 投資助理</h2>
+      <p>詢問任何投資相關問題（台股、技術分析、個股評估等）</p>
 
-    <div class="target-row header">
-      <div>股票代號</div><div>名稱</div><div>類型</div>
-      <div>成本</div><div>股數</div><div></div>
-    </div>
-    <div id="targetsList"></div>
-    <button class="btn btn-secondary btn-sm" onclick="addTarget()" style="margin-top:8px;">➕ 新增個股</button>
-    <button class="btn" onclick="analyzePortfolio()" id="portfolioBtn" style="margin-left:10px;">🚀 開始分析</button>
+      <div class="chat-box" id="chat-box">
+        <div class="chat-msg bot">您好！我是您的台股投資助理，請問有什麼可以幫您的嗎？例如：
+          <br>• 「台積電目前值得買進嗎？」
+          <br>• 「什麼是 KD 指標？」
+          <br>• 「最近科技股走勢如何？」
+        </div>
+      </div>
 
-    <div class="loader" id="portfolioLoader">
-      <div class="spinner"></div>
-      <div class="loader-text">分析中，請稍候...</div>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="chat-input" placeholder="請輸入您的問題..." style="flex:1;" onkeypress="if(event.key==='Enter') sendChat()">
+        <button onclick="sendChat()" class="btn-primary" id="chat-btn">📤 送出</button>
+      </div>
     </div>
-    <div id="portfolioResult"></div>
   </div>
 
-  <!-- Panel: K-line -->
-  <div class="panel" id="panel-kline">
-    <h2>📊 K 線圖表</h2>
-    <p class="desc">輸入股票代號查看 K 線走勢、均線與成交量。</p>
-    <div class="kline-controls">
-      <input type="text" id="klineTicker" placeholder="例：2330.TW" value="2330.TW">
-      <select id="klineDays">
-        <option value="60">近 60 天</option>
-        <option value="180" selected>近 180 天</option>
-        <option value="365">近一年</option>
-      </select>
-      <button class="btn" onclick="loadKline()" id="klineBtn">載入</button>
-    </div>
-    <div class="loader" id="klineLoader">
-      <div class="spinner"></div>
-      <div class="loader-text">載入 K 線資料...</div>
-    </div>
-    <div id="klineChart"></div>
-  </div>
+  <!-- ⚙️ 設定 -->
+  <div id="tab-settings" class="tab-content">
+    <div class="panel">
+      <h2>⚙️ 系統設定</h2>
 
-  <!-- Panel: History -->
-  <div class="panel" id="panel-history">
-    <h2>📋 歷史分析紀錄</h2>
-    <p class="desc">查看過去每次分析結果與建議。</p>
-    <div class="kline-controls">
-      <input type="text" id="historyTicker" placeholder="留空看全部，或輸入代號過濾">
-      <select id="historyLimit">
-        <option value="20">最近 20 筆</option>
-        <option value="50" selected>最近 50 筆</option>
-        <option value="100">最近 100 筆</option>
-      </select>
-      <button class="btn" onclick="loadHistory()" id="historyBtn">查詢</button>
+      <label style="display:block; margin-top:15px;">API 後端網址：</label>
+      <input type="text" id="api-base" placeholder="https://your-app.onrender.com">
+      <button onclick="saveApiBase()" class="btn-primary">💾 儲存</button>
+      <button onclick="resetApiBase()" class="btn-secondary">🔄 重設為預設</button>
+
+      <hr style="margin:20px 0; border-color:#334155;">
+
+      <h3 style="color:#60a5fa; margin-bottom:10px;">系統狀態</h3>
+      <div id="health-info" style="background:#0f172a; padding:12px; border-radius:8px; font-family:monospace; font-size:13px;"></div>
+      <button onclick="checkHealth()" class="btn-secondary" style="margin-top:10px;">🔍 重新檢查</button>
     </div>
-    <div class="loader" id="historyLoader">
-      <div class="spinner"></div>
-      <div class="loader-text">載入中...</div>
-    </div>
-    <div id="historyResult" style="margin-top:15px;"></div>
   </div>
 
 </div>
 
 <script>
-// ========== Config ==========
-const DEFAULT_TARGETS = [
-  { id: '2330.TW', name: '台積電', type: '台股', cost: 1000, shares: 1000 },
-  { id: '0050.TW', name: '元大台灣50', type: 'ETF', cost: 180, shares: 1000 }
-];
-let _targets = [...DEFAULT_TARGETS];
+// ========== 全域設定 ==========
+window.API_BASE = localStorage.getItem('api_base') || window.location.origin;
 
-function getApiBase() {
-  const v = document.getElementById('apiBase').value.trim();
-  if (v) return v.replace(/\/$/, '');
-  return window.location.origin;
-}
-
-// ========== Tab Switch ==========
+// ========== Tab 切換 ==========
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
-  document.getElementById('panel-' + name).classList.add('active');
 }
 
-// ========== Connection Test ==========
-async function testConnection() {
-  const status = document.getElementById('statusText');
-  status.textContent = '測試連線中...';
+// ========== 健康檢查 ==========
+async function checkHealth() {
   try {
-    const r = await fetch(getApiBase() + '/health');
-    const d = await r.json();
-    if (d.status === 'ok') {
-      status.textContent = `✅ 已連線 ${d.gemini ? '(Gemini 啟用)' : '(Gemini 未設)'}`;
+    const res = await fetch(window.API_BASE + '/health');
+    const data = await res.json();
+
+    document.getElementById('dot-api').className = 'status-dot ok';
+    document.getElementById('status-api').textContent = '✅ 已連線';
+
+    if (data.gemini) {
+      document.getElementById('dot-ai').className = 'status-dot ok';
+      document.getElementById('status-ai').textContent = '✅ AI 已啟用';
     } else {
-      status.textContent = '⚠️ 連線異常';
+      document.getElementById('dot-ai').className = 'status-dot err';
+      document.getElementById('status-ai').textContent = '❌ AI 未設定';
     }
+
+    if (data.email) {
+      document.getElementById('dot-email').className = 'status-dot ok';
+      document.getElementById('status-email').textContent = '✅ Email 已設定';
+    } else {
+      document.getElementById('dot-email').className = 'status-dot warn';
+      document.getElementById('status-email').textContent = '⚠️ Email 未設定';
+    }
+
+    document.getElementById('health-info').textContent = JSON.stringify(data, null, 2);
   } catch (e) {
-    status.textContent = '❌ 連線失敗：' + e.message;
+    document.getElementById('dot-api').className = 'status-dot err';
+    document.getElementById('status-api').textContent = '❌ 連線失敗';
+    document.getElementById('health-info').textContent = '連線失敗：' + e.message;
   }
 }
 
-// ========== Chat ==========
+// ========== 💼 自選股 ==========
+let targetCount = 0;
+
+function addTarget(data) {
+  const d = data || { id: '', name: '', type: '台股', cost: 0, shares: 1000 };
+  const container = document.getElementById('targets-container');
+  const row = document.createElement('div');
+  row.className = 'target-row';
+  row.innerHTML = `
+    <input type="text" placeholder="代號 2330.TW" value="${d.id}" data-field="id">
+    <input type="text" placeholder="名稱 台積電" value="${d.name}" data-field="name">
+    <select data-field="type">
+      <option ${d.type === '台股' ? 'selected' : ''}>台股</option>
+      <option ${d.type === 'ETF' ? 'selected' : ''}>ETF</option>
+      <option ${d.type === '美股' ? 'selected' : ''}>美股</option>
+    </select>
+    <input type="number" placeholder="成本" value="${d.cost}" data-field="cost" step="0.01">
+    <input type="number" placeholder="股數" value="${d.shares}" data-field="shares">
+    <button onclick="this.parentElement.remove()" class="btn-danger" style="padding:6px 10px;">✕</button>
+  `;
+  container.appendChild(row);
+  targetCount++;
+}
+
+function loadPresetTargets() {
+  document.getElementById('targets-container').innerHTML = '';
+  [
+    { id: '2330.TW', name: '台積電', type: '台股', cost: 580, shares: 1000 },
+    { id: '0050.TW', name: '元大台灣50', type: 'ETF', cost: 130, shares: 2000 },
+    { id: '2454.TW', name: '聯發科', type: '台股', cost: 900, shares: 500 }
+  ].forEach(addTarget);
+}
+
+function collectTargets() {
+  const rows = document.querySelectorAll('#targets-container .target-row');
+  const targets = [];
+  rows.forEach(row => {
+    const t = {};
+    row.querySelectorAll('[data-field]').forEach(el => {
+      const field = el.dataset.field;
+      t[field] = (field === 'cost' || field === 'shares') ? parseFloat(el.value) || 0 : el.value;
+    });
+    if (t.id) targets.push(t);
+  });
+  return targets;
+}
+
+async function analyzePortfolio() {
+  const targets = collectTargets();
+  if (targets.length === 0) {
+    alert('請至少新增一支股票');
+    return;
+  }
+
+  const result = document.getElementById('portfolio-result');
+  result.style.display = 'block';
+  result.innerHTML = '<span class="loader"></span> 分析中...（約 10-30 秒）';
+
+  try {
+    const res = await fetch(window.API_BASE + '/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targets })
+    });
+    const data = await res.json();
+
+    if (data.status !== 'success') {
+      result.innerHTML = `❌ ${data.message || '分析失敗'}`;
+      return;
+    }
+
+    result.innerHTML = data.data.map(stock => {
+      const score = stock.score || 0;
+      const cls = score >= 70 ? 'high' : score >= 50 ? 'mid' : 'low';
+      return `
+        <div class="stock-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h3>${stock.id} ${stock.name}</h3>
+              <p style="color:#94a3b8; font-size:13px;">現價 $${stock.price || '-'} · 成本 $${stock.cost || '-'}</p>
+            </div>
+            <div class="score ${cls}">${score}分</div>
+          </div>
+          <p style="margin-top:10px;"><b>建議：</b>${stock.suggestion || '-'}</p>
+          <p style="margin-top:6px; color:#cbd5e1;">${stock.reason || ''}</p>
+        </div>
+      `;
+    }).join('') + (data.fx ? `<p style="color:#94a3b8; margin-top:12px; font-size:13px;">匯率備註：${data.fx}</p>` : '');
+  } catch (e) {
+    result.innerHTML = `❌ ${e.message}`;
+  }
+}
+
+// ========== 📊 K 線圖 ==========
+async function fetchKline() {
+  const symbol = document.getElementById('kline-symbol').value.trim();
+  if (!symbol) { alert('請輸入股票代號'); return; }
+
+  const result = document.getElementById('kline-result');
+  result.style.display = 'block';
+  result.innerHTML = '<span class="loader"></span> 載入中...';
+
+  try {
+    const res = await fetch(`${window.API_BASE}/kline/${symbol}`);
+    const data = await res.json();
+
+    if (!data.data || data.data.length === 0) {
+      result.innerHTML = '❌ 找不到資料，請確認代號正確（例：2330.TW）';
+      return;
+    }
+
+    const rows = data.data.slice(-20).reverse();
+    result.innerHTML = `
+      <h3 style="color:#60a5fa;">📊 ${symbol} 最近 20 日</h3>
+      <table style="width:100%; margin-top:10px; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#1e293b;">
+            <th style="padding:8px; text-align:left;">日期</th>
+            <th style="padding:8px;">開</th>
+            <th style="padding:8px;">高</th>
+            <th style="padding:8px;">低</th>
+            <th style="padding:8px;">收</th>
+            <th style="padding:8px;">量</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr style="border-bottom:1px solid #334155;">
+              <td style="padding:6px;">${r.date}</td>
+              <td style="padding:6px; text-align:center;">${r.open}</td>
+              <td style="padding:6px; text-align:center; color:#22c55e;">${r.high}</td>
+              <td style="padding:6px; text-align:center; color:#ef4444;">${r.low}</td>
+              <td style="padding:6px; text-align:center; font-weight:bold;">${r.close}</td>
+              <td style="padding:6px; text-align:right; color:#94a3b8;">${(r.volume || 0).toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    result.innerHTML = `❌ ${e.message}`;
+  }
+}
+
+// ========== 🗞️ 新聞分析 ==========
+async function analyzeNews() {
+  const sources = Array.from(document.querySelectorAll('.news-src:checked')).map(el => el.value);
+  if (sources.length === 0) { alert('請至少勾選一個新聞來源'); return; }
+
+  const limit = parseInt(document.getElementById('news-limit').value) || 3;
+  const list = document.getElementById('news-list');
+  list.style.display = 'block';
+  list.innerHTML = '<span class="loader"></span> 正在抓取新聞並用 AI 分析...（約 20-40 秒）';
+
+  try {
+    const res = await fetch(window.API_BASE + '/news/analyze_batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sources, limit })
+    });
+    const data = await res.json();
+
+    if (data.status !== 'success') {
+      list.innerHTML = `❌ ${data.message || '分析失敗'}`;
+      return;
+    }
+
+    // 顯示統計
+    const stats = data.stats || {};
+    document.getElementById('news-stats').style.display = 'block';
+    document.getElementById('stat-bull').textContent = stats['利多'] || 0;
+    document.getElementById('stat-bear').textContent = stats['利空'] || 0;
+    document.getElementById('stat-neutral').textContent = stats['中立'] || 0;
+    document.getElementById('stat-total').textContent = (data.data || []).length;
+
+    // 顯示新聞
+    list.innerHTML = (data.data || []).map(n => {
+      const color = n.sentiment === '利多' ? '#16a34a' :
+                    n.sentiment === '利空' ? '#dc2626' : '#64748b';
+      return `
+        <div class="news-card" style="border-left-color:${color};">
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span style="color:#94a3b8; font-size:13px;">${n.emoji || ''} <b>${n.source || '-'}</b> · ${n.published || ''}</span>
+            <span style="background:${color}; padding:2px 10px; border-radius:12px; color:#fff; font-size:12px;">
+              ${n.sentiment || '中立'} · ${n.impact || '中'}
+            </span>
+          </div>
+          <h3><a href="${n.link}" target="_blank" style="color:#60a5fa;">${n.title}</a></h3>
+          <p style="color:#cbd5e1; font-size:14px;">💡 ${n.ai_reason || n.summary || '-'}</p>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = `❌ ${e.message}`;
+  }
+}
+
+async function fetchNewsOnly() {
+  const sources = Array.from(document.querySelectorAll('.news-src:checked')).map(el => el.value).join(',');
+  if (!sources) { alert('請至少勾選一個新聞來源'); return; }
+
+  const limit = parseInt(document.getElementById('news-limit').value) || 3;
+  const list = document.getElementById('news-list');
+  list.style.display = 'block';
+  list.innerHTML = '<span class="loader"></span> 抓取新聞中...';
+  document.getElementById('news-stats').style.display = 'none';
+
+  try {
+    const res = await fetch(`${window.API_BASE}/news?sources=${sources}&limit=${limit}`);
+    const data = await res.json();
+    list.innerHTML = (data.data || []).map(n => `
+      <div class="news-card">
+        <div style="color:#94a3b8; font-size:13px;">${n.emoji || ''} <b>${n.source || '-'}</b> · ${n.published || ''}</div>
+        <h3><a href="${n.link}" target="_blank" style="color:#60a5fa;">${n.title}</a></h3>
+        <p style="color:#cbd5e1; font-size:14px;">${n.summary || ''}</p>
+      </div>
+    `).join('') || '無新聞資料';
+  } catch (e) {
+    list.innerHTML = `❌ ${e.message}`;
+  }
+}
+
+// ========== 🤖 AI 助理 ==========
 async function sendChat() {
-  const input = document.getElementById('chatInput');
-  const box = document.getElementById('chatBox');
-  const btn = document.getElementById('chatBtn');
+  const input = document.getElementById('chat-input');
+  const box = document.getElementById('chat-box');
+  const btn = document.getElementById('chat-btn');
   const msg = input.value.trim();
   if (!msg) return;
 
-  box.innerHTML += `<div class="msg user">${escapeHtml(msg)}</div>`;
+  // 顯示用戶訊息
+  const userMsg = document.createElement('div');
+  userMsg.className = 'chat-msg user';
+  userMsg.textContent = msg;
+  box.appendChild(userMsg);
   input.value = '';
-  btn.disabled = true;
   box.scrollTop = box.scrollHeight;
 
+  // 顯示思考中
   const thinking = document.createElement('div');
-  thinking.className = 'msg bot';
-  thinking.textContent = '思考中...';
+  thinking.className = 'chat-msg bot';
+  thinking.innerHTML = '<span class="loader"></span> 思考中...';
   box.appendChild(thinking);
   box.scrollTop = box.scrollHeight;
+  btn.disabled = true;
 
   try {
-    const r = await fetch(getApiBase() + '/chat', {
+    const res = await fetch(window.API_BASE + '/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: msg })
     });
-    const d = await r.json();
-    thinking.textContent = d.status === 'success' ? d.reply : ('❌ ' + (d.message || '錯誤'));
+    const data = await res.json();
+    thinking.textContent = data.status === 'success' ? data.reply : ('❌ ' + (data.message || '錯誤'));
   } catch (e) {
     thinking.textContent = '❌ ' + e.message;
   } finally {
     btn.disabled = false;
     box.scrollTop = box.scrollHeight;
+    input.focus();
   }
 }
 
-// ========== Auto News ==========
-async function fetchAutoNews() {
-  const btn = document.getElementById('autoNewsBtn');
-  const loader = document.getElementById('autoNewsLoader');
-  const out = document.getElementById('autoNewsResult');
-  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
-
-  try {
-    const r = await fetch(getApiBase() + '/auto_news');
-    const d = await r.json();
-    if (d.status === 'success') {
-      out.innerHTML = `<div class="result-card">${escapeHtml(d.news).replace(/\n/g, '<br>')}</div>`;
-    } else {
-      out.innerHTML = `<div class="result-card">❌ ${escapeHtml(d.message || '錯誤')}</div>`;
-    }
-  } catch (e) {
-    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
-  } finally {
-    btn.disabled = false; loader.classList.remove('active');
+// ========== ⚙️ 設定 ==========
+function saveApiBase() {
+  const val = document.getElementById('api-base').value.trim();
+  if (val) {
+    localStorage.setItem('api_base', val);
+    window.API_BASE = val;
+    alert('✅ 已儲存：' + val);
+    checkHealth();
   }
 }
 
-// ========== News Analysis ==========
-async function analyzeNews() {
-  const input = document.getElementById('newsInput');
-  const btn = document.getElementById('newsBtn');
-  const loader = document.getElementById('newsLoader');
-  const out = document.getElementById('newsResult');
-  const content = input.value.trim();
-  if (!content) { alert('請先貼上新聞內容'); return; }
-
-  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
-
-  try {
-    const r = await fetch(getApiBase() + '/analyze_news', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ news_content: content })
-    });
-    const d = await r.json();
-    if (d.status === 'success') {
-      out.innerHTML = `<div class="result-card">${escapeHtml(d.analysis).replace(/\n/g, '<br>')}</div>`;
-    } else {
-      out.innerHTML = `<div class="result-card">❌ ${escapeHtml(d.message || '錯誤')}</div>`;
-    }
-  } catch (e) {
-    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
-  } finally {
-    btn.disabled = false; loader.classList.remove('active');
-  }
+function resetApiBase() {
+  localStorage.removeItem('api_base');
+  window.API_BASE = window.location.origin;
+  document.getElementById('api-base').value = window.API_BASE;
+  alert('✅ 已重設為：' + window.API_BASE);
+  checkHealth();
 }
 
-// ========== Portfolio ==========
-function renderTargets() {
-  const list = document.getElementById('targetsList');
-  list.innerHTML = _targets.map((t, i) => `
-    <div class="target-row">
-      <input value="${escapeHtml(t.id)}" onchange="_targets[${i}].id=this.value">
-      <input value="${escapeHtml(t.name)}" onchange="_targets[${i}].name=this.value">
-      <select onchange="_targets[${i}].type=this.value">
-        <option ${t.type==='台股'?'selected':''}>台股</option>
-        <option ${t.type==='ETF'?'selected':''}>ETF</option>
-      </select>
-      <input type="number" value="${t.cost}" onchange="_targets[${i}].cost=parseFloat(this.value)">
-      <input type="number" value="${t.shares}" onchange="_targets[${i}].shares=parseInt(this.value)">
-      <button class="remove-btn" onclick="removeTarget(${i})">✕</button>
-    </div>
-  `).join('');
-}
-
-function addTarget() {
-  _targets.push({ id: '', name: '', type: '台股', cost: 0, shares: 1000 });
-  renderTargets();
-}
-
-function removeTarget(i) {
-  _targets.splice(i, 1);
-  renderTargets();
-}
-
-async function analyzePortfolio() {
-  const btn = document.getElementById('portfolioBtn');
-  const loader = document.getElementById('portfolioLoader');
-  const out = document.getElementById('portfolioResult');
-  const valid = _targets.filter(t => t.id && t.name);
-  if (valid.length === 0) { alert('請至少新增一檔股票'); return; }
-
-  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
-
-  try {
-    const r = await fetch(getApiBase() + '/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targets: valid })
-    });
-    const d = await r.json();
-    if (d.status === 'success' && d.data) {
-      out.innerHTML = '<div class="stock-grid">' + d.data.map(renderStockCard).join('') + '</div>';
-    } else {
-      out.innerHTML = `<div class="result-card">❌ ${escapeHtml(d.message || '分析失敗')}</div>`;
-    }
-  } catch (e) {
-    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
-  } finally {
-    btn.disabled = false; loader.classList.remove('active');
-  }
-}
-
-function renderStockCard(s) {
-  const scoreClass = s.score >= 70 ? 'score-high' : s.score >= 40 ? 'score-mid' : 'score-low';
-  const adviceClass = ['強力買進','偏多','觀察','避險','鎖倉'].includes(s.advice) ? 'advice-'+s.advice : 'advice-default';
-  const plClass = s.pl > 0 ? 'pl-positive' : s.pl < 0 ? 'pl-negative' : '';
-  const signals = (s.signals || []).map(x => `<div class="signal-item">• ${escapeHtml(x)}</div>`).join('');
-  return `
-    <div class="stock-card">
-      <div class="stock-head">
-        <div>
-          <span class="stock-name">${escapeHtml(s.name)}</span>
-          <span class="stock-ticker">${escapeHtml(s.ticker)}</span>
-        </div>
-        <span class="score-badge ${scoreClass}">${s.score} 分</span>
-      </div>
-      <div class="stock-info">💰 現價：<b>$${s.price}</b></div>
-      <div class="stock-info">📊 損益：<span class="${plClass}">${s.pl >= 0 ? '+' : ''}${s.pl}%</span></div>
-      <div class="stock-info">📈 估值：<b>${escapeHtml(s.valuation || '-')}</b></div>
-      <div class="stock-info">🛑 停損：<b>$${s.sl}</b></div>
-      <div class="stock-info" style="margin-top:8px;"><b>訊號：</b></div>
-      ${signals}
-      <div style="margin-top:10px;">
-        <span class="advice-tag ${adviceClass}">${escapeHtml(s.advice)}</span>
-        <span style="color:#8892b0; font-size:0.8em; margin-left:6px;">${escapeHtml(s.exit || '')}</span>
-      </div>
-    </div>
-  `;
-}
-
-// ========== K-line ==========
-let klineChart = null;
-async function loadKline() {
-  const ticker = document.getElementById('klineTicker').value.trim();
-  const days = document.getElementById('klineDays').value;
-  const btn = document.getElementById('klineBtn');
-  const loader = document.getElementById('klineLoader');
-  const chartEl = document.getElementById('klineChart');
-  if (!ticker) return;
-
-  btn.disabled = true; loader.classList.add('active'); chartEl.innerHTML = '';
-
-  try {
-    const r = await fetch(`${getApiBase()}/kline/${encodeURIComponent(ticker)}?days=${days}`);
-    const d = await r.json();
-    if (!d.candles) throw new Error('無資料');
-
-    if (klineChart) klineChart.remove();
-    klineChart = LightweightCharts.createChart(chartEl, {
-      layout: { background: { color: 'transparent' }, textColor: '#e4e6f1' },
-      grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
-      timeScale: { timeVisible: true, borderColor: 'rgba(255,255,255,0.1)' },
-      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
-    });
-    const candleSeries = klineChart.addCandlestickSeries({
-      upColor: '#ef4444', downColor: '#00d4aa',
-      borderUpColor: '#ef4444', borderDownColor: '#00d4aa',
-      wickUpColor: '#ef4444', wickDownColor: '#00d4aa'
-    });
-    candleSeries.setData(d.candles);
-
-    if (d.ma20) klineChart.addLineSeries({ color: '#fbbf24', lineWidth: 1, title: 'MA20' }).setData(d.ma20.filter(x=>x.value));
-    if (d.ma60) klineChart.addLineSeries({ color: '#60a5fa', lineWidth: 1, title: 'MA60' }).setData(d.ma60.filter(x=>x.value));
-  } catch (e) {
-    chartEl.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
-  } finally {
-    btn.disabled = false; loader.classList.remove('active');
-  }
-}
-
-// ========== History ==========
-async function loadHistory() {
-  const ticker = document.getElementById('historyTicker').value.trim();
-  const limit = document.getElementById('historyLimit').value;
-  const btn = document.getElementById('historyBtn');
-  const loader = document.getElementById('historyLoader');
-  const out = document.getElementById('historyResult');
-
-  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
-
-  try {
-    const url = ticker
-      ? `${getApiBase()}/history?ticker=${encodeURIComponent(ticker)}&limit=${limit}`
-      : `${getApiBase()}/history?limit=${limit}`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const data = d.data || d.history || [];
-    if (data.length === 0) { out.innerHTML = '<div class="result-card">📭 暫無紀錄</div>'; return; }
-
-    out.innerHTML = data.map(h => {
-      const plClass = h.pl > 0 ? 'pl-positive' : h.pl < 0 ? 'pl-negative' : '';
-      const adviceClass = ['強力買進','偏多','觀察','避險','鎖倉'].includes(h.advice) ? 'advice-'+h.advice : 'advice-default';
-      return `
-        <div class="history-item">
-          <span class="history-time">${escapeHtml(h.timestamp || '')}</span>
-          <span><b>${escapeHtml(h.name || '')}</b> <span class="stock-ticker">${escapeHtml(h.ticker || '')}</span></span>
-          <span class="score-badge ${h.score>=70?'score-high':h.score>=40?'score-mid':'score-low'}">${h.score || 0}</span>
-          <span class="${plClass}">${h.pl >= 0 ? '+' : ''}${h.pl || 0}%</span>
-          <span class="advice-tag ${adviceClass}">${escapeHtml(h.advice || '-')}</span>
-        </div>
-      `;
-    }).join('');
-  } catch (e) {
-    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
-  } finally {
-    btn.disabled = false; loader.classList.remove('active');
-  }
-}
-
-// ========== Utils ==========
-function escapeHtml(s) {
-  if (s === null || s === undefined) return '';
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// ========== Init ==========
-renderTargets();
-testConnection();
+// ========== 初始化 ==========
+document.getElementById('api-base').value = window.API_BASE;
+loadPresetTargets();
+checkHealth();
 </script>
 </body>
 </html>
