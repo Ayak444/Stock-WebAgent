@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 from contextlib import asynccontextmanager
-
+from datetime import datetime
 from models import (
     StockTarget, TargetItem, AnalyzeRequest,
     NewsRequest, ChatRequest, BacktestRequest
@@ -141,9 +141,22 @@ def _analyze_targets(targets):
 def root():
     return FileResponse("static/index.html")
 
+@app.get("/ping")
+def ping():
+    """保活端點 - 給 UptimeRobot 用"""
+    return {"status": "alive", "time": datetime.now().isoformat()}
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "gemini": model is not None}
+    """健康檢查 - 回傳完整系統狀態"""
+    return {
+        "status": "ok",
+        "time": datetime.now().isoformat(),
+        "gemini_enabled": model is not None,
+        "email_enabled": bool(os.environ.get("EMAIL_SENDER")),
+        "scheduler_running": scheduler.running if scheduler else False,
+        "uptime_hint": "此服務由 UptimeRobot 保活中"
+    }
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
