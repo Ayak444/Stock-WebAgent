@@ -1,1 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股智能分析儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1429 100%);
+    color: #e4e6f1;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
 
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 30px 20px;
+    margin-bottom: 25px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .header h1 {
+    font-size: 2.3em;
+    background: linear-gradient(90deg, #00d4ff, #7b61ff, #ff61dc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+    font-weight: 800;
+  }
+  .header p { color: #8892b0; font-size: 1em; }
+  .status-bar {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 12px; padding: 5px 14px;
+    background: rgba(0, 212, 170, 0.1);
+    border: 1px solid rgba(0, 212, 170, 0.3);
+    border-radius: 20px; font-size: 0.85em;
+  }
+  .status-dot {
+    width: 8px; height: 8px; background: #00d4aa;
+    border-radius: 50%; animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.7); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(0, 212, 170, 0); }
+  }
+
+  /* Config */
+  .config-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .config-box label { color: #8892b0; font-size: 0.9em; white-space: nowrap; }
+  .config-box input {
+    flex: 1; min-width: 200px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e4e6f1; padding: 8px 12px;
+    border-radius: 8px; font-size: 0.9em;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 20px;
+    background: rgba(255,255,255,0.03);
+    padding: 8px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .tab-btn {
+    flex: 1; min-width: 110px;
+    background: transparent; border: none;
+    color: #8892b0; padding: 10px 14px;
+    border-radius: 8px; cursor: pointer;
+    font-size: 0.9em; font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .tab-btn:hover { background: rgba(255,255,255,0.05); color: #e4e6f1; }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+
+  /* Panel */
+  .panel {
+    display: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 25px;
+    backdrop-filter: blur(10px);
+    animation: fadeIn 0.4s ease;
+  }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .panel h2 { margin-bottom: 15px; font-size: 1.4em; color: #00d4ff; }
+  .panel .desc { color: #8892b0; margin-bottom: 18px; font-size: 0.95em; }
+
+  /* Buttons */
+  .btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white; border: none;
+    padding: 10px 22px;
+    border-radius: 8px; cursor: pointer;
+    font-size: 0.95em; font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .btn-sm { padding: 6px 14px; font-size: 0.85em; }
+
+  /* Chat */
+  .chat-box {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 18px; height: 420px;
+    overflow-y: auto; margin-bottom: 12px;
+  }
+  .msg {
+    padding: 10px 14px; margin-bottom: 10px;
+    border-radius: 10px; max-width: 85%;
+    word-wrap: break-word; white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  .msg.user {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    margin-left: auto; color: white;
+  }
+  .msg.bot {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .input-row { display: flex; gap: 10px; }
+  .input-row input, .input-row textarea {
+    flex: 1; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e4e6f1; padding: 10px 14px;
+    border-radius: 8px; font-size: 0.95em;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 100px; }
+  .input-row input:focus, textarea:focus {
+    outline: none; border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102,126,234,0.2);
+  }
+
+  /* Loader */
+  .loader { display: none; text-align: center; padding: 30px; }
+  .loader.active { display: block; }
+  .spinner {
+    width: 42px; height: 42px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text { color: #8892b0; font-size: 0.9em; }
+
+  /* Result Cards */
+  .result-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 4px solid #667eea;
+    border-radius: 10px;
+    padding: 16px; margin-top: 14px;
+    line-height: 1.7; white-space: pre-wrap;
+  }
+  .result-card strong { color: #00d4ff; }
+
+  /* Stock Cards */
+  .stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 15px; margin-top: 18px;
+  }
+  .stock-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px;
+    transition: all 0.3s ease;
+  }
+  .stock-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(102,126,234,0.4);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  }
+  .stock-head {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 10px;
+  }
+  .stock-name { font-size: 1.05em; font-weight: 700; }
+  .stock-ticker { font-size: 0.8em; color: #8892b0; margin-left: 6px; }
+  .score-badge {
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 0.8em; font-weight: 700;
+  }
+  .score-high { background: rgba(0,212,170,0.2); color: #00d4aa; }
+  .score-mid { background: rgba(251,191,36,0.2); color: #fbbf24; }
+  .score-low { background: rgba(239,68,68,0.2); color: #ef4444; }
+  .stock-info { font-size: 0.9em; color: #c9d1d9; margin: 4px 0; }
+  .stock-info b { color: #e4e6f1; }
+  .advice-tag {
+    display: inline-block; padding: 3px 10px;
+    border-radius: 6px; font-size: 0.8em; font-weight: 600;
+    margin-top: 8px;
+  }
+  .advice-強力買進 { background: rgba(0,212,170,0.2); color: #00d4aa; }
+  .advice-偏多 { background: rgba(96,165,250,0.2); color: #60a5fa; }
+  .advice-觀察 { background: rgba(251,191,36,0.2); color: #fbbf24; }
+  .advice-避險, .advice-鎖倉 { background: rgba(239,68,68,0.2); color: #ef4444; }
+  .advice-default { background: rgba(139,148,158,0.2); color: #8b949e; }
+  .pl-positive { color: #00d4aa; font-weight: 700; }
+  .pl-negative { color: #ef4444; font-weight: 700; }
+  .signal-item {
+    font-size: 0.85em; color: #c9d1d9;
+    padding: 3px 0; border-bottom: 1px dashed rgba(255,255,255,0.05);
+  }
+  .signal-item:last-child { border-bottom: none; }
+
+  /* Target Editor */
+  .target-row {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1.5fr 1fr 1fr 0.5fr;
+    gap: 8px; margin-bottom: 8px;
+    align-items: center;
+  }
+  .target-row.header {
+    color: #8892b0; font-size: 0.85em;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 10px;
+  }
+  .target-row input, .target-row select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e4e6f1; padding: 7px 10px;
+    border-radius: 6px; font-size: 0.9em;
+    width: 100%;
+  }
+  .remove-btn {
+    background: rgba(239,68,68,0.2);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #ef4444; cursor: pointer;
+    padding: 6px 10px; border-radius: 6px;
+    font-size: 0.85em;
+  }
+
+  /* K-line */
+  #klineChart {
+    height: 400px; width: 100%;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px; margin-top: 15px;
+  }
+  .kline-controls {
+    display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;
+  }
+  .kline-controls input, .kline-controls select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e4e6f1; padding: 8px 12px;
+    border-radius: 6px;
+  }
+
+  /* History */
+  .history-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto auto;
+    gap: 12px; align-items: center;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px; margin-bottom: 6px;
+    font-size: 0.9em;
+  }
+  .history-time { color: #8892b0; font-size: 0.85em; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .header h1 { font-size: 1.7em; }
+    .tab-btn { min-width: 45%; font-size: 0.85em; }
+    .target-row { grid-template-columns: 1fr 1fr; }
+    .target-row.header { display: none; }
+    .history-item {
+      grid-template-columns: 1fr 1fr;
+      font-size: 0.85em;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>📈 台股智能分析儀表板</h1>
+    <p>AI 驅動的投資決策助手 · 技術分析 × 籌碼分析 × 新聞情緒</p>
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      <span id="statusText">系統就緒</span>
+    </div>
+  </div>
+
+  <!-- API Config -->
+  <div class="config-box">
+    <label>🔗 後端 API：</label>
+    <input type="text" id="apiBase" value="" placeholder="自動偵測目前網域">
+    <button class="btn btn-secondary btn-sm" onclick="testConnection()">測試連線</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('chat')">💬 AI 助理</button>
+    <button class="tab-btn" onclick="switchTab('autonews')">📰 自動新聞</button>
+    <button class="tab-btn" onclick="switchTab('news')">🔍 新聞分析</button>
+    <button class="tab-btn" onclick="switchTab('portfolio')">💼 自選股</button>
+    <button class="tab-btn" onclick="switchTab('kline')">📊 K線圖</button>
+    <button class="tab-btn" onclick="switchTab('history')">📋 歷史紀錄</button>
+  </div>
+
+  <!-- Panel: Chat -->
+  <div class="panel active" id="panel-chat">
+    <h2>💬 AI 投資助理</h2>
+    <div class="chat-box" id="chatBox">
+      <div class="msg bot">您好！我是您的台股投資助理 🤖
+
+您可以問我：
+• 市場動態、大盤走勢
+• 個股分析（例：「台積電最近怎麼樣？」）
+• 投資觀念與技術指標解釋
+• 產業趨勢分析</div>
+    </div>
+    <div class="input-row">
+      <input type="text" id="chatInput" placeholder="請輸入您的問題..." onkeypress="if(event.key==='Enter') sendChat()">
+      <button class="btn" onclick="sendChat()" id="chatBtn">送出</button>
+    </div>
+  </div>
+
+  <!-- Panel: Auto News -->
+  <div class="panel" id="panel-autonews">
+    <h2>📰 自動新聞解讀</h2>
+    <p class="desc">一鍵取得最新台股新聞摘要，由 AI 自動分析市場氛圍與大盤影響。</p>
+    <button class="btn" onclick="fetchAutoNews()" id="autoNewsBtn">🔄 取得今日分析</button>
+    <div class="loader" id="autoNewsLoader">
+      <div class="spinner"></div>
+      <div class="loader-text">正在抓取新聞與分析市場...</div>
+    </div>
+    <div id="autoNewsResult"></div>
+  </div>
+
+  <!-- Panel: News Analysis -->
+  <div class="panel" id="panel-news">
+    <h2>🔍 財經新聞分析</h2>
+    <p class="desc">貼上任何財經新聞內容，AI 會判斷利多利空、可能影響的個股與推論原因。</p>
+    <textarea id="newsInput" placeholder="請貼上新聞內容..."></textarea>
+    <div class="input-row" style="margin-top:10px;">
+      <button class="btn" onclick="analyzeNews()" id="newsBtn">🔬 分析新聞</button>
+    </div>
+    <div class="loader" id="newsLoader">
+      <div class="spinner"></div>
+      <div class="loader-text">AI 正在解讀新聞...</div>
+    </div>
+    <div id="newsResult"></div>
+  </div>
+
+  <!-- Panel: Portfolio -->
+  <div class="panel" id="panel-portfolio">
+    <h2>💼 自選股投資組合分析</h2>
+    <p class="desc">輸入您的持股，系統會執行技術分析、籌碼分析並給出評分與建議。</p>
+
+    <div class="target-row header">
+      <div>股票代號</div><div>名稱</div><div>類型</div>
+      <div>成本</div><div>股數</div><div></div>
+    </div>
+    <div id="targetsList"></div>
+    <button class="btn btn-secondary btn-sm" onclick="addTarget()" style="margin-top:8px;">➕ 新增個股</button>
+    <button class="btn" onclick="analyzePortfolio()" id="portfolioBtn" style="margin-left:10px;">🚀 開始分析</button>
+
+    <div class="loader" id="portfolioLoader">
+      <div class="spinner"></div>
+      <div class="loader-text">分析中，請稍候...</div>
+    </div>
+    <div id="portfolioResult"></div>
+  </div>
+
+  <!-- Panel: K-line -->
+  <div class="panel" id="panel-kline">
+    <h2>📊 K 線圖表</h2>
+    <p class="desc">輸入股票代號查看 K 線走勢、均線與成交量。</p>
+    <div class="kline-controls">
+      <input type="text" id="klineTicker" placeholder="例：2330.TW" value="2330.TW">
+      <select id="klineDays">
+        <option value="60">近 60 天</option>
+        <option value="180" selected>近 180 天</option>
+        <option value="365">近一年</option>
+      </select>
+      <button class="btn" onclick="loadKline()" id="klineBtn">載入</button>
+    </div>
+    <div class="loader" id="klineLoader">
+      <div class="spinner"></div>
+      <div class="loader-text">載入 K 線資料...</div>
+    </div>
+    <div id="klineChart"></div>
+  </div>
+
+  <!-- Panel: History -->
+  <div class="panel" id="panel-history">
+    <h2>📋 歷史分析紀錄</h2>
+    <p class="desc">查看過去每次分析結果與建議。</p>
+    <div class="kline-controls">
+      <input type="text" id="historyTicker" placeholder="留空看全部，或輸入代號過濾">
+      <select id="historyLimit">
+        <option value="20">最近 20 筆</option>
+        <option value="50" selected>最近 50 筆</option>
+        <option value="100">最近 100 筆</option>
+      </select>
+      <button class="btn" onclick="loadHistory()" id="historyBtn">查詢</button>
+    </div>
+    <div class="loader" id="historyLoader">
+      <div class="spinner"></div>
+      <div class="loader-text">載入中...</div>
+    </div>
+    <div id="historyResult" style="margin-top:15px;"></div>
+  </div>
+
+</div>
+
+<script>
+// ========== Config ==========
+const DEFAULT_TARGETS = [
+  { id: '2330.TW', name: '台積電', type: '台股', cost: 1000, shares: 1000 },
+  { id: '0050.TW', name: '元大台灣50', type: 'ETF', cost: 180, shares: 1000 }
+];
+let _targets = [...DEFAULT_TARGETS];
+
+function getApiBase() {
+  const v = document.getElementById('apiBase').value.trim();
+  if (v) return v.replace(/\/$/, '');
+  return window.location.origin;
+}
+
+// ========== Tab Switch ==========
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ========== Connection Test ==========
+async function testConnection() {
+  const status = document.getElementById('statusText');
+  status.textContent = '測試連線中...';
+  try {
+    const r = await fetch(getApiBase() + '/health');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      status.textContent = `✅ 已連線 ${d.gemini ? '(Gemini 啟用)' : '(Gemini 未設)'}`;
+    } else {
+      status.textContent = '⚠️ 連線異常';
+    }
+  } catch (e) {
+    status.textContent = '❌ 連線失敗：' + e.message;
+  }
+}
+
+// ========== Chat ==========
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const box = document.getElementById('chatBox');
+  const btn = document.getElementById('chatBtn');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  box.innerHTML += `<div class="msg user">${escapeHtml(msg)}</div>`;
+  input.value = '';
+  btn.disabled = true;
+  box.scrollTop = box.scrollHeight;
+
+  const thinking = document.createElement('div');
+  thinking.className = 'msg bot';
+  thinking.textContent = '思考中...';
+  box.appendChild(thinking);
+  box.scrollTop = box.scrollHeight;
+
+  try {
+    const r = await fetch(getApiBase() + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg })
+    });
+    const d = await r.json();
+    thinking.textContent = d.status === 'success' ? d.reply : ('❌ ' + (d.message || '錯誤'));
+  } catch (e) {
+    thinking.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+// ========== Auto News ==========
+async function fetchAutoNews() {
+  const btn = document.getElementById('autoNewsBtn');
+  const loader = document.getElementById('autoNewsLoader');
+  const out = document.getElementById('autoNewsResult');
+  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
+
+  try {
+    const r = await fetch(getApiBase() + '/auto_news');
+    const d = await r.json();
+    if (d.status === 'success') {
+      out.innerHTML = `<div class="result-card">${escapeHtml(d.news).replace(/\n/g, '<br>')}</div>`;
+    } else {
+      out.innerHTML = `<div class="result-card">❌ ${escapeHtml(d.message || '錯誤')}</div>`;
+    }
+  } catch (e) {
+    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; loader.classList.remove('active');
+  }
+}
+
+// ========== News Analysis ==========
+async function analyzeNews() {
+  const input = document.getElementById('newsInput');
+  const btn = document.getElementById('newsBtn');
+  const loader = document.getElementById('newsLoader');
+  const out = document.getElementById('newsResult');
+  const content = input.value.trim();
+  if (!content) { alert('請先貼上新聞內容'); return; }
+
+  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
+
+  try {
+    const r = await fetch(getApiBase() + '/analyze_news', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ news_content: content })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      out.innerHTML = `<div class="result-card">${escapeHtml(d.analysis).replace(/\n/g, '<br>')}</div>`;
+    } else {
+      out.innerHTML = `<div class="result-card">❌ ${escapeHtml(d.message || '錯誤')}</div>`;
+    }
+  } catch (e) {
+    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; loader.classList.remove('active');
+  }
+}
+
+// ========== Portfolio ==========
+function renderTargets() {
+  const list = document.getElementById('targetsList');
+  list.innerHTML = _targets.map((t, i) => `
+    <div class="target-row">
+      <input value="${escapeHtml(t.id)}" onchange="_targets[${i}].id=this.value">
+      <input value="${escapeHtml(t.name)}" onchange="_targets[${i}].name=this.value">
+      <select onchange="_targets[${i}].type=this.value">
+        <option ${t.type==='台股'?'selected':''}>台股</option>
+        <option ${t.type==='ETF'?'selected':''}>ETF</option>
+      </select>
+      <input type="number" value="${t.cost}" onchange="_targets[${i}].cost=parseFloat(this.value)">
+      <input type="number" value="${t.shares}" onchange="_targets[${i}].shares=parseInt(this.value)">
+      <button class="remove-btn" onclick="removeTarget(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function addTarget() {
+  _targets.push({ id: '', name: '', type: '台股', cost: 0, shares: 1000 });
+  renderTargets();
+}
+
+function removeTarget(i) {
+  _targets.splice(i, 1);
+  renderTargets();
+}
+
+async function analyzePortfolio() {
+  const btn = document.getElementById('portfolioBtn');
+  const loader = document.getElementById('portfolioLoader');
+  const out = document.getElementById('portfolioResult');
+  const valid = _targets.filter(t => t.id && t.name);
+  if (valid.length === 0) { alert('請至少新增一檔股票'); return; }
+
+  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
+
+  try {
+    const r = await fetch(getApiBase() + '/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targets: valid })
+    });
+    const d = await r.json();
+    if (d.status === 'success' && d.data) {
+      out.innerHTML = '<div class="stock-grid">' + d.data.map(renderStockCard).join('') + '</div>';
+    } else {
+      out.innerHTML = `<div class="result-card">❌ ${escapeHtml(d.message || '分析失敗')}</div>`;
+    }
+  } catch (e) {
+    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; loader.classList.remove('active');
+  }
+}
+
+function renderStockCard(s) {
+  const scoreClass = s.score >= 70 ? 'score-high' : s.score >= 40 ? 'score-mid' : 'score-low';
+  const adviceClass = ['強力買進','偏多','觀察','避險','鎖倉'].includes(s.advice) ? 'advice-'+s.advice : 'advice-default';
+  const plClass = s.pl > 0 ? 'pl-positive' : s.pl < 0 ? 'pl-negative' : '';
+  const signals = (s.signals || []).map(x => `<div class="signal-item">• ${escapeHtml(x)}</div>`).join('');
+  return `
+    <div class="stock-card">
+      <div class="stock-head">
+        <div>
+          <span class="stock-name">${escapeHtml(s.name)}</span>
+          <span class="stock-ticker">${escapeHtml(s.ticker)}</span>
+        </div>
+        <span class="score-badge ${scoreClass}">${s.score} 分</span>
+      </div>
+      <div class="stock-info">💰 現價：<b>$${s.price}</b></div>
+      <div class="stock-info">📊 損益：<span class="${plClass}">${s.pl >= 0 ? '+' : ''}${s.pl}%</span></div>
+      <div class="stock-info">📈 估值：<b>${escapeHtml(s.valuation || '-')}</b></div>
+      <div class="stock-info">🛑 停損：<b>$${s.sl}</b></div>
+      <div class="stock-info" style="margin-top:8px;"><b>訊號：</b></div>
+      ${signals}
+      <div style="margin-top:10px;">
+        <span class="advice-tag ${adviceClass}">${escapeHtml(s.advice)}</span>
+        <span style="color:#8892b0; font-size:0.8em; margin-left:6px;">${escapeHtml(s.exit || '')}</span>
+      </div>
+    </div>
+  `;
+}
+
+// ========== K-line ==========
+let klineChart = null;
+async function loadKline() {
+  const ticker = document.getElementById('klineTicker').value.trim();
+  const days = document.getElementById('klineDays').value;
+  const btn = document.getElementById('klineBtn');
+  const loader = document.getElementById('klineLoader');
+  const chartEl = document.getElementById('klineChart');
+  if (!ticker) return;
+
+  btn.disabled = true; loader.classList.add('active'); chartEl.innerHTML = '';
+
+  try {
+    const r = await fetch(`${getApiBase()}/kline/${encodeURIComponent(ticker)}?days=${days}`);
+    const d = await r.json();
+    if (!d.candles) throw new Error('無資料');
+
+    if (klineChart) klineChart.remove();
+    klineChart = LightweightCharts.createChart(chartEl, {
+      layout: { background: { color: 'transparent' }, textColor: '#e4e6f1' },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+      timeScale: { timeVisible: true, borderColor: 'rgba(255,255,255,0.1)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
+    });
+    const candleSeries = klineChart.addCandlestickSeries({
+      upColor: '#ef4444', downColor: '#00d4aa',
+      borderUpColor: '#ef4444', borderDownColor: '#00d4aa',
+      wickUpColor: '#ef4444', wickDownColor: '#00d4aa'
+    });
+    candleSeries.setData(d.candles);
+
+    if (d.ma20) klineChart.addLineSeries({ color: '#fbbf24', lineWidth: 1, title: 'MA20' }).setData(d.ma20.filter(x=>x.value));
+    if (d.ma60) klineChart.addLineSeries({ color: '#60a5fa', lineWidth: 1, title: 'MA60' }).setData(d.ma60.filter(x=>x.value));
+  } catch (e) {
+    chartEl.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; loader.classList.remove('active');
+  }
+}
+
+// ========== History ==========
+async function loadHistory() {
+  const ticker = document.getElementById('historyTicker').value.trim();
+  const limit = document.getElementById('historyLimit').value;
+  const btn = document.getElementById('historyBtn');
+  const loader = document.getElementById('historyLoader');
+  const out = document.getElementById('historyResult');
+
+  btn.disabled = true; loader.classList.add('active'); out.innerHTML = '';
+
+  try {
+    const url = ticker
+      ? `${getApiBase()}/history?ticker=${encodeURIComponent(ticker)}&limit=${limit}`
+      : `${getApiBase()}/history?limit=${limit}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const data = d.data || d.history || [];
+    if (data.length === 0) { out.innerHTML = '<div class="result-card">📭 暫無紀錄</div>'; return; }
+
+    out.innerHTML = data.map(h => {
+      const plClass = h.pl > 0 ? 'pl-positive' : h.pl < 0 ? 'pl-negative' : '';
+      const adviceClass = ['強力買進','偏多','觀察','避險','鎖倉'].includes(h.advice) ? 'advice-'+h.advice : 'advice-default';
+      return `
+        <div class="history-item">
+          <span class="history-time">${escapeHtml(h.timestamp || '')}</span>
+          <span><b>${escapeHtml(h.name || '')}</b> <span class="stock-ticker">${escapeHtml(h.ticker || '')}</span></span>
+          <span class="score-badge ${h.score>=70?'score-high':h.score>=40?'score-mid':'score-low'}">${h.score || 0}</span>
+          <span class="${plClass}">${h.pl >= 0 ? '+' : ''}${h.pl || 0}%</span>
+          <span class="advice-tag ${adviceClass}">${escapeHtml(h.advice || '-')}</span>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    out.innerHTML = `<div class="result-card">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; loader.classList.remove('active');
+  }
+}
+
+// ========== Utils ==========
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ========== Init ==========
+renderTargets();
+testConnection();
+</script>
+</body>
+</html>
