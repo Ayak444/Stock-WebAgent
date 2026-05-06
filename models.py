@@ -1,32 +1,44 @@
-from pydantic import BaseModel
+"""資料模型定義"""
+from dataclasses import dataclass
 from typing import List, Optional
+from pydantic import BaseModel
 
+
+@dataclass
 class StockTarget:
-    def __init__(self, id, name, type, cost, shares):
-        self.id = id
-        self.name = name
-        self.type = type
-        self.cost = cost
-        self.shares = shares
+    id: str
+    name: str
+    type: str
+    cost: float
+    shares: int
+
 
 # ========== API Request Models ==========
 class TargetItem(BaseModel):
     id: str
     name: str
-    type: str = "STOCK"
-    cost: float = 0
-    shares: int = 0
+    type: str
+    cost: float
+    shares: int
+
 
 class AnalyzeRequest(BaseModel):
     targets: List[TargetItem]
 
-class NewsRequest(BaseModel):
-    news_content: str
 
 class ChatRequest(BaseModel):
     message: str
 
+
+class NewsRequest(BaseModel):
+    news_content: str
+
+
 class BacktestRequest(BaseModel):
     ticker: str
-    name: Optional[str] = ""
-    days: int = 365
+    days: int = 180
+
+
+class NewsSourceRequest(BaseModel):
+    sources: Optional[List[str]] = None  # ['bloomberg', 'investing', 'ctee', 'udn']
+    limit: int = 10
