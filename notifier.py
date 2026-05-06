@@ -1,69 +1,49 @@
-# notifier.py — Email 通知版
+"""Email 通知"""
 import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+
 
 class EmailNotifier:
     def __init__(self):
-        self.smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-        self.smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-        self.sender = os.environ.get("EMAIL_SENDER", "")       # 寄件信箱
-        self.password = os.environ.get("EMAIL_PASSWORD", "")   # 應用程式密碼（不是登入密碼）
-        self.receiver = os.environ.get("EMAIL_RECEIVER", "")   # 收件信箱（可與寄件相同）
+        self.sender = os.environ.get("EMAIL_SENDER", "")
+        self.password = os.environ.get("EMAIL_PASSWORD", "")
+        self.receiver = os.environ.get("EMAIL_RECEIVER", "")
+        self.enabled = bool(self.sender and self.password and self.receiver)
 
-    def send(self, html_content, subject=None):
-        """送出 HTML 格式 Email"""
-        if not self.sender or not self.password or not self.receiver:
-            print("[Email] 未設定完整環境變數，跳過寄送")
+    def send(self, subject: str, html_body: str):
+        if not self.enabled:
+            print("[Email] 未設定環境變數，跳過")
             return False
-        
+
         try:
-            subject = subject or f"📊 台股智能分析 - {datetime.now().strftime('%Y/%m/%d %H:%M')}"
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From'] = f"台股分析機器人 <{self.sender}>"
+            msg['From'] = self.sender
             msg['To'] = self.receiver
-            
-            # 包裝成漂亮的 HTML
-            html = self._wrap_html(html_content)
-            msg.attach(MIMEText(html, 'html', 'utf-8'))
-            
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.sender, self.password)
-                server.send_message(msg)
-            
-            print(f"[Email] 已寄送至 {self.receiver}")
+            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(self.sender, self.password)
+                smtp.send_message(msg)
+            print("[Email] 發送成功")
             return True
         except Exception as e:
-            print(f"[Email] 寄送失敗: {e}")
+            print(f"[Email] 失敗: {e}")
             return False
-    
-    def _wrap_html(self, content):
-        """包裝成美觀的 HTML 郵件"""
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"></head>
-        <body style="font-family:'Segoe UI','Microsoft JhengHei',sans-serif;background:#f5f7fa;margin:0;padding:20px;">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
-            <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;color:#fff;">
-              <h1 style="margin:0;font-size:22px;">📊 台股智能分析報告</h1>
-              <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">{datetime.now().strftime('%Y年%m月%d日 %H:%M')}</p>
-            </div>
-            <div style="padding:24px;color:#333;line-height:1.7;">
-              {content}
-            </div>
-            <div style="background:#f8f9fa;padding:16px;text-align:center;color:#888;font-size:12px;">
-              此為系統自動發送，請勿直接回覆<br>
-              Powered by Gemini AI
-            </div>
-          </div>
-        </body>
-        </html>
-        """
 
-# 保持舊名稱相容（讓 main.py 不用大改）
-TelegramNotifier = EmailNotifier
+    def format_analysis(self, results: list):
+        """格式化分析結果為 HTML"""
+        html = "<h2>📊 今日台股分析報告</h2><table border='1' cellpadding='8' style='border-collapse:collapse'>"
+        html += "<tr style='background:#333;color:#fff'><th>標的</th><th>價格</th><th>評分</th><th>建議</th><th>損益</th></tr>"
+        for r in results:
+            html += f"""<tr>
+                <td>{r.get('name','')} ({r.get('ticker','')})</td>
+                <td>${r.get('price',0)}</td>
+                <td>{r.get('score',0)}</td>
+                <td><b>{r.get('advice','')}</b></td>
+                <td>{r.get('pl',0):+.2f}%</td>
+            </tr>"""
+        html += "</table>"
+        return html
