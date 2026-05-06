@@ -2,18 +2,17 @@ services:
   - type: web
     name: taiwan-stock-bot
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: GEMINI_API_KEY
         sync: false
-      - key: TELEGRAM_TOKEN
+      - key: EMAIL_SENDER
         sync: false
-      - key: TELEGRAM_CHAT_ID
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_RECEIVER
         sync: false
       - key: DB_PATH
-        value: /var/data/history.db
-    disk:
-      name: data
-      mountPath: /var/data
-      sizeGB: 1
+        value: history.db
