@@ -44,10 +44,31 @@ def daily_auto_analysis():
         results = _analyze_targets(default_targets)
         db.save_analysis(results)
         
-        msg = "📊 <b>每日自動分析</b>\n\n"
+        # 組裝 HTML 郵件內容
+        html = "<h2 style='color:#667eea;'>📈 今日觀察標的</h2><table style='width:100%;border-collapse:collapse;'>"
+        html += "<tr style='background:#f0f2f8;'><th style='padding:10px;text-align:left;'>股票</th><th>評分</th><th>建議</th><th>價格</th></tr>"
+        
         for r in results:
-            msg += f"• <b>{r['name']}</b> ({r['ticker']}): {r['advice']} | 評分 {r['score']}\n"
-        notifier.send(msg)
+            color = "#00a878" if r['score'] >= 5 else "#e74c3c" if r['score'] <= -3 else "#f39c12"
+            html += f"""
+            <tr style='border-bottom:1px solid #eee;'>
+              <td style='padding:10px;'><b>{r['name']}</b><br><small style='color:#888;'>{r['ticker']}</small></td>
+              <td style='text-align:center;color:{color};font-weight:bold;'>{r['score']}</td>
+              <td style='text-align:center;'>{r['advice']}</td>
+              <td style='text-align:right;'>${r['price']:.2f}</td>
+            </tr>
+            """
+        html += "</table>"
+        
+        # 加入訊號細節
+        html += "<h3 style='margin-top:24px;color:#667eea;'>🔍 分析訊號</h3>"
+        for r in results:
+            html += f"<div style='background:#f8f9fa;padding:12px;border-radius:8px;margin:8px 0;'>"
+            html += f"<b>{r['name']}</b><br><small>"
+            html += "<br>".join(f"• {s}" for s in r.get('signals', [])[:5])
+            html += "</small></div>"
+        
+        notifier.send(html)
     except Exception as e:
         print(f"[排程] 錯誤: {e}")
 
