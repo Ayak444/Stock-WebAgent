@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List
 import uvicorn
 from fastapi import FastAPI
@@ -9,7 +10,6 @@ from data_provider import MarketDataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
 from notifier import TelegramNotifier
-import time
 
 app = FastAPI()
 notifier = TelegramNotifier()
@@ -43,28 +43,36 @@ def handle_chat(req: ChatRequest):
         response = model.generate_content(full_prompt)
         return {"status": "success", "reply": response.text}
     except Exception as e:
-        return {"status": "error", "reply": "AI 目前無法回應，請稍後再試。"}
+        return {"status": "error", "reply": str(e)}
 
-@app.post("/analyze_news")
-def analyze_business_news(req: NewsRequest):
-    analysis_prompt = f"""
-    請閱讀以下財經新聞，並嚴格按照以下 JSON 格式回傳分析結果，不要加入任何其他文字：
-    {{
-        "summary": "一句話總結新聞核心",
-        "sentiment": "利多 / 利空 / 中立",
-        "impact_stocks": ["股票代號1", "股票代號2"],
-        "reasoning": "簡述判斷原因"
-    }}
-    
-    新聞內容：
-    {req.news_content}
-    """
-    
+@app.get("/auto_news")
+def get_auto_news():
     try:
+        import yfinance as yf
+        ticker = yf.Ticker("0050.TW")
+        news_list = ticker.news
+        
+        if not news_list:
+            return {"status": "error", "analysis": "目前找不到最新新聞資料"}
+            
+        news_text = "\n".join([f"標題: {n.get('title', '')} (來源: {n.get('publisher', '')})" for n in news_list[:5]])
+        
+        analysis_prompt = f"""
+        請閱讀以下台灣股市最新新聞，並嚴格按照以下 JSON 格式回傳分析結果，不要加入任何其他文字：
+        {{
+            "summary": "一句話總結新聞核心",
+            "sentiment": "利多 / 利空 / 中立",
+            "impact_stocks": ["股票代號1", "股票代號2"],
+            "reasoning": "簡述判斷原因"
+        }}
+        
+        新聞內容：
+        {news_text}
+        """
         response = model.generate_content(analysis_prompt)
         return {"status": "success", "analysis": response.text}
     except Exception as e:
-        return {"status": "error"}
+        return {"status": "error", "analysis": str(e)}
 
 @app.post("/analyze")
 def analyze_custom(targets: List[TargetItem]):
@@ -73,8 +81,7 @@ def analyze_custom(targets: List[TargetItem]):
     
     results = []
     for t_item in targets:
-        time.sleep(0.5) 
-        
+        time.sleep(0.5)
         t = StockTarget(t_item.id, t_item.name, t_item.type, t_item.cost, t_item.shares)
         
         try:
@@ -108,7 +115,6 @@ def analyze_custom(targets: List[TargetItem]):
                 "score": 0, "advice": "運算錯誤", "pl": 0.0,
                 "valuation": "無數據", "signals": ["系統發生例外狀況"], "exit": "-", "sl": 0.0
             })
-            print(f"Error analyzing {t.id}: {e}")
             
     return {"status": "success", "data": results, "fx": fx_note}
 
