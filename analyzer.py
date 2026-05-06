@@ -1,57 +1,88 @@
+"""技術指標計算"""
 import pandas as pd
 import numpy as np
-import math
+
 
 class TechnicalAnalyzer:
     @staticmethod
-    def calculate_indicators(df):
-        c, v = df['Close'], df['Volume']
-        df['MA5'], df['MA20'], df['MA60'] = c.rolling(5).mean(), c.rolling(20).mean(), c.rolling(60).mean()
-        df['MA20_Slope'], df['VMA5'] = df['MA20'].diff(), v.rolling(5).mean()
-        delta = c.diff()
-        g, l = delta.where(delta > 0, 0).rolling(14).mean(), (-delta.where(delta < 0, 0)).rolling(14).mean()
-        df['RSI'] = 100 - (100 / (1 + g/l))
-        low, high = df['Low'].rolling(9).min(), df['High'].rolling(9).max()
-        rsv = (c - low) / (high - low) * 100
-        k_l, d_l, k, d = [], [], 50, 50
-        for r in rsv:
-            if np.isnan(r): k_l.append(np.nan); d_l.append(np.nan)
-            else: k = (2/3)*k + (1/3)*r; d = (2/3)*d + (1/3)*k; k_l.append(k); d_l.append(d)
-        df['K'], df['D'] = k_l, d_l
-        return TechnicalAnalyzer.identify_patterns(df)
+    def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
+        """計算 MA / RSI / MACD / KD / 布林通道"""
+        if df.empty or len(df) < 20:
+            return df
 
-    @staticmethod
-    def identify_patterns(df):
-        o, c, h, l = df['Open'], df['Close'], df['High'], df['Low']
-        body = abs(c - o)
-        patterns = [None, None]
-        for i in range(2, len(df)):
-            sig = []
-            if (l.iloc[i] - min(o.iloc[i], c.iloc[i])) > body.iloc[i]*2: sig.append("錘子線")
-            if c.iloc[i-1] < o.iloc[i-1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > (c.iloc[i-1] + (o.iloc[i-1]-c.iloc[i-1])/2): sig.append("刺透")
-            if c.iloc[i-1] < o.iloc[i-1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > o.iloc[i-1] and o.iloc[i] < c.iloc[i-1]: sig.append("吞噬")
-            patterns.append(",".join(sig) if sig else None)
-        df['Pattern'] = patterns
+        df = df.copy()
+        close = df['Close']
+
+        # 均線
+        df['MA5'] = close.rolling(5).mean()
+        df['MA20'] = close.rolling(20).mean()
+        df['MA60'] = close.rolling(60).mean()
+
+        # RSI (14)
+        delta = close.diff()
+        gain = delta.where(delta > 0, 0).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        rs = gain / loss.replace(0, np.nan)
+        df['RSI'] = 100 - (100 / (1 + rs))
+
+        # MACD
+        ema12 = close.ewm(span=12, adjust=False).mean()
+        ema26 = close.ewm(span=26, adjust=False).mean()
+        df['MACD'] = ema12 - ema26
+        df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+        df['Histogram'] = df['MACD'] - df['Signal']
+
+        # 布林通道
+        std20 = close.rolling(20).std()
+        df['BB_upper'] = df['MA20'] + 2 * std20
+        df['BB_lower'] = df['MA20'] - 2 * std20
+
+        # KD
+        low_min = df['Low'].rolling(9).min()
+        high_max = df['High'].rolling(9).max()
+        rsv = (close - low_min) / (high_max - low_min) * 100
+        df['K'] = rsv.ewm(com=2, adjust=False).mean()
+        df['D'] = df['K'].ewm(com=2, adjust=False).mean()
+
+        # 成交量均線
+        df['VolMA5'] = df['Volume'].rolling(5).mean()
+
         return df
 
     @staticmethod
-    def get_valuation(stock_obj, df, price):
-        try:
-            yh = df['High'].tail(250).max()
-            yl = df['Low'].tail(250).min()
-            
-            if pd.isna(yh) or pd.isna(yl) or pd.isna(price) or yh == yl:
-                return "無法計算位階"
-                
-            raw_pct = ((price - yl) / (yh - yl)) * 100
-            
-            if math.isnan(raw_pct) or math.isinf(raw_pct):
-                return "無法計算位階"
-                
-            pct = int(raw_pct)
-            status = "便宜" if pct < 20 else "昂貴" if pct > 80 else "合理"
-            
-            return f"{status} ({pct}%)"
-                
-        except Exception as e:
-            return "數據缺失"
+    def get_signals(df: pd.DataFrame):
+        """從最新資料抓取訊號"""
+        if df.empty or len(df) < 2:
+            return []
+
+        signals = []
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
+
+        # 均線訊號
+        if last['Close'] > last.get('MA20', 0):
+            signals.append("✅ 站上 20 日均線")
+        else:
+            signals.append("⚠️ 跌破 20 日均線")
+
+        # RSI
+        rsi = last.get('RSI', 50)
+        if not pd.isna(rsi):
+            if rsi > 70:
+                signals.append(f"⚠️ RSI 超買 ({rsi:.1f})")
+            elif rsi < 30:
+                signals.append(f"✅ RSI 超賣 ({rsi:.1f})")
+
+        # MACD 交叉
+        if not pd.isna(last.get('MACD')) and not pd.isna(prev.get('MACD')):
+            if prev['MACD'] < prev['Signal'] and last['MACD'] > last['Signal']:
+                signals.append("🚀 MACD 黃金交叉")
+            elif prev['MACD'] > prev['Signal'] and last['MACD'] < last['Signal']:
+                signals.append("📉 MACD 死亡交叉")
+
+        # 成交量
+        if not pd.isna(last.get('VolMA5')) and last['VolMA5'] > 0:
+            if last['Volume'] > last['VolMA5'] * 1.5:
+                signals.append("🔥 爆量")
+
+        return signals
