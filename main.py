@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import requests as http_requests
 from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -20,27 +21,139 @@ from database import Database
 from backtest import Backtester
 from notifier import EmailNotifier
 
-API_KEY = os.environ.get("API_KEY", "")
-model = None
 
-if API_KEY:
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        print("✅ Gemini 1.5 Flash 已啟用")
-    except Exception as e:
-        print(f"❌ Gemini 初始化失敗: {e}")
-        model = None
+# ============================================================
+# MaiAgent API 設定（從 Render 環境變數讀取）
+# ============================================================
+MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
+MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
+MAIAGENT_WEBCHAT_ID = os.environ.get("MAIAGENT_WEBCHAT_ID", "")
+MAIAGENT_BASE_URL = "https://api.maiagent.ai/api/v1"
+
+
+class MaiAgentClient:
+    """MaiAgent API 客戶端"""
+
+    def __init__(self, api_key: str, chatbot_id: str, webchat_id: str):
+        self.api_key = api_key
+        self.chatbot_id = chatbot_id
+        self.webchat_id = webchat_id
+        self.base_url = MAIAGENT_BASE_URL
+        self.headers = {
+            "Authorization": f"Api-Key {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        self.enabled = bool(api_key and chatbot_id and webchat_id)
+
+    def create_conversation(self) -> str:
+        """建立新對話，回傳 conversation_id"""
+        url = f"{self.base_url}/conversations/"
+        payload = {"webChat": self.webchat_id}
+        response = http_requests.post(url, headers=self.headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("id", "")
+
+    def send_message(self, content: str, conversation_id: str = None) -> str:
+        """
+        發送訊息給 MaiAgent AI 助理並取得同步回覆
+        端點: POST /api/v1/chatbots/{chatbot_id}/completions
+        """
+        url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions"
+        payload = {
+            "message": {
+                "content": content
+            }
+        }
+
+        # 如果有 conversation_id，延續對話
+        if conversation_id:
+            payload["conversation"] = conversation_id
+
+        response = http_requests.post(
+            url, headers=self.headers, json=payload, timeout=60
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        # 根據 MaiAgent API 回傳格式取得回覆內容
+        # 可能的回傳欄位: message.content, reply, content 等
+        if isinstance(data, dict):
+            # 嘗試多種可能的回傳格式
+            if "message" in data and isinstance(data["message"], dict):
+                return data["message"].get("content", str(data))
+            elif "reply" in data:
+                return data["reply"]
+            elif "content" in data:
+                return data["content"]
+            elif "choices" in data:
+                # 類 OpenAI 格式
+                choices = data["choices"]
+                if choices and isinstance(choices[0], dict):
+                    msg = choices[0].get("message", {})
+                    return msg.get("content", str(data))
+            else:
+                return str(data)
+        return str(data)
+
+    def chat(self, user_message: str, conversation_id: str = None) -> dict:
+        """
+        完整的聊天流程：建立對話（如需要）→ 發送訊息 → 回傳結果
+        """
+        try:
+            # 如果沒有提供 conversation_id，建立新對話
+            if not conversation_id:
+                conversation_id = self.create_conversation()
+
+            reply = self.send_message(user_message, conversation_id)
+            return {
+                "status": "success",
+                "reply": reply,
+                "conversation_id": conversation_id
+            }
+        except http_requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response else 0
+            if status_code == 429:
+                return {"status": "error", "message": "AI 請求過於頻繁，請稍等再試"}
+            elif status_code == 401:
+                return {"status": "error", "message": "API 金鑰無效，請檢查 MAIAGENT_API_KEY"}
+            elif status_code == 404:
+                return {"status": "error", "message": "找不到 Chatbot，請檢查 MAIAGENT_CHATBOT_ID"}
+            else:
+                return {"status": "error", "message": f"API 錯誤 ({status_code}): {str(e)[:200]}"}
+        except http_requests.exceptions.Timeout:
+            return {"status": "error", "message": "AI 回覆逾時，請稍後再試"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)[:200]}
+
+
+# 初始化 MaiAgent 客戶端
+mai_client = MaiAgentClient(MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID)
+
+if mai_client.enabled:
+    print("✅ MaiAgent API 已啟用")
+    print(f"   Chatbot ID: {MAIAGENT_CHATBOT_ID[:8]}...")
 else:
-    print("⚠️ API_KEY 未設定")
+    missing = []
+    if not MAIAGENT_API_KEY:
+        missing.append("MAIAGENT_API_KEY")
+    if not MAIAGENT_CHATBOT_ID:
+        missing.append("MAIAGENT_CHATBOT_ID")
+    if not MAIAGENT_WEBCHAT_ID:
+        missing.append("MAIAGENT_WEBCHAT_ID")
+    print(f"⚠️ MaiAgent 未完整設定，缺少: {', '.join(missing)}")
 
+
+# ============================================================
+# 排程器
+# ============================================================
 scheduler = None
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     scheduler = BackgroundScheduler(timezone='Asia/Taipei')
 except ImportError:
     print("⚠️ apscheduler 未安裝，排程功能停用")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,6 +165,7 @@ async def lifespan(app: FastAPI):
     if scheduler:
         scheduler.shutdown()
 
+
 app = FastAPI(title="台股智能分析 API", version="3.0", lifespan=lifespan)
 
 app.add_middleware(
@@ -61,6 +175,10 @@ app.add_middleware(
 db = Database()
 notifier = EmailNotifier()
 
+
+# ============================================================
+# 核心分析邏輯
+# ============================================================
 def _analyze_targets(targets):
     chip = DataProvider.get_chip_data()
     fx_val, fx_note = DataProvider.get_fx_status()
@@ -105,6 +223,7 @@ def _analyze_targets(targets):
 
     return results, fx_note
 
+
 def daily_analysis_task():
     print(f"[Scheduler] 執行每日分析 {datetime.now()}")
     default_targets = [
@@ -116,25 +235,32 @@ def daily_analysis_task():
     html = notifier.format_analysis(results)
     notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", html)
 
+
+# ============================================================
+# API 端點
+# ============================================================
 @app.get("/")
 def root():
     if os.path.exists("static/index.html"):
         return FileResponse("static/index.html")
     return {"status": "alive", "message": "API 運作中", "docs": "/docs"}
 
+
 @app.get("/ping")
 def ping():
     return {"status": "alive", "time": datetime.now().isoformat()}
+
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "gemini": model is not None,
+        "maiagent": mai_client.enabled,
         "email": notifier.enabled,
         "scheduler": scheduler is not None and scheduler.running if scheduler else False,
         "time": datetime.now().isoformat()
     }
+
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
@@ -143,35 +269,45 @@ def analyze(req: AnalyzeRequest):
     db.save_analysis(results)
     return {"status": "success", "data": results, "fx": fx_note}
 
+
 @app.post("/chat")
 def chat(req: ChatRequest):
-    if not model:
-        return {"status": "error", "message": "Gemini 未設定 API_KEY"}
-    try:
-        prompt = f"你是專業的台股投資助理，請用繁體中文簡明扼要回答。\n使用者問題：{req.message}"
-        response = model.generate_content(prompt)
-        return {"status": "success", "reply": response.text}
-    except Exception as e:
-        msg = str(e)
-        if "429" in msg or "quota" in msg.lower():
-            return {"status": "error", "message": "AI 請求過於頻繁，請稍等 30 秒再試"}
-        return {"status": "error", "message": msg[:200]}
+    """使用 MaiAgent AI 助理進行對話"""
+    if not mai_client.enabled:
+        return {"status": "error", "message": "MaiAgent 未設定，請檢查環境變數 MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID"}
+
+    # 如果 ChatRequest 有 conversation_id 欄位可以延續對話
+    conversation_id = getattr(req, 'conversation_id', None)
+    result = mai_client.chat(req.message, conversation_id)
+    return result
+
 
 @app.post("/analyze_news")
 def analyze_news(req: NewsRequest):
-    if not model:
-        return {"status": "error", "message": "Gemini 未設定 API_KEY"}
-    prompt = f'{{\n  "summary": "一句話總結（20字內）",\n  "sentiment": "利多/利空/中立",\n  "impact_level": "高/中/低",\n  "impact_stocks": ["代號或產業1", "代號或產業2"],\n  "reasoning": "判斷原因（50字內）"\n}}\n\n新聞：\n{req.news_content[:2000]}'
-    try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+    """使用 MaiAgent 分析新聞"""
+    if not mai_client.enabled:
+        return {"status": "error", "message": "MaiAgent 未設定"}
+
+    prompt = (
+        "請分析以下新聞，並以 JSON 格式回覆：\n"
+        '{"summary": "一句話總結（20字內）", "sentiment": "利多/利空/中立", '
+        '"impact_level": "高/中/低", "impact_stocks": ["代號或產業1"], '
+        '"reasoning": "判斷原因（50字內）"}\n\n'
+        f"新聞：\n{req.news_content[:2000]}"
+    )
+
+    result = mai_client.chat(prompt)
+    if result["status"] == "success":
+        text = result["reply"].strip()
+        # 嘗試清理 markdown 格式
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
         return {"status": "success", "analysis": text.strip()}
-    except Exception as e:
-        return {"status": "error", "message": str(e)[:200]}
+    else:
+        return result
+
 
 @app.get("/news")
 def get_news(sources: str = "", limit: int = 5):
@@ -179,10 +315,12 @@ def get_news(sources: str = "", limit: int = 5):
     news = NewsCrawler.fetch_all(sources=source_list, limit_per_source=limit)
     return {"status": "success", "count": len(news), "data": news}
 
+
 @app.post("/news/analyze_batch")
 def analyze_news_batch(req: NewsSourceRequest):
-    if not model:
-        return {"status": "error", "message": "Gemini 未設定 API_KEY"}
+    """使用 MaiAgent 批次分析新聞"""
+    if not mai_client.enabled:
+        return {"status": "error", "message": "MaiAgent 未設定"}
 
     news_list = NewsCrawler.fetch_all(
         sources=req.sources, limit_per_source=req.limit
@@ -196,78 +334,92 @@ def analyze_news_batch(req: NewsSourceRequest):
         for i, n in enumerate(news_list)
     ])
 
-    prompt = f'[\n  {{"index": 1, "sentiment": "利多/利空/中立", "impact": "高/中/低", "reason": "簡短說明(30字內)"}}\n]\n\n新聞列表：\n{combined}'
+    prompt = (
+        "請分析以下新聞列表的情緒，以 JSON 陣列格式回覆：\n"
+        '[{"index": 1, "sentiment": "利多/利空/中立", "impact": "高/中/低", "reason": "簡短說明(30字內)"}]\n\n'
+        f"新聞列表：\n{combined}"
+    )
+
+    result = mai_client.chat(prompt)
+    if result["status"] != "success":
+        return result
+
+    text = result["reply"].strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    text = text.strip()
 
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        text = text.strip()
+        analysis = json.loads(text)
+    except json.JSONDecodeError:
+        analysis = []
 
-        try:
-            analysis = json.loads(text)
-        except json.JSONDecodeError:
-            analysis = []
+    for i, item in enumerate(news_list):
+        matched = next((a for a in analysis if a.get("index") == i + 1), None)
+        if matched:
+            item['sentiment'] = matched.get('sentiment', '中立')
+            item['impact'] = matched.get('impact', '低')
+            item['ai_reason'] = matched.get('reason', '')
+        else:
+            item['sentiment'] = '中立'
+            item['impact'] = '低'
+            item['ai_reason'] = ''
 
-        for i, item in enumerate(news_list):
-            matched = next((a for a in analysis if a.get("index") == i+1), None)
-            if matched:
-                item['sentiment'] = matched.get('sentiment', '中立')
-                item['impact'] = matched.get('impact', '低')
-                item['ai_reason'] = matched.get('reason', '')
-            else:
-                item['sentiment'] = '中立'
-                item['impact'] = '低'
-                item['ai_reason'] = ''
+        db.save_news_analysis({
+            "source": item['source'],
+            "title": item['title'],
+            "sentiment": item['sentiment'],
+            "summary": item.get('ai_reason', ''),
+            "link": item.get('link', '')
+        })
 
-            db.save_news_analysis({
-                "source": item['source'],
-                "title": item['title'],
-                "sentiment": item['sentiment'],
-                "summary": item.get('ai_reason', ''),
-                "link": item.get('link', '')
-            })
+    stats = {
+        "利多": sum(1 for n in news_list if n.get('sentiment') == '利多'),
+        "利空": sum(1 for n in news_list if n.get('sentiment') == '利空'),
+        "中立": sum(1 for n in news_list if n.get('sentiment') == '中立')
+    }
 
-        stats = {
-            "利多": sum(1 for n in news_list if n.get('sentiment') == '利多'),
-            "利空": sum(1 for n in news_list if n.get('sentiment') == '利空'),
-            "中立": sum(1 for n in news_list if n.get('sentiment') == '中立')
-        }
+    return {
+        "status": "success",
+        "count": len(news_list),
+        "stats": stats,
+        "data": news_list
+    }
 
-        return {
-            "status": "success",
-            "count": len(news_list),
-            "stats": stats,
-            "data": news_list
-        }
-    except Exception as e:
-        traceback.print_exc()
-        return {"status": "error", "message": str(e)[:200]}
 
 @app.get("/auto_news")
 def auto_news():
-    if not model:
-        return {"status": "error", "message": "Gemini 未設定 API_KEY"}
+    """使用 MaiAgent 自動產生每日新聞摘要"""
+    if not mai_client.enabled:
+        return {"status": "error", "message": "MaiAgent 未設定"}
+
     try:
         news = NewsCrawler.fetch_all(limit_per_source=3)[:10]
         if not news:
             return {"status": "error", "message": "無新聞資料"}
 
         titles = "\n".join([f"- [{n['source']}] {n['title']}" for n in news])
-        prompt = f"根據以下今日財經新聞標題，撰寫一份 200 字內的台股每日摘要，\n包含：(1) 今日大盤氛圍 (2) 主要利多利空 (3) 操作建議。用繁體中文。\n\n新聞：\n{titles}"
+        prompt = (
+            "根據以下今日財經新聞標題，撰寫一份 200 字內的台股每日摘要，\n"
+            "包含：(1) 今日大盤氛圍 (2) 主要利多利空 (3) 操作建議。用繁體中文。\n\n"
+            f"新聞：\n{titles}"
+        )
 
-        response = model.generate_content(prompt)
-        return {
-            "status": "success",
-            "summary": response.text,
-            "news_count": len(news),
-            "sources_used": list(set(n['source'] for n in news))
-        }
+        result = mai_client.chat(prompt)
+        if result["status"] == "success":
+            return {
+                "status": "success",
+                "summary": result["reply"],
+                "news_count": len(news),
+                "sources_used": list(set(n['source'] for n in news))
+            }
+        else:
+            return result
     except Exception as e:
         return {"status": "error", "message": str(e)[:200]}
+
 
 @app.get("/kline/{ticker}")
 def get_kline(ticker: str, days: int = 180):
@@ -311,17 +463,21 @@ def get_kline(ticker: str, days: int = 180):
         traceback.print_exc()
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
+
 @app.get("/history")
 def history(ticker: str = None, limit: int = 100):
     return {"status": "success", "data": db.get_history(ticker, limit)}
+
 
 @app.get("/history/tickers")
 def history_tickers():
     return {"status": "success", "data": db.get_all_tickers()}
 
+
 @app.post("/backtest")
 def backtest(req: BacktestRequest):
     return Backtester.run(req.ticker, req.days)
+
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
