@@ -23,7 +23,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg-base); color: var(--text-primary); display: flex; height: 100vh; overflow: hidden; }
   
-  .sidebar { width: 260px; background: var(--bg-surface); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 0; }
+  .sidebar { width: 260px; background: var(--bg-surface); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 0; z-index: 10; }
   .brand { font-size: 20px; font-weight: bold; padding: 0 24px 20px 24px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
   .nav-item { padding: 12px 24px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.2s; font-size: 15px; }
   .nav-item:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
@@ -36,34 +36,38 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .dot.ok { background: var(--up-green); }
   .dot.err { background: var(--down-red); }
+  .dot.warn { background: var(--warn-yellow); }
   
   .view-section { display: none; animation: fadeIn 0.3s ease; }
   .view-section.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .card { background: var(--bg-surface); border-radius: 16px; padding: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  .card { background: var(--bg-surface); border-radius: 16px; padding: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 20px;}
   .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .card-title { font-size: 18px; font-weight: 600; color: var(--text-primary); }
   
-  button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; }
+  button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px;}
   .btn-primary { background: var(--accent-blue); color: #fff; }
   .btn-primary:hover { background: var(--accent-blue-hover); }
-  .btn-outline { background: transparent; border: 1px solid var(--accent-blue); color: var(--accent-blue); }
-  .btn-outline:hover { background: rgba(59, 130, 246, 0.1); }
+  .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); }
+  .btn-outline:hover { background: var(--bg-surface-hover); }
   .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--down-red); border: 1px solid var(--down-red); }
+  .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
   
-  input, select { width: 100%; padding: 10px 14px; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; margin-bottom: 10px; transition: 0.2s; }
-  input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+  input, select { width: 100%; padding: 10px 14px; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; transition: 0.2s; margin-bottom:0;}
+  input:focus, select:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
   
-  .table-grid { display: grid; grid-template-columns: 2fr 2fr 1fr 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .table-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 2fr auto; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .table-header { color: var(--text-secondary); font-size: 13px; padding: 0 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px;}
   
   .copilot-widget { position: fixed; bottom: 30px; right: 30px; width: 380px; height: 500px; background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; transform: translateY(120%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; }
   .copilot-widget.open { transform: translateY(0); }
   .copilot-header { padding: 16px 20px; background: rgba(255,255,255,0.05); border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; font-weight: 600; cursor: pointer; }
   .copilot-body { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-  .copilot-input-area { padding: 16px; border-top: 1px solid var(--glass-border); display: flex; gap: 10px; }
-  .msg-bubble { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+  .copilot-input-area { padding: 16px; border-top: 1px solid var(--glass-border); display: flex; gap: 10px; background: var(--bg-surface);}
+  .msg-bubble { max-width: 85%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; word-wrap: break-word;}
   .msg-ai { background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); align-self: flex-start; border-bottom-left-radius: 4px; }
   .msg-user { background: var(--accent-blue); align-self: flex-end; border-bottom-right-radius: 4px; }
   
@@ -73,6 +77,13 @@
   .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
   .badge-bull { background: rgba(34, 197, 94, 0.2); color: var(--up-green); }
   .badge-bear { background: rgba(239, 68, 68, 0.2); color: var(--down-red); }
+  .badge-neutral { background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); }
+  
+  .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .data-row { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 12px 0; font-size: 14px;}
+  .data-row:last-child { border-bottom: none; }
   
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -96,9 +107,8 @@
   <header class="header-bar">
     <h1 class="page-title" id="page-title">戰情中心</h1>
     <div class="status-indicators">
-      <span><span class="dot ok"></span> 核心 API</span>
-      <span><span class="dot ok"></span> LLM 推論</span>
-      <span><span class="dot err"></span> 推播服務</span>
+      <span><span class="dot" id="ind-api"></span> 核心 API</span>
+      <span><span class="dot" id="ind-llm"></span> LLM 推論</span>
     </div>
   </header>
 
@@ -106,82 +116,64 @@
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">自選資產速覽</div>
-          <button class="btn-outline" onclick="navigate('portfolio', document.querySelectorAll('.nav-item')[1])">管理</button>
+          <div class="card-title">大盤 AI 速報</div>
+          <button class="btn-outline" onclick="fetchAutoNews()">🔄 更新</button>
         </div>
-        <div style="font-size:36px;font-weight:bold;margin-bottom:5px;">$1,420,500 <span style="font-size:16px;color:var(--up-green);">+2.4%</span></div>
-        <div style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">今日未實現損益</div>
-        <div style="display:flex;gap:10px;flex-direction:column;">
-          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
-            <span>2330 台積電</span><span style="color:var(--up-green);">580.00</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
-            <span>2454 聯發科</span><span style="color:var(--down-red);">895.00</span>
-          </div>
+        <div id="dash-news-content" style="font-size:15px; line-height:1.6; color:var(--text-secondary);">
+          資料載入中...
         </div>
       </div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">大盤情緒雷達</div>
+          <div class="card-title">系統狀態監控</div>
         </div>
-        <div style="height:150px;display:flex;align-items:center;justify-content:center;background:var(--bg-base);border-radius:8px;border:1px dashed var(--border-color);">
-          <span style="color:var(--text-secondary);">[圖表佔位] 情緒指數 78 (貪婪)</span>
+        <div id="dash-health-content" style="font-family:monospace; font-size:13px; color:var(--text-secondary); white-space:pre-wrap; background:var(--bg-base); padding:15px; border-radius:8px;">
+          檢查中...
         </div>
       </div>
     </div>
   </div>
 
   <div id="view-portfolio" class="view-section">
-    <div class="card" style="margin-bottom:20px;">
+    <div class="card">
       <div class="card-header">
         <div class="card-title">投資組合與壓力測試</div>
         <div>
-          <button class="btn-danger" style="margin-right:10px;">⚡ 執行壓力測試</button>
-          <button class="btn-primary">🧠 智能優化建議</button>
+          <button class="btn-danger" id="btn-stress-test" onclick="executePortfolioAnalysis()">⚡ 執行深度分析</button>
         </div>
       </div>
-      <div class="table-grid" style="color:var(--text-secondary);font-size:13px;padding:0 10px;">
-        <div>標的代號</div><div>資產類型</div><div>平均成本</div><div>持有股數</div><div>當前權重</div><div>操作</div>
+      <div class="table-grid table-header">
+        <div>標的代號</div><div>資產類型</div><div>平均成本</div><div>持有股數</div><div>即時狀態</div><div>操作</div>
       </div>
-      <div id="portfolio-list">
-        <div class="table-grid">
-          <input type="text" value="2330.TW">
-          <select><option>台股</option></select>
-          <input type="number" value="580">
-          <input type="number" value="1000">
-          <input type="text" value="45%" disabled style="background:transparent;border:none;">
-          <button class="btn-outline">✕</button>
-        </div>
-        <div class="table-grid">
-          <input type="text" value="0050.TW">
-          <select><option selected>ETF</option></select>
-          <input type="number" value="130">
-          <input type="number" value="2000">
-          <input type="text" value="25%" disabled style="background:transparent;border:none;">
-          <button class="btn-outline">✕</button>
-        </div>
-      </div>
-      <button class="btn-outline" style="width:100%;margin-top:10px;">➕ 新增部位</button>
+      <div id="portfolio-list"></div>
+      <button class="btn-outline" style="width:100%;margin-top:10px;" onclick="addPortfolioRow()">➕ 新增部位</button>
+    </div>
+    <div class="card" id="portfolio-results" style="display:none;">
+      <div class="card-title" style="margin-bottom:15px;">分析報告</div>
+      <div id="portfolio-results-content" class="grid-2"></div>
     </div>
   </div>
 
   <div id="view-market" class="view-section">
     <div class="card">
       <div class="card-header">
-        <div class="card-title">多維度技術疊加分析</div>
+        <div class="card-title">技術與籌碼分析</div>
         <div style="display:flex;gap:10px;">
-          <input type="text" value="2330.TW" style="margin:0;width:150px;">
-          <button class="btn-primary">渲染圖表</button>
+          <input type="text" id="market-ticker" placeholder="輸入代號, 例: 2330.TW" value="2330.TW" style="width:200px;">
+          <button class="btn-primary" id="btn-fetch-market" onclick="fetchMarketData()">獲取數據</button>
         </div>
       </div>
-      <div style="margin-bottom:20px;display:flex;gap:15px;align-items:center;">
-        <span style="font-size:14px;color:var(--text-secondary);">疊加異質數據：</span>
-        <label style="display:flex;align-items:center;gap:5px;font-size:14px;"><input type="checkbox" style="width:auto;margin:0;"> PTT/Dcard 聲量</label>
-        <label style="display:flex;align-items:center;gap:5px;font-size:14px;"><input type="checkbox" style="width:auto;margin:0;"> 法人選擇權 OI</label>
-        <label style="display:flex;align-items:center;gap:5px;font-size:14px;"><input type="checkbox" style="width:auto;margin:0;"> AI 新聞情緒分</label>
-      </div>
-      <div style="height:400px;background:var(--bg-base);border-radius:8px;border:1px dashed var(--border-color);display:flex;align-items:center;justify-content:center;">
-        <span style="color:var(--text-secondary);">[TradingView K線圖 + 異質數據疊加 佔位]</span>
+      <div id="market-result" style="display:none;">
+        <div class="grid-2">
+           <div style="background:var(--bg-base); border-radius:8px; padding:15px;">
+             <h4 style="color:var(--text-secondary); margin-bottom:10px;">近期 K 線數據</h4>
+             <div id="market-kline-data"></div>
+           </div>
+           <div style="background:var(--bg-base); border-radius:8px; padding:15px;">
+             <h4 style="color:var(--text-secondary); margin-bottom:10px;">趨勢指標 (MA)</h4>
+             <div id="market-ma-data"></div>
+           </div>
+        </div>
       </div>
     </div>
   </div>
@@ -189,34 +181,21 @@
   <div id="view-news" class="view-section">
     <div class="card">
       <div class="card-header">
-        <div class="card-title">事件驅動與知識圖譜</div>
-        <button class="btn-primary">啟動深度爬蟲與解析</button>
+        <div class="card-title">事件驅動與情緒量化</div>
+        <button class="btn-primary" id="btn-fetch-news" onclick="fetchAndAnalyzeNews()">啟動 AI 深度解析</button>
       </div>
-      <div style="height:250px;background:var(--bg-base);border-radius:8px;border:1px dashed var(--border-color);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
-        <span style="color:var(--text-secondary);">[D3.js 實體關聯知識圖譜 佔位]</span>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <div style="background:var(--bg-base);padding:16px;border-radius:8px;border-left:4px solid var(--up-green);">
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-            <span class="badge badge-bull">高度利多 · 影響力 85%</span>
-            <span style="color:var(--text-secondary);font-size:12px;">Bloomberg · 10分鐘前</span>
-          </div>
-          <div style="font-weight:600;margin-bottom:5px;">Nvidia 財報超預期，台系供應鏈全面爆發</div>
-          <div style="font-size:14px;color:var(--text-secondary);">AI 脈絡解析：此事件歷史相似度 88%，預計帶動 2330, 2382 未來五日上漲機率達 75%。</div>
-        </div>
-      </div>
+      <div id="news-stats" style="display:none; margin-bottom:20px; display:flex; gap:10px;"></div>
+      <div id="news-list" style="display:flex;flex-direction:column;gap:15px;"></div>
     </div>
   </div>
 
   <div id="view-settings" class="view-section">
     <div class="card">
-      <div class="card-title" style="margin-bottom:20px;">系統核心與 Webhook 綁定</div>
+      <div class="card-title" style="margin-bottom:20px;">系統核心路由綁定</div>
       <div style="max-width:500px;">
-        <label style="display:block;margin-bottom:8px;font-size:14px;color:var(--text-secondary);">量化運算後端端點 (API Base)</label>
-        <input type="text" value="https://ayak4-trading-strategy-bot-l4oa.onrender.com">
-        <label style="display:block;margin:20px 0 8px 0;font-size:14px;color:var(--text-secondary);">自動下單機器人 Webhook (選填)</label>
-        <input type="text" placeholder="https://your-trade-bot.com/webhook">
-        <button class="btn-primary" style="margin-top:10px;">儲存配置</button>
+        <label style="display:block;margin-bottom:8px;font-size:14px;color:var(--text-secondary);">API 端點 (包含協定)</label>
+        <input type="text" id="config-api-base" placeholder="https://your-api.com">
+        <button class="btn-primary" style="margin-top:15px;" onclick="saveConfig()">儲存配置</button>
       </div>
     </div>
   </div>
@@ -230,15 +209,18 @@
     <span style="font-size:12px;">▼</span>
   </div>
   <div class="copilot-body" id="copilot-chat">
-    <div class="msg-bubble msg-ai">您好！我注意到您正在檢視「戰情中心」。大盤情緒目前偏向貪婪，您的持股 2330 即將面臨前波高點壓力。需要我執行情境壓力測試嗎？</div>
+    <div class="msg-bubble msg-ai">您好！我是您的智能投資幕僚。已連線至後端引擎。您可以問我個股狀況或總經趨勢。</div>
   </div>
   <div class="copilot-input-area">
-    <input type="text" placeholder="輸入指令或詢問個股..." style="margin:0;">
-    <button class="btn-primary" style="padding:0 15px;">➤</button>
+    <input type="text" id="copilot-input" placeholder="輸入指令..." onkeypress="if(event.key==='Enter') sendCopilotMsg()">
+    <button class="btn-primary" id="btn-copilot-send" onclick="sendCopilotMsg()" style="padding:0 15px;">➤</button>
   </div>
 </div>
 
 <script>
+  let apiBase = localStorage.getItem('api_base') || window.location.origin;
+  document.getElementById('config-api-base').value = apiBase;
+
   function navigate(viewId, el) {
     document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -250,6 +232,279 @@
   function toggleCopilot() {
     document.getElementById('copilot-ui').classList.toggle('open');
   }
+
+  function saveConfig() {
+    apiBase = document.getElementById('config-api-base').value.trim();
+    localStorage.setItem('api_base', apiBase);
+    checkHealth();
+    alert('設定已儲存');
+  }
+
+  async function checkHealth() {
+    const indApi = document.getElementById('ind-api');
+    const indLlm = document.getElementById('ind-llm');
+    const dashHealth = document.getElementById('dash-health-content');
+    indApi.className = 'dot warn';
+    indLlm.className = 'dot warn';
+    try {
+      const res = await fetch(`${apiBase}/health`);
+      const data = await res.json();
+      indApi.className = 'dot ok';
+      indLlm.className = data.gemini ? 'dot ok' : 'dot err';
+      dashHealth.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      indApi.className = 'dot err';
+      indLlm.className = 'dot err';
+      dashHealth.textContent = "無法連線至 API 端點: " + apiBase;
+    }
+  }
+
+  async function fetchAutoNews() {
+    const container = document.getElementById('dash-news-content');
+    container.innerHTML = '<span class="loader" style="border-color:var(--accent-blue);"></span> 正在彙整今日大盤...';
+    try {
+      const res = await fetch(`${apiBase}/auto_news`);
+      const data = await res.json();
+      if(data.status === 'success') {
+        container.innerHTML = data.summary.replace(/\n/g, '<br>');
+      } else {
+        container.innerHTML = `<span style="color:var(--down-red)">${data.message}</span>`;
+      }
+    } catch (e) {
+      container.innerHTML = "取得資料失敗";
+    }
+  }
+
+  function addPortfolioRow(id='2330.TW', type='台股', cost=0, shares=1000) {
+    const list = document.getElementById('portfolio-list');
+    const row = document.createElement('div');
+    row.className = 'table-grid portfolio-item';
+    row.innerHTML = `
+      <input type="text" value="${id}" class="p-id">
+      <select class="p-type">
+        <option value="台股" ${type==='台股'?'selected':''}>台股</option>
+        <option value="ETF" ${type==='ETF'?'selected':''}>ETF</option>
+      </select>
+      <input type="number" value="${cost}" class="p-cost">
+      <input type="number" value="${shares}" class="p-shares">
+      <span style="color:var(--text-secondary); font-size:13px; padding:0 10px;" class="p-status">等待運算</span>
+      <button class="btn-outline" onclick="this.parentElement.remove()">✕</button>
+    `;
+    list.appendChild(row);
+  }
+
+  async function executePortfolioAnalysis() {
+    const items = document.querySelectorAll('.portfolio-item');
+    const targets = [];
+    items.forEach(item => {
+      targets.push({
+        id: item.querySelector('.p-id').value,
+        name: "",
+        type: item.querySelector('.p-type').value,
+        cost: parseFloat(item.querySelector('.p-cost').value) || 0,
+        shares: parseInt(item.querySelector('.p-shares').value) || 0
+      });
+    });
+
+    if(targets.length === 0) return;
+
+    const btn = document.getElementById('btn-stress-test');
+    const resBox = document.getElementById('portfolio-results');
+    const resContent = document.getElementById('portfolio-results-content');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> 運算中';
+    resBox.style.display = 'block';
+    resContent.innerHTML = '<div style="color:var(--text-secondary);">模型推理與資料彙整中...</div>';
+
+    try {
+      const res = await fetch(`${apiBase}/analyze`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({targets})
+      });
+      const data = await res.json();
+      
+      if(data.status === 'success') {
+        resContent.innerHTML = '';
+        data.data.forEach((r, idx) => {
+          const statusSpan = items[idx].querySelector('.p-status');
+          statusSpan.textContent = `評分: ${r.score}`;
+          statusSpan.style.color = r.score >= 60 ? 'var(--up-green)' : 'var(--down-red)';
+
+          const card = document.createElement('div');
+          card.style.cssText = "background:var(--bg-base); padding:20px; border-radius:12px; border:1px solid var(--border-color);";
+          const plColor = r.pl >= 0 ? 'var(--up-green)' : 'var(--down-red)';
+          const plSign = r.pl >= 0 ? '+' : '';
+          
+          let signalsHtml = r.signals.map(s => `<div style="font-size:13px; color:var(--text-secondary); margin-top:4px;">${s}</div>`).join('');
+          
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+              <span style="font-size:18px; font-weight:bold;">${r.ticker}</span>
+              <span style="font-size:18px; font-weight:bold; color:${plColor}">${plSign}${r.pl}%</span>
+            </div>
+            <div class="data-row"><span>現價</span><span>$${r.price}</span></div>
+            <div class="data-row"><span>AI 評分</span><span style="font-weight:bold;">${r.score}</span></div>
+            <div class="data-row"><span>操作建議</span><span style="color:var(--accent-blue); font-weight:bold;">${r.advice}</span></div>
+            <div class="data-row"><span>估值狀態</span><span>${r.valuation}</span></div>
+            <div class="data-row"><span>風控建議</span><span style="color:var(--down-red);">${r.exit}</span></div>
+            <div style="margin-top:15px; padding-top:10px; border-top:1px dashed var(--border-color);">
+              <div style="font-size:12px; color:var(--text-secondary); margin-bottom:5px;">觸發訊號</div>
+              ${signalsHtml || '<span style="font-size:13px; color:var(--text-secondary);">無明顯訊號</span>'}
+            </div>
+          `;
+          resContent.appendChild(card);
+        });
+      }
+    } catch(e) {
+      resContent.innerHTML = `<span style="color:var(--down-red)">運算失敗: ${e.message}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '⚡ 執行深度分析';
+    }
+  }
+
+  async function fetchMarketData() {
+    const ticker = document.getElementById('market-ticker').value;
+    if(!ticker) return;
+    const btn = document.getElementById('btn-fetch-market');
+    const resBox = document.getElementById('market-result');
+    const kData = document.getElementById('market-kline-data');
+    const maData = document.getElementById('market-ma-data');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>';
+    resBox.style.display = 'block';
+    kData.innerHTML = '';
+    maData.innerHTML = '';
+
+    try {
+      const res = await fetch(`${apiBase}/kline/${ticker}?days=20`);
+      const data = await res.json();
+      
+      if(data.status === 'success') {
+        data.candles.slice(-5).reverse().forEach(c => {
+          const d = new Date(c.time * 1000).toLocaleDateString();
+          const color = c.close >= c.open ? 'var(--up-green)' : 'var(--down-red)';
+          kData.innerHTML += `<div class="data-row"><span>${d}</span><span style="color:${color}; font-weight:bold;">${c.close}</span></div>`;
+        });
+        
+        const lastCandle = data.candles[data.candles.length-1];
+        const lastMa5 = data.ma5[data.ma5.length-1];
+        const lastMa20 = data.ma20[data.ma20.length-1];
+        
+        maData.innerHTML = `
+          <div class="data-row"><span>最新收盤</span><span>${lastCandle.close}</span></div>
+          <div class="data-row"><span>5日均線 (MA5)</span><span>${lastMa5 ? lastMa5.value : '-'}</span></div>
+          <div class="data-row"><span>20日均線 (MA20)</span><span>${lastMa20 ? lastMa20.value : '-'}</span></div>
+        `;
+      } else {
+        kData.innerHTML = `<span style="color:var(--down-red)">${data.message}</span>`;
+      }
+    } catch(e) {
+      kData.innerHTML = `<span style="color:var(--down-red)">發生錯誤</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '獲取數據';
+    }
+  }
+
+  async function fetchAndAnalyzeNews() {
+    const btn = document.getElementById('btn-fetch-news');
+    const statsBox = document.getElementById('news-stats');
+    const list = document.getElementById('news-list');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> 爬蟲與模型解析中';
+    statsBox.style.display = 'none';
+    list.innerHTML = '';
+
+    try {
+      const res = await fetch(`${apiBase}/news/analyze_batch`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sources: ['bloomberg', 'investing', 'ctee', 'udn_stock'], limit: 3})
+      });
+      const data = await res.json();
+
+      if(data.status === 'success') {
+        statsBox.style.display = 'flex';
+        statsBox.innerHTML = `
+          <div class="badge badge-bull">利多 ${data.stats['利多'] || 0}</div>
+          <div class="badge badge-bear">利空 ${data.stats['利空'] || 0}</div>
+          <div class="badge badge-neutral">中立 ${data.stats['中立'] || 0}</div>
+        `;
+
+        data.data.forEach(n => {
+          let badgeClass = 'badge-neutral';
+          if(n.sentiment === '利多') badgeClass = 'badge-bull';
+          if(n.sentiment === '利空') badgeClass = 'badge-bear';
+
+          list.innerHTML += `
+            <div style="background:var(--bg-base); padding:16px; border-radius:8px; border-left:4px solid ${n.sentiment==='利多'?'var(--up-green)':n.sentiment==='利空'?'var(--down-red)':'var(--text-secondary)'};">
+              <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span class="badge ${badgeClass}">${n.sentiment} · 影響 ${n.impact}</span>
+                <span style="color:var(--text-secondary); font-size:12px;">${n.source} · ${n.published}</span>
+              </div>
+              <div style="font-weight:600; margin-bottom:8px;"><a href="${n.link}" target="_blank" style="color:var(--text-primary); text-decoration:none;">${n.title}</a></div>
+              <div style="font-size:14px; color:var(--text-secondary);">💡 AI 觀點：${n.ai_reason || n.summary}</div>
+            </div>
+          `;
+        });
+      }
+    } catch(e) {
+      list.innerHTML = `<span style="color:var(--down-red)">解析失敗</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '啟動 AI 深度解析';
+    }
+  }
+
+  async function sendCopilotMsg() {
+    const input = document.getElementById('copilot-input');
+    const chat = document.getElementById('copilot-chat');
+    const btn = document.getElementById('btn-copilot-send');
+    const text = input.value.trim();
+    if(!text) return;
+
+    chat.innerHTML += `<div class="msg-bubble msg-user">${text}</div>`;
+    input.value = '';
+    chat.scrollTop = chat.scrollHeight;
+    
+    btn.disabled = true;
+    const loadingId = 'msg-' + Date.now();
+    chat.innerHTML += `<div class="msg-bubble msg-ai" id="${loadingId}"><span class="loader" style="border-color:var(--accent-blue); border-top-color:transparent;"></span></div>`;
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+      const res = await fetch(`${apiBase}/chat`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text})
+      });
+      const data = await res.json();
+      const replyBlock = document.getElementById(loadingId);
+      if(data.status === 'success') {
+        replyBlock.innerHTML = data.reply.replace(/\n/g, '<br>');
+      } else {
+        replyBlock.innerHTML = `錯誤: ${data.message}`;
+      }
+    } catch(e) {
+      document.getElementById(loadingId).innerHTML = "連線失敗";
+    } finally {
+      btn.disabled = false;
+      chat.scrollTop = chat.scrollHeight;
+      input.focus();
+    }
+  }
+
+  window.onload = () => {
+    checkHealth();
+    fetchAutoNews();
+    addPortfolioRow('2330.TW', '台股', 500, 1000);
+    addPortfolioRow('0050.TW', 'ETF', 120, 2000);
+  };
 </script>
 </body>
 </html>
