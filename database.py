@@ -3,7 +3,7 @@ import sqlite3
 import os
 import json
 from datetime import datetime
-#
+
 DB_PATH = os.environ.get("DB_PATH", "history.db")
 
 

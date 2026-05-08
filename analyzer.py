@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 
-#
+
 class TechnicalAnalyzer:
     @staticmethod
     def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
