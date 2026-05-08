@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -39,22 +38,25 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
 .top-bar { display:flex; align-items:center; justify-content:flex-end; gap:16px; padding:12px 24px; border-bottom:1px solid var(--slate-800); background:rgba(15,23,42,.5); }
 .status-dot { width:8px; height:8px; border-radius:50%; background:var(--green-400); animation:pulse 2s infinite; }
+.status-dot.err { background:var(--red-400); animation:none; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 .status-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--slate-400); }
-.content { flex:1; overflow-y:auto; }
+.content { flex:1; overflow-y:auto; scroll-behavior: smooth; }
 
 /* Page */
-.page { display:none; padding:24px; }
+.page { display:none; padding:24px; animation: fadeIn 0.3s ease;}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .page.active { display:block; }
 .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
 .page-header h2 { font-size:20px; font-weight:700; color:#fff; }
 .page-header .sub { font-size:12px; color:var(--slate-400); margin-top:2px; }
 .btn-analyze { display:flex; align-items:center; gap:8px; background:var(--orange-500); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; }
 .btn-analyze:hover { background:var(--orange-400); }
+.btn-analyze:disabled { opacity:0.6; cursor:not-allowed; }
 
 /* Cards */
-.card { background:var(--slate-800); border:1px solid var(--slate-700); border-radius:12px; overflow:hidden; }
-.card-header { padding:12px 20px; border-bottom:1px solid var(--slate-700); font-size:13px; font-weight:600; color:#fff; }
+.card { background:var(--slate-800); border:1px solid var(--slate-700); border-radius:12px; overflow:hidden; margin-bottom:16px;}
+.card-header { padding:12px 20px; border-bottom:1px solid var(--slate-700); font-size:13px; font-weight:600; color:#fff; display: flex; justify-content: space-between; align-items: center;}
 .card-body { padding:16px 20px; }
 
 /* Grid */
@@ -63,22 +65,12 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .grid-3 { grid-template-columns:repeat(3,1fr); }
 .grid-4 { grid-template-columns:repeat(4,1fr); }
 
-/* Stat Card */
-.stat-card { padding:16px; }
-.stat-card .label { font-size:12px; color:var(--slate-400); }
-.stat-card .value { font-size:20px; font-weight:700; color:#fff; margin-top:4px; }
-.stat-card .change { font-size:12px; margin-top:4px; }
-.stat-card .change.up { color:var(--green-400); }
-.stat-card .change.down { color:var(--red-400); }
-
 /* Badge */
 .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid; }
 .badge-green { background:rgba(34,197,94,.15); color:var(--green-400); border-color:rgba(34,197,94,.3); }
 .badge-red { background:rgba(239,68,68,.15); color:var(--red-400); border-color:rgba(239,68,68,.3); }
 .badge-blue { background:rgba(59,130,246,.15); color:var(--blue-400); border-color:rgba(59,130,246,.3); }
 .badge-orange { background:rgba(249,115,22,.15); color:var(--orange-400); border-color:rgba(249,115,22,.3); }
-.badge-yellow { background:rgba(234,179,8,.15); color:var(--yellow-400); border-color:rgba(234,179,8,.3); }
-.badge-purple { background:rgba(168,85,247,.15); color:var(--purple-400); border-color:rgba(168,85,247,.3); }
 .badge-slate { background:rgba(71,85,105,.4); color:var(--slate-300); border-color:var(--slate-600); }
 
 /* Table */
@@ -88,40 +80,15 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .data-table tbody tr:hover { background:rgba(51,65,85,.4); }
 .data-table tbody td { padding:12px 16px; }
 
-/* Sector bar */
-.sector-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
-.sector-name { font-size:13px; color:var(--slate-300); }
-.sector-bar-wrap { display:flex; align-items:center; gap:8px; }
-.sector-bar { width:96px; height:6px; background:var(--slate-700); border-radius:3px; overflow:hidden; }
-.sector-bar-fill { height:100%; border-radius:3px; }
-.sector-bar-fill.up { background:var(--red-400); }
-.sector-bar-fill.down { background:var(--green-400); }
-.sector-chg { font-size:12px; font-family:monospace; width:56px; text-align:right; }
-.sector-chg.up { color:var(--red-400); }
-.sector-chg.down { color:var(--green-400); }
-
-/* Stock row */
-.stock-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; }
-.stock-info .name { font-size:13px; color:#fff; font-weight:500; }
-.stock-info .code { font-size:11px; color:var(--slate-500); font-family:monospace; margin-left:8px; }
-.stock-price { text-align:right; }
-.stock-price .price { font-size:13px; color:#fff; font-family:monospace; }
-.stock-price .chg { font-size:12px; font-weight:700; }
-.stock-price .chg.up { color:var(--red-400); }
-.stock-price .chg.down { color:var(--green-400); }
-
 /* News row */
 .news-row { display:flex; align-items:center; gap:16px; padding:12px 20px; transition:background .2s; cursor:pointer; }
 .news-row:hover { background:rgba(51,65,85,.3); }
-.news-row .time { font-size:11px; color:var(--slate-500); font-family:monospace; width:40px; flex-shrink:0; }
-.news-row .hot-tag { font-size:11px; background:rgba(239,68,68,.15); color:var(--red-400); border:1px solid rgba(239,68,68,.3); padding:2px 6px; border-radius:4px; flex-shrink:0; }
-.news-row .title { font-size:13px; color:var(--slate-200); }
+.news-row .time { font-size:11px; color:var(--slate-500); font-family:monospace; width:120px; flex-shrink:0; }
+.news-row .title { font-size:13px; color:var(--slate-200); text-decoration: none;}
 
 /* Input */
 .input { background:var(--slate-900); border:1px solid var(--slate-600); color:#fff; font-size:13px; border-radius:8px; padding:10px 14px; outline:none; transition:border-color .2s; width:100%; }
 .input:focus { border-color:var(--blue-500); }
-.input::placeholder { color:var(--slate-500); }
-select.input { cursor:pointer; }
 
 /* Stress test */
 .position-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr auto; gap:12px; align-items:center; }
@@ -130,27 +97,16 @@ select.input { cursor:pointer; }
 .btn-add { width:100%; border:1px dashed var(--slate-600); background:transparent; color:var(--slate-400); padding:10px; border-radius:8px; cursor:pointer; font-size:13px; transition:all .2s; }
 .btn-add:hover { border-color:var(--purple-500); color:var(--purple-400); }
 
-/* Scenario */
-.scenario-item { display:flex; align-items:center; justify-content:space-between; padding:12px; background:rgba(15,23,42,.5); border-radius:8px; }
-.scenario-item .label { font-size:13px; color:var(--slate-300); }
-.scenario-item .loss { font-size:13px; font-weight:700; }
-.scenario-item .pct { font-size:11px; }
-
 /* AI advice box */
 .advice-box { padding:12px; border-radius:8px; margin-bottom:12px; }
 .advice-box .title { font-size:12px; font-weight:600; margin-bottom:4px; }
-.advice-box .desc { font-size:12px; color:var(--slate-300); line-height:1.6; }
-.advice-yellow { background:rgba(234,179,8,.08); border:1px solid rgba(234,179,8,.3); }
-.advice-yellow .title { color:var(--yellow-400); }
+.advice-box .desc { font-size:13px; color:var(--slate-300); line-height:1.6; white-space: pre-wrap;}
 .advice-blue { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.3); }
 .advice-blue .title { color:var(--blue-400); }
-.advice-green { background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.3); }
-.advice-green .title { color:var(--green-400); }
 
 /* Loading */
 .loading { display:flex; flex-direction:column; align-items:center; padding:40px; gap:12px; }
 .spinner { width:40px; height:40px; border:4px solid var(--slate-600); border-top-color:var(--orange-500); border-radius:50%; animation:spin 1s linear infinite; }
-.spinner.purple { border-top-color:var(--purple-500); }
 @keyframes spin { to{transform:rotate(360deg)} }
 .loading-text { font-size:13px; color:var(--slate-400); }
 
@@ -162,79 +118,27 @@ select.input { cursor:pointer; }
 .score-bar-fill.mid { background:var(--yellow-500); }
 .score-bar-fill.low { background:var(--red-500); }
 
-/* Sentiment gauge */
-.gauge-wrap { display:flex; flex-direction:column; align-items:center; }
-.gauge-labels { display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
-.gauge-label { font-size:11px; padding:2px 6px; border-radius:4px; background:var(--slate-700); color:var(--slate-400); }
-.gauge-label.active { background:var(--green-500); color:#fff; }
-
-/* Bull/Bear bar */
-.bull-bear { display:flex; align-items:center; gap:8px; }
-.bull-bear .bull { font-size:11px; color:var(--green-400); width:32px; }
-.bull-bear .bear { font-size:11px; color:var(--red-400); width:32px; }
-.bull-bear-track { width:112px; height:6px; background:var(--slate-600); border-radius:3px; overflow:hidden; }
-.bull-bear-fill { height:100%; border-radius:3px; background:linear-gradient(to right,var(--green-500),var(--green-400)); }
-
-/* Screener */
-.search-box { display:flex; gap:8px; }
-.btn-search { background:var(--purple-600); color:#fff; border:none; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; }
-.btn-search:hover { background:var(--purple-500); }
-.suggestions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-.suggestion-btn { font-size:12px; background:var(--slate-700); color:var(--slate-300); border:1px solid var(--slate-600); padding:6px 12px; border-radius:20px; cursor:pointer; transition:all .2s; }
-.suggestion-btn:hover { background:var(--slate-600); }
-.filter-btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-.filter-btn { font-size:12px; padding:6px 12px; border-radius:20px; border:1px solid var(--slate-600); background:var(--slate-800); color:var(--slate-400); cursor:pointer; font-weight:500; transition:all .2s; }
-.filter-btn:hover { border-color:var(--slate-400); }
-.filter-btn.active { background:var(--purple-600); border-color:var(--purple-500); color:#fff; }
-
-/* Expand row */
-.expand-row { background:rgba(51,65,85,.3); padding:12px 20px; display:none; }
-.expand-row.show { display:block; }
-.ai-comment { display:flex; align-items:flex-start; gap:8px; }
-.ai-comment .icon { color:var(--purple-400); }
-.ai-comment .text { font-size:12px; color:var(--slate-300); line-height:1.6; }
-.ai-comment .label { color:var(--purple-400); font-weight:600; }
-
-/* Info cards */
-.info-card { padding:12px; display:flex; align-items:center; gap:12px; border-radius:8px; border:1px solid; }
-.info-card .icon { font-size:24px; }
-.info-card .label { font-size:12px; color:var(--slate-400); }
-.info-card .val { font-size:16px; font-weight:700; margin-top:2px; }
-
 /* Chat floating */
 .chat-fab { position:fixed; bottom:24px; right:24px; width:48px; height:48px; background:var(--blue-600); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; box-shadow:0 4px 20px rgba(37,99,235,.4); transition:all .2s; z-index:100; }
 .chat-fab:hover { background:var(--blue-500); transform:scale(1.1); }
-
-/* Chat panel */
-.chat-panel { position:fixed; bottom:80px; right:24px; width:380px; max-height:500px; background:var(--slate-900); border:1px solid var(--slate-700); border-radius:16px; display:none; flex-direction:column; z-index:100; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.chat-panel { position:fixed; bottom:80px; right:24px; width:380px; max-height:500px; height:60vh; background:var(--slate-900); border:1px solid var(--slate-700); border-radius:16px; display:none; flex-direction:column; z-index:100; box-shadow:0 20px 60px rgba(0,0,0,.5); }
 .chat-panel.open { display:flex; }
 .chat-header { padding:14px 20px; border-bottom:1px solid var(--slate-700); display:flex; align-items:center; justify-content:space-between; }
-.chat-header .title { font-size:14px; font-weight:600; color:#fff; }
-.chat-header .close-btn { background:none; border:none; color:var(--slate-400); font-size:18px; cursor:pointer; }
-.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; max-height:340px; }
-.chat-msg { max-width:85%; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; }
+.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.chat-msg { max-width:85%; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; white-space: pre-wrap;}
 .chat-msg.user { align-self:flex-end; background:var(--blue-600); color:#fff; border-bottom-right-radius:4px; }
-.chat-msg.bot { align-self:flex-start; background:var(--slate-800); color:var(--slate-200); border-bottom-left-radius:4px; }
+.chat-msg.bot { align-self:flex-start; background:var(--slate-800); color:var(--slate-200); border-bottom-left-radius:4px; border:1px solid var(--slate-700);}
 .chat-input-wrap { padding:12px 16px; border-top:1px solid var(--slate-700); display:flex; gap:8px; }
 .chat-input { flex:1; background:var(--slate-800); border:1px solid var(--slate-600); color:#fff; font-size:13px; padding:10px 14px; border-radius:8px; outline:none; }
-.chat-input:focus { border-color:var(--blue-500); }
-.chat-send { background:var(--blue-600); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; transition:background .2s; }
-.chat-send:hover { background:var(--blue-500); }
+.chat-send { background:var(--blue-600); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
 
-/* Responsive */
-@media(max-width:1024px) {
-  .grid-4 { grid-template-columns:repeat(2,1fr); }
-  .grid-3 { grid-template-columns:repeat(2,1fr); }
-}
-@media(max-width:768px) {
-  .sidebar { display:none; }
-  .grid-4,.grid-3,.grid-2 { grid-template-columns:1fr; }
-}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 10px; }
 </style>
 </head>
 <body>
 <div class="app">
-  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
       <span class="logo">🚀</span>
@@ -250,44 +154,48 @@ select.input { cursor:pointer; }
       <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 選股雷達<span class="new-badge">NEW</span></button>
     </nav>
     <div class="sidebar-footer">
-      <button class="nav-btn" onclick="openSettings()"><span class="icon">⚙️</span>系統核心設定</button>
+      <button class="nav-btn" onclick="checkHealth()"><span class="icon">⚙️</span>測試系統連線</button>
     </div>
   </aside>
 
-  <!-- Main -->
   <div class="main">
     <header class="top-bar">
-      <span class="status-item"><span class="status-dot"></span>核心 API</span>
-      <span class="status-item" id="api-status"><span class="status-dot"></span>LLM 推論</span>
+      <span class="status-item"><span class="status-dot" id="dot-api"></span>核心 API</span>
+      <span class="status-item"><span class="status-dot" id="dot-ai"></span>MaiAgent 推論</span>
     </header>
     <div class="content">
 
-      <!-- ===== 1. 戰情中心 ===== -->
       <div class="page active" id="page-war">
         <div class="page-header">
-          <div><h2>戰情中心</h2><p class="sub">即時大盤監控 × 族群動態 × 重要新聞整合</p></div>
-          <button class="btn-analyze" onclick="fetchWarData()">⚡ 即時更新</button>
+          <div><h2>戰情中心</h2><p class="sub">AI 盤前摘要 × 即時新聞動態</p></div>
+          <button class="btn-analyze" id="btn-war" onclick="fetchWarData()">⚡ 即時更新</button>
         </div>
-        <div class="grid grid-4" id="war-stats"></div>
-        <div class="grid grid-3" style="margin-top:16px">
-          <div class="card"><div class="card-header">📊 族群漲跌</div><div class="card-body" id="war-sectors"></div></div>
-          <div class="card"><div class="card-header">🔴 今日強勢股</div><div class="card-body" id="war-gainers"></div></div>
-          <div class="card"><div class="card-header">🟢 今日弱勢股</div><div class="card-body" id="war-losers"></div></div>
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header">🤖 MaiAgent 每日大盤摘要</div>
+            <div class="card-body" id="war-ai-summary">
+              <span style="color:var(--slate-500)">點擊更新以獲取最新 AI 解析...</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">📰 各大財經頭條</div>
+            <div id="war-news">
+               <span style="color:var(--slate-500); padding:20px; display:block;">無最新新聞</span>
+            </div>
+          </div>
         </div>
-        <div class="card" style="margin-top:16px"><div class="card-header">📰 即時重要新聞</div><div id="war-news"></div></div>
       </div>
 
-      <!-- ===== 2. 資產壓力測試 ===== -->
       <div class="page" id="page-stress">
         <div class="page-header">
-          <div><h2>資產壓力測試</h2><p class="sub">投資組合風險模擬 × 歷史情境回測 × 最大損失估算</p></div>
-          <button class="btn-analyze" onclick="runStressTest()">⚡ 執行深度分析</button>
+          <div><h2>資產壓力測試</h2><p class="sub">投資組合風險分析 × 停損點試算</p></div>
+          <button class="btn-analyze" id="btn-stress" onclick="runStressTest()">⚡ 執行深度分析</button>
         </div>
         <div class="card">
           <div class="card-header">投資組合設定</div>
           <div class="card-body">
             <div class="position-grid" style="margin-bottom:8px;font-size:11px;color:var(--slate-500);">
-              <span>標的代號</span><span>資產類型</span><span>平均成本</span><span>持有股數</span><span></span>
+              <span>標的代號 (.TW)</span><span>資產類型</span><span>平均成本</span><span>持有股數</span><span></span>
             </div>
             <div id="positions-list"></div>
             <button class="btn-add" onclick="addPosition()" style="margin-top:12px">+ 新增部位</button>
@@ -296,80 +204,66 @@ select.input { cursor:pointer; }
         <div id="stress-result" style="margin-top:16px"></div>
       </div>
 
-      <!-- ===== 3. 異質技術分析 ===== -->
       <div class="page" id="page-tech">
         <div class="page-header">
-          <div><h2>異質技術分析</h2><p class="sub">多維度技術指標融合 × AI 型態識別 × 買賣訊號生成</p></div>
-          <button class="btn-analyze" onclick="fetchTechAnalysis()">⚡ 執行深度分析</button>
-        </div>
-        <div class="grid grid-4" style="margin-bottom:16px">
-          <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px"><span style="font-size:24px">📈</span><div><p style="font-size:13px;font-weight:600;color:#fff">均線系統</p><p style="font-size:11px;color:var(--slate-400)">MA5/20/60 多空排列</p></div></div>
-          <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px"><span style="font-size:24px">📊</span><div><p style="font-size:13px;font-weight:600;color:#fff">MACD</p><p style="font-size:11px;color:var(--slate-400)">動能背離偵測</p></div></div>
-          <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px"><span style="font-size:24px">🔄</span><div><p style="font-size:13px;font-weight:600;color:#fff">RSI</p><p style="font-size:11px;color:var(--slate-400)">超買超賣區間</p></div></div>
-          <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px"><span style="font-size:24px">🤖</span><div><p style="font-size:13px;font-weight:600;color:#fff">型態識別</p><p style="font-size:11px;color:var(--slate-400)">AI 圖形辨識引擎</p></div></div>
+          <div><h2>異質技術分析</h2><p class="sub">技術指標融合 × K線型態識別</p></div>
+          <button class="btn-analyze" id="btn-tech" onclick="fetchTechAnalysis()">⚡ 分析熱門權值股</button>
         </div>
         <div class="card">
-          <div class="card-header">個股技術分析總覽（點擊列展開詳情）</div>
+          <div class="card-header">熱門權值股技術分析總覽</div>
           <table class="data-table">
-            <thead><tr><th>標的</th><th>技術型態</th><th style="text-align:center">RSI</th><th style="text-align:center">MACD</th><th style="text-align:center">均線</th><th style="text-align:right">AI評分</th><th style="text-align:right">訊號</th></tr></thead>
+            <thead><tr><th>標的</th><th style="text-align:right">收盤價</th><th style="text-align:center">AI 估值狀態</th><th style="text-align:left">技術訊號追蹤</th><th style="text-align:right">綜合評分</th><th style="text-align:right">操作建議</th></tr></thead>
             <tbody id="tech-table"></tbody>
           </table>
         </div>
       </div>
 
-      <!-- ===== 4. 新聞知識圖譜 ===== -->
       <div class="page" id="page-news">
         <div class="page-header">
-          <div><h2>新聞知識圖譜</h2><p class="sub">AI 新聞解析 × 情緒標記 × 個股影響評估</p></div>
-          <button class="btn-analyze" onclick="fetchNews()">⚡ 抓取最新新聞</button>
+          <div><h2>新聞知識圖譜</h2><p class="sub">MaiAgent 批次新聞情緒分析</p></div>
+          <button class="btn-analyze" id="btn-news" onclick="fetchNewsAnalysis()">⚡ 啟動 AI 批次解析</button>
         </div>
         <div class="grid grid-3" style="margin-bottom:16px" id="news-stats"></div>
-        <div class="filter-btns" id="news-filters"></div>
         <div class="card">
-          <div class="card-header">📋 新聞列表（點擊展開 AI 解析）</div>
+          <div class="card-header">📋 AI 情緒解析列表</div>
           <div id="news-list"></div>
         </div>
       </div>
 
-      <!-- ===== 5. 市場情緒雷達 ===== -->
       <div class="page" id="page-sentiment">
         <div class="page-header">
-          <div><h2>市場情緒雷達</h2><p class="sub">整合社群聲量 × 外資動向 × 籌碼面即時分析</p></div>
-          <button class="btn-analyze" onclick="fetchSentiment()">⚡ 執行深度分析</button>
+          <div><h2>市場情緒雷達</h2><p class="sub">籌碼面與近期利空/利多比例綜合評估</p></div>
+          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 計算大盤情緒</button>
         </div>
-        <div class="grid grid-3" style="margin-bottom:16px">
-          <div class="card" style="padding:16px;display:flex;flex-direction:column;align-items:center">
-            <p style="font-size:12px;color:var(--slate-400);margin-bottom:8px">台股整體情緒指數</p>
-            <div class="gauge-wrap" id="sentiment-gauge"></div>
-          </div>
-          <div class="grid grid-3" style="grid-column:span 2" id="sentiment-indicators"></div>
-        </div>
-        <div class="card">
-          <div class="card-header">🔍 個股情緒指標</div>
-          <table class="data-table">
-            <thead><tr><th>標的</th><th>多空聲量</th><th style="text-align:right">漲跌幅</th><th style="text-align:right">狀態</th></tr></thead>
-            <tbody id="sentiment-table"></tbody>
-          </table>
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-header">📊 新聞情緒儀表板</div>
+                <div class="card-body" id="sentiment-gauge-container" style="display:flex; justify-content:center; padding:40px 0;">
+                    <span style="color:var(--slate-500)">點擊計算以啟動分析...</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">🤖 AI 市場洞察</div>
+                <div class="card-body" id="sentiment-insight">
+                   <span style="color:var(--slate-500)">等待數據載入...</span>
+                </div>
+            </div>
         </div>
       </div>
 
-      <!-- ===== 6. AI 選股雷達 ===== -->
       <div class="page" id="page-screener">
         <div class="page-header">
-          <div><h2>AI 選股雷達</h2><p class="sub">自然語言篩選 × 基本面 × 技術面 × 籌碼面三維評分</p></div>
-          <button class="btn-analyze" onclick="runScreener()">⚡ 執行深度分析</button>
+          <div><h2>AI 選股雷達</h2><p class="sub">透過 MaiAgent 自然語言進行條件篩選與諮詢</p></div>
         </div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-body">
-            <p style="font-size:12px;color:var(--slate-400);margin-bottom:8px">💬 用自然語言描述你的選股條件</p>
-            <div class="search-box">
-              <input class="input" id="screener-input" placeholder="例：找出本益比低於20、近三季獲利成長的半導體股..." onkeydown="if(event.key==='Enter')runScreener()">
-              <button class="btn-search" onclick="runScreener()">搜尋</button>
+            <p style="font-size:12px;color:var(--slate-400);margin-bottom:8px">💬 告訴 AI 你的選股條件</p>
+            <div style="display:flex; gap:8px;">
+              <input class="input" id="screener-input" placeholder="例：找出適合存股的高殖利率金融股..." onkeydown="if(event.key==='Enter')runScreener()">
+              <button class="btn-analyze" id="btn-screener" onclick="runScreener()">🧠 AI 篩選</button>
             </div>
-            <div class="suggestions" id="screener-suggestions"></div>
           </div>
         </div>
-        <div class="filter-btns" id="screener-filters"></div>
         <div id="screener-result"></div>
       </div>
 
@@ -377,29 +271,28 @@ select.input { cursor:pointer; }
   </div>
 </div>
 
-<!-- Chat FAB -->
 <button class="chat-fab" onclick="toggleChat()">🤖</button>
 
-<!-- Chat Panel -->
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
-    <span class="title">🤖 AI 投資助理</span>
-    <button class="close-btn" onclick="toggleChat()">✕</button>
+    <span class="title">🤖 MaiAgent 投資助理</span>
+    <button style="background:none; border:none; color:var(--slate-400); cursor:pointer;" onclick="toggleChat()">✕</button>
   </div>
   <div class="chat-messages" id="chat-messages">
-    <div class="chat-msg bot">您好！我是智盤 Pro AI 助理，可以幫您分析台股、解讀新聞、提供投資建議。請問有什麼可以幫您的？</div>
+    <div class="chat-msg bot">您好！我是智盤 Pro 內建的 MaiAgent AI 助理，已連線至您的後端。請問有什麼可以幫您的？</div>
   </div>
   <div class="chat-input-wrap">
     <input class="chat-input" id="chat-input" placeholder="輸入問題..." onkeydown="if(event.key==='Enter')sendChat()">
-    <button class="chat-send" onclick="sendChat()">發送</button>
+    <button class="chat-send" onclick="sendChat()" id="chat-send-btn">發送</button>
   </div>
 </div>
 
 <script>
 // ══════════════════════════════════════════
-// API 設定
+// 核心 API 設定
 // ══════════════════════════════════════════
-const API_BASE = window.location.origin; // 同源部署，或改為 'https://your-render-app.onrender.com'
+const API_BASE = window.location.origin; 
+let currentChatbotId = null;
 
 async function apiCall(endpoint, method='GET', body=null) {
   const opts = { method, headers:{'Content-Type':'application/json'} };
@@ -409,72 +302,32 @@ async function apiCall(endpoint, method='GET', body=null) {
     return await res.json();
   } catch(e) {
     console.error('API Error:', e);
-    return { status:'error', message: e.message };
+    return { status:'error', message: '無法連線至伺服器' };
+  }
+}
+
+async function checkHealth() {
+  const dotApi = document.getElementById('dot-api');
+  const dotAi = document.getElementById('dot-ai');
+  dotApi.className = 'status-dot'; dotAi.className = 'status-dot';
+  
+  const res = await apiCall('/health');
+  if(res.status === 'ok') {
+    dotApi.classList.add(res.scheduler ? 'ok' : 'ok'); // API alive
+    if(res.maiagent) {
+        dotAi.classList.add('ok');
+    } else {
+        dotAi.classList.add('err');
+        alert("⚠️ 後端 MaiAgent 未啟用，請確保 Server 端環境變數已設定 MAIAGENT_API_KEY");
+    }
+  } else {
+    dotApi.classList.add('err');
+    dotAi.classList.add('err');
   }
 }
 
 // ══════════════════════════════════════════
-// 模擬資料（當 API 無法連線時使用）
-// ══════════════════════════════════════════
-const mockData = {
-  warStats: [
-    { label:"加權指數", value:"22,847", chg:"+183 (+0.81%)", up:true },
-    { label:"成交量", value:"3,241億", chg:"+12.3%", up:true },
-    { label:"上漲家數", value:"892", chg:"/ 1,847 家", up:true },
-    { label:"外資買超", value:"+42.3億", chg:"連續 3 日買超", up:true },
-  ],
-  sectors: [
-    { name:"半導體", chg:"+1.82%", up:true },
-    { name:"伺服器", chg:"+2.41%", up:true },
-    { name:"金融", chg:"+0.33%", up:true },
-    { name:"傳產", chg:"-0.21%", up:false },
-    { name:"生技", chg:"-0.55%", up:false },
-    { name:"電信", chg:"+0.12%", up:true },
-  ],
-  gainers: [
-    { code:"2330", name:"台積電", price:"945", chg:"+2.35%" },
-    { code:"2382", name:"廣達", price:"312", chg:"+3.12%" },
-    { code:"2454", name:"聯發科", price:"1125", chg:"+1.54%" },
-    { code:"3711", name:"日月光", price:"168", chg:"+1.20%" },
-  ],
-  losers: [
-    { code:"2308", name:"台達電", price:"368", chg:"-0.73%" },
-    { code:"2317", name:"鴻海", price:"183", chg:"-0.54%" },
-    { code:"2412", name:"中華電", price:"122", chg:"-0.32%" },
-  ],
-  news: [
-    { time:"10:32", title:"台積電 CoWoS 產能滿載，Q3 營收預估上修 8%", hot:true, tags:["台積電","半導體","AI"], sentiment:"正面", impact:"高" },
-    { time:"10:15", title:"Fed 暗示年內降息兩次，科技股全面走揚", hot:false, tags:["Fed","降息","科技股"], sentiment:"正面", impact:"高" },
-    { time:"09:58", title:"廣達 AI 伺服器訂單爆發，法人目標價調升至 380", hot:false, tags:["廣達","伺服器","AI"], sentiment:"正面", impact:"中" },
-    { time:"09:40", title:"外資今日買超台股 42.3 億，集中半導體族群", hot:false, tags:["外資","半導體"], sentiment:"正面", impact:"中" },
-    { time:"09:20", title:"台達電接獲客戶取消訂單通知，股價承壓", hot:false, tags:["台達電","電源"], sentiment:"負面", impact:"中" },
-    { time:"09:05", title:"鴻海 MIH 電動車平台進度落後，市場觀望", hot:false, tags:["鴻海","電動車"], sentiment:"負面", impact:"低" },
-  ],
-  techStocks: [
-    { code:"2330", name:"台積電", pattern:"黃金交叉", signal:"買進", rsi:62, macd:"正", ma:"多頭排列", score:88 },
-    { code:"2454", name:"聯發科", pattern:"頭肩底", signal:"買進", rsi:58, macd:"正", ma:"多頭排列", score:82 },
-    { code:"2382", name:"廣達", pattern:"突破前高", signal:"強買", rsi:71, macd:"正", ma:"多頭排列", score:91 },
-    { code:"2308", name:"台達電", pattern:"死亡交叉", signal:"賣出", rsi:38, macd:"負", ma:"空頭排列", score:32 },
-    { code:"2317", name:"鴻海", pattern:"盤整區間", signal:"觀望", rsi:50, macd:"中", ma:"橫盤", score:55 },
-  ],
-  sentimentStocks: [
-    { code:"2330", name:"台積電", bull:78, bear:22, hot:true, change:"+2.35%", alert:false },
-    { code:"2317", name:"鴻海", bull:55, bear:45, hot:false, change:"+0.82%", alert:false },
-    { code:"2454", name:"聯發科", bull:62, bear:38, hot:true, change:"+1.54%", alert:false },
-    { code:"2308", name:"台達電", bull:44, bear:56, hot:false, change:"-0.73%", alert:true },
-    { code:"2382", name:"廣達", bull:71, bear:29, hot:true, change:"+3.12%", alert:false },
-  ],
-  screenedStocks: [
-    { code:"2330", name:"台積電", sector:"半導體", pe:22.3, growth:"+18%", score:95, tag:"強力推薦", reason:"AI需求強勁，外資持續買超，技術面突破前高壓力區。" },
-    { code:"2382", name:"廣達", sector:"伺服器", pe:14.8, growth:"+32%", score:91, tag:"高成長", reason:"AI伺服器訂單爆發，三季連續獲利創歷史新高。" },
-    { code:"2454", name:"聯發科", sector:"IC設計", pe:17.2, growth:"+22%", score:87, tag:"趨勢向上", reason:"手機晶片回溫，AI Edge需求帶動新動能。" },
-    { code:"3711", name:"日月光投控", sector:"封測", pe:12.1, growth:"+15%", score:82, tag:"潛力股", reason:"先進封裝需求大增，CoWoS產能滿載。" },
-    { code:"2308", name:"台達電", sector:"電源", pe:28.4, growth:"+11%", score:76, tag:"穩健成長", reason:"AI資料中心電源需求持續，毛利率持續改善。" },
-  ]
-};
-
-// ══════════════════════════════════════════
-// 導覽
+// 導覽列邏輯
 // ══════════════════════════════════════════
 document.querySelectorAll('#nav .nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -486,92 +339,52 @@ document.querySelectorAll('#nav .nav-btn').forEach(btn => {
 });
 
 // ══════════════════════════════════════════
-// 1. 戰情中心
+// 1. 戰情中心 (Dashboard)
 // ══════════════════════════════════════════
-function renderWarPage(data) {
-  // Stats
-  const statsHtml = (data.warStats || mockData.warStats).map(s => `
-    <div class="card stat-card">
-      <p class="label">${s.label}</p>
-      <p class="value">${s.value}</p>
-      <p class="change ${s.up?'up':'down'}">${s.chg}</p>
-    </div>
-  `).join('');
-  document.getElementById('war-stats').innerHTML = statsHtml;
-
-  // Sectors
-  const sectors = data.sectors || mockData.sectors;
-  document.getElementById('war-sectors').innerHTML = sectors.map(s => `
-    <div class="sector-row">
-      <span class="sector-name">${s.name}</span>
-      <div class="sector-bar-wrap">
-        <div class="sector-bar"><div class="sector-bar-fill ${s.up?'up':'down'}" style="width:${Math.abs(parseFloat(s.chg))*20+30}%"></div></div>
-        <span class="sector-chg ${s.up?'up':'down'}">${s.chg}</span>
-      </div>
-    </div>
-  `).join('');
-
-  // Gainers
-  document.getElementById('war-gainers').innerHTML = (data.gainers || mockData.gainers).map(s => `
-    <div class="stock-row">
-      <div class="stock-info"><span class="name">${s.name}</span><span class="code">${s.code}</span></div>
-      <div class="stock-price"><p class="price">${s.price}</p><p class="chg up">${s.chg}</p></div>
-    </div>
-  `).join('');
-
-  // Losers
-  document.getElementById('war-losers').innerHTML = (data.losers || mockData.losers).map(s => `
-    <div class="stock-row">
-      <div class="stock-info"><span class="name">${s.name}</span><span class="code">${s.code}</span></div>
-      <div class="stock-price"><p class="price">${s.price}</p><p class="chg down">${s.chg}</p></div>
-    </div>
-  `).join('');
-
-  // News
-  const news = data.news || mockData.news;
-  document.getElementById('war-news').innerHTML = news.slice(0,6).map(n => `
-    <div class="news-row">
-      <span class="time">${n.time}</span>
-      ${n.hot?'<span class="hot-tag">🔥 熱</span>':''}
-      <span class="title">${n.title}</span>
-    </div>
-  `).join('');
-}
-
 async function fetchWarData() {
-  const res = await apiCall('/health');
-  // 嘗試取得新聞
-  const newsRes = await apiCall('/news?limit=6');
-  let data = {};
-  if (newsRes.status === 'success' && newsRes.data) {
-    data.news = newsRes.data.map(n => ({
-      time: n.time || new Date(n.published || Date.now()).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
-      title: n.title,
-      hot: n.hot || false,
-      tags: n.tags || [],
-      sentiment: n.sentiment || '中性',
-      impact: n.impact || '中'
-    }));
+  const btn = document.getElementById('btn-war');
+  btn.disabled = true;
+  document.getElementById('war-ai-summary').innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">MaiAgent 生成摘要中...</p></div>';
+  document.getElementById('war-news').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  // 1. 抓取 AI 摘要
+  const aiRes = await apiCall('/auto_news');
+  if(aiRes.status === 'success') {
+     document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0;"><p class="desc">${aiRes.summary}</p></div>`;
+  } else {
+     document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
   }
-  renderWarPage(data);
+
+  // 2. 抓取最新新聞
+  const newsRes = await apiCall('/news?limit=6');
+  if(newsRes.status === 'success') {
+      document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
+        <a href="${n.link}" target="_blank" class="news-row">
+          <span class="time">${n.published}</span>
+          <span class="badge badge-slate">${n.source}</span>
+          <span class="title">${n.title}</span>
+        </a>
+      `).join('');
+  }
+  btn.disabled = false;
 }
 
 // ══════════════════════════════════════════
-// 2. 資產壓力測試
+// 2. 資產壓力測試 (Portfolio / Analyze)
 // ══════════════════════════════════════════
 let positions = [
   { code:"2330.TW", type:"台股", cost:"500", shares:"1000" },
-  { code:"0050.TW", type:"ETF", cost:"120", shares:"2000" },
+  { code:"0050.TW", type:"ETF", cost:"130", shares:"2000" },
 ];
 
 function renderPositions() {
-  const types = ["台股","ETF","美股","期貨","選擇權"];
+  const types = ["台股","ETF"];
   document.getElementById('positions-list').innerHTML = positions.map((p,i) => `
     <div class="position-grid" style="margin-bottom:8px">
-      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value" placeholder="2330.TW">
+      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value" placeholder="例如: 2330.TW">
       <select class="input" onchange="positions[${i}].type=this.value">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
-      <input class="input" value="${p.cost}" onchange="positions[${i}].cost=this.value" placeholder="500">
-      <input class="input" value="${p.shares}" onchange="positions[${i}].shares=this.value" placeholder="1000">
+      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value">
+      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value">
       <button class="btn-remove" onclick="removePosition(${i})">×</button>
     </div>
   `).join('');
@@ -581,334 +394,240 @@ function addPosition() { positions.push({code:"",type:"台股",cost:"",shares:""
 function removePosition(i) { positions.splice(i,1); renderPositions(); }
 
 async function runStressTest() {
+  const btn = document.getElementById('btn-stress');
   const resultDiv = document.getElementById('stress-result');
-  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">AI 正在模擬歷史情境壓力測試...</p></div>';
+  btn.disabled = true;
+  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">正在回測技術指標與籌碼計算...</p></div>';
 
-  // 嘗試呼叫後端 API
-  const targets = positions.filter(p=>p.code).map(p=>({id:p.code, name:p.code.replace('.TW',''), type:p.type, cost:parseFloat(p.cost)||0, shares:parseInt(p.shares)||0}));
+  const targets = positions.filter(p=>p.code).map(p=>({id:p.code, name:"", type:p.type, cost:parseFloat(p.cost)||0, shares:parseInt(p.shares)||0}));
   const res = await apiCall('/analyze', 'POST', { targets });
 
-  setTimeout(() => {
-    const scenarios = [
-      { label:"大盤下跌 10%", loss:"-$284,500", pct:"-12.3%", color:"var(--yellow-400)" },
-      { label:"大盤下跌 20%", loss:"-$612,000", pct:"-26.5%", color:"var(--orange-400)" },
-      { label:"金融海嘯情境", loss:"-$1,240,000", pct:"-53.7%", color:"var(--red-400)" },
-      { label:"科技泡沫情境", loss:"-$980,000", pct:"-42.4%", color:"var(--red-400)" },
-    ];
-
-    let apiResultHtml = '';
-    if (res.status === 'success' && res.data) {
-      apiResultHtml = `<div class="advice-box advice-blue"><p class="title">📊 後端分析結果</p><p class="desc">${JSON.stringify(res.data).slice(0,300)}...</p></div>`;
-    }
-
-    resultDiv.innerHTML = `
-      <div class="grid grid-2">
-        <div class="card"><div class="card-header">📉 壓力情境模擬結果</div><div class="card-body" style="display:flex;flex-direction:column;gap:12px">
-          ${scenarios.map(s=>`<div class="scenario-item"><span class="label">${s.label}</span><div style="text-align:right"><p class="loss" style="color:${s.color}">${s.loss}</p><p class="pct" style="color:${s.color}">${s.pct}</p></div></div>`).join('')}
-        </div></div>
-        <div class="card"><div class="card-header">🤖 AI 風險建議</div><div class="card-body">
-          ${apiResultHtml}
-          <div class="advice-box advice-yellow"><p class="title">⚠ 集中度風險</p><p class="desc">台積電佔組合比重過高（約 68%），建議分散至其他族群。</p></div>
-          <div class="advice-box advice-blue"><p class="title">💡 對沖建議</p><p class="desc">可考慮加入 00878 或 00713 等高息 ETF 降低波動風險。</p></div>
-          <div class="advice-box advice-green"><p class="title">✅ 整體評估</p><p class="desc">組合整體偏成長型，適合積極型投資人，風險承受度需中高。</p></div>
-        </div></div>
-      </div>
-    `;
-  }, 1600);
-}
-
-// ══════════════════════════════════════════
-// 3. 異質技術分析
-// ══════════════════════════════════════════
-function renderTechTable(stocks) {
-  const signalBadge = (sig) => sig==="強買"?"badge-red":sig==="買進"?"badge-orange":sig==="賣出"?"badge-green":"badge-slate";
-  const scoreClass = (s) => s>=80?"high":s>=60?"mid":"low";
-  const scoreColor = (s) => s>=80?"var(--green-400)":s>=60?"var(--yellow-400)":"var(--red-400)";
-  const rsiColor = (r) => r>70?"var(--red-400)":r<30?"var(--green-400)":"var(--slate-300)";
-  const macdBadge = (m) => m==="正"?"badge-green":m==="負"?"badge-red":"badge-slate";
-
-  document.getElementById('tech-table').innerHTML = stocks.map(s => `
-    <tr onclick="toggleTechDetail('${s.code}')">
-      <td><span style="color:#fff;font-weight:500">${s.name}</span><span style="color:var(--slate-500);font-size:11px;font-family:monospace;margin-left:8px">${s.code}</span></td>
-      <td style="font-size:12px;color:var(--slate-300)">${s.pattern}</td>
-      <td style="text-align:center"><span style="font-family:monospace;color:${rsiColor(s.rsi)}">${s.rsi}</span></td>
-      <td style="text-align:center"><span class="badge ${macdBadge(s.macd)}">${s.macd}</span></td>
-      <td style="text-align:center;font-size:12px;color:var(--slate-300)">${s.ma}</td>
-      <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track"><div class="score-bar-fill ${scoreClass(s.score)}" style="width:${s.score}%"></div></div><span style="font-weight:700;font-size:13px;color:${scoreColor(s.score)};width:28px;text-align:right">${s.score}</span></div></td>
-      <td style="text-align:right"><span class="badge ${signalBadge(s.signal)}">${s.signal}</span></td>
-    </tr>
-    <tr class="expand-row" id="tech-detail-${s.code}">
-      <td colspan="7">
-        <div class="ai-comment">
-          <span class="icon">🤖</span>
-          <p class="text"><span class="label">AI 技術分析：</span>${s.name} 目前 RSI=${s.rsi}，${s.rsi>70?"已進入超買區，短線注意回檔風險。":s.rsi<30?"已進入超賣區，可留意反彈機會。":"處於中性區間，動能尚未明確。"} MACD ${s.macd==="正"?"呈現正乖離，多頭動能持續。":s.macd==="負"?"呈現負乖離，空頭壓力較重。":"趨近零軸，方向待確認。"} 均線系統${s.ma==="多頭排列"?"呈多頭排列，趨勢向上。":s.ma==="空頭排列"?"呈空頭排列，趨勢向下。":"橫盤整理，等待方向選擇。"}</p>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function toggleTechDetail(code) {
-  const el = document.getElementById('tech-detail-'+code);
-  el.classList.toggle('show');
-}
-
-async function fetchTechAnalysis() {
-  renderTechTable(mockData.techStocks);
-}
-
-// ══════════════════════════════════════════
-// 4. 新聞知識圖譜
-// ══════════════════════════════════════════
-let currentNewsFilter = "全部";
-let allNews = mockData.news;
-
-function renderNewsPage() {
-  // Stats
-  const positive = allNews.filter(n=>n.sentiment==="正面").length;
-  const negative = allNews.filter(n=>n.sentiment==="負面").length;
-  document.getElementById('news-stats').innerHTML = `
-    <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:28px">📰</span><div><p style="font-size:12px;color:var(--slate-400)">今日新聞總數</p><p style="font-size:18px;font-weight:700;color:var(--blue-400);margin-top:2px">${allNews.length} 則</p></div></div>
-    <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:28px">🟢</span><div><p style="font-size:12px;color:var(--slate-400)">正面新聞</p><p style="font-size:18px;font-weight:700;color:var(--green-400);margin-top:2px">${positive} 則</p></div></div>
-    <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:28px">🔴</span><div><p style="font-size:12px;color:var(--slate-400)">負面新聞</p><p style="font-size:18px;font-weight:700;color:var(--red-400);margin-top:2px">${negative} 則</p></div></div>
-  `;
-
-  // Filters
-  const filters = ["全部","正面","負面","中性"];
-  document.getElementById('news-filters').innerHTML = filters.map(f => `
-    <button class="filter-btn ${currentNewsFilter===f?'active':''}" onclick="filterNews('${f}')">${f}</button>
-  `).join('');
-
-  // List
-  const filtered = currentNewsFilter==="全部" ? allNews : allNews.filter(n=>n.sentiment===currentNewsFilter);
-  const sentBadge = (s) => s==="正面"?"badge-green":s==="負面"?"badge-red":"badge-slate";
-  const impBadge = (i) => i==="高"?"badge-orange":i==="中"?"badge-yellow":"badge-slate";
-
-  document.getElementById('news-list').innerHTML = filtered.map((n,i) => `
-    <div class="news-row" onclick="toggleNewsDetail(${i})">
-      <span class="time">${n.time}</span>
-      <span class="title" style="flex:1">${n.title}</span>
-      <span class="badge ${sentBadge(n.sentiment)}">${n.sentiment}</span>
-      <span class="badge ${impBadge(n.impact)}">影響:${n.impact}</span>
-    </div>
-    <div class="expand-row" id="news-detail-${i}">
-      <div class="ai-comment">
-        <span class="icon">🤖</span>
-        <p class="text"><span class="label">AI 新聞解析：</span>此則新聞對 ${(n.tags||[])[0]||'相關'} 相關個股影響程度為「${n.impact}」，市場情緒偏${n.sentiment}。${n.sentiment==="正面"?"建議關注相關族群的短線買進機會，留意量能配合。":"建議謹慎操作，等待利空消化後再行評估佈局時機。"}</p>
-      </div>
-      <button style="margin-top:8px;font-size:11px;background:var(--purple-600);color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer" onclick="analyzeNewsAI(${i})">🤖 深度 AI 分析</button>
-      <div id="news-ai-${i}" style="margin-top:8px"></div>
-    </div>
-  `).join('');
-}
-
-function filterNews(f) { currentNewsFilter = f; renderNewsPage(); }
-function toggleNewsDetail(i) { document.getElementById('news-detail-'+i).classList.toggle('show'); }
-
-async function analyzeNewsAI(i) {
-  const news = (currentNewsFilter==="全部" ? allNews : allNews.filter(n=>n.sentiment===currentNewsFilter))[i];
-  const el = document.getElementById('news-ai-'+i);
-  el.innerHTML = '<p style="font-size:12px;color:var(--slate-400)">AI 分析中...</p>';
-  const res = await apiCall('/analyze_news', 'POST', { news_content: news.title });
   if (res.status === 'success') {
-    el.innerHTML = `<div class="advice-box advice-blue"><p class="title">🤖 AI 深度分析結果</p><p class="desc">${res.analysis || JSON.stringify(res)}</p></div>`;
+      let totalPL = 0;
+      let totalCost = 0;
+      let totalValue = 0;
+
+      const cardsHtml = res.data.map(r => {
+          const cost = targets.find(t=>t.id===r.ticker).cost * targets.find(t=>t.id===r.ticker).shares;
+          const val = r.price * targets.find(t=>t.id===r.ticker).shares;
+          totalCost += cost; totalValue += val;
+
+          const color = r.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+          const adviceColor = r.score >= 60 ? 'badge-green' : (r.score < 40 ? 'badge-red' : 'badge-orange');
+          return `
+            <div class="card" style="margin-bottom:0;"><div class="card-body">
+              <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                <span style="font-size:16px; font-weight:bold; color:#fff;">${r.ticker}</span>
+                <span style="font-weight:bold; color:${color}">${r.pl >= 0 ? '+' : ''}${r.pl}%</span>
+              </div>
+              <div style="font-size:12px; color:var(--slate-400); margin-bottom:8px;">現價: $${r.price} | 估值: ${r.valuation}</div>
+              <div style="margin-bottom:8px;"><span class="badge ${adviceColor}">策略: ${r.advice} (分:${r.score})</span></div>
+              <div style="font-size:12px; color:var(--red-400); margin-bottom:12px;">⚠ ${r.exit}</div>
+              <div style="background:rgba(15,23,42,0.5); padding:8px; border-radius:6px;">
+                ${r.signals.map(s => `<div style="font-size:11px; color:var(--slate-300); margin-bottom:2px;">${s}</div>`).join('') || '<span style="font-size:11px; color:var(--slate-500);">無特殊訊號</span>'}
+              </div>
+            </div></div>
+          `;
+      }).join('');
+
+      totalPL = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100).toFixed(2) : 0;
+      
+      resultDiv.innerHTML = `
+        <div class="card">
+          <div class="card-header">📊 投資組合總結</div>
+          <div class="card-body" style="display:flex; justify-content:space-between; align-items:center;">
+             <div><span style="color:var(--slate-400); font-size:13px;">外匯狀態：</span><span style="color:#fff;">${res.fx}</span></div>
+             <div style="text-align:right;">
+                <div style="font-size:12px; color:var(--slate-400);">總未實現損益</div>
+                <div style="font-size:24px; font-weight:bold; color:${totalPL >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${totalPL >= 0 ? '+' : ''}${totalPL}%</div>
+             </div>
+          </div>
+        </div>
+        <div class="grid grid-2">${cardsHtml}</div>
+      `;
   } else {
-    el.innerHTML = `<p style="font-size:12px;color:var(--red-400)">分析失敗：${res.message||'未知錯誤'}</p>`;
+      resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
   }
-}
-
-async function fetchNews() {
-  const res = await apiCall('/news?limit=10');
-  if (res.status === 'success' && res.data && res.data.length > 0) {
-    allNews = res.data.map(n => ({
-      time: n.time || new Date(n.published||Date.now()).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
-      title: n.title || n.headline || '',
-      hot: n.hot || false,
-      tags: n.tags || [],
-      sentiment: n.sentiment || '中性',
-      impact: n.impact || '中'
-    }));
-  }
-  renderNewsPage();
+  btn.disabled = false;
 }
 
 // ══════════════════════════════════════════
-// 5. 市場情緒雷達
+// 3. 異質技術分析 (Tech Analysis via Analyze API)
 // ══════════════════════════════════════════
-function renderSentimentGauge(value) {
-  const getColor = (v) => v>=65?"#22c55e":v>=45?"#eab308":"#ef4444";
-  const getLabel = (v) => v>=70?"極度貪婪":v>=55?"貪婪":v>=45?"中性":v>=30?"恐慌":"極度恐慌";
-  const color = getColor(value);
-  const angle = -90+(value/100)*180;
-  const labels = ["極度恐慌","恐慌","中性","貪婪","極度貪婪"];
-  const activeIdx = value>=70?4:value>=55?3:value>=45?2:value>=30?1:0;
+async function fetchTechAnalysis() {
+  const btn = document.getElementById('btn-tech');
+  const tbody = document.getElementById('tech-table');
+  btn.disabled = true;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:0 auto;"></div></td></tr>';
 
-  document.getElementById('sentiment-gauge').innerHTML = `
-    <svg viewBox="0 0 200 115" style="width:176px">
-      <defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ef4444"/><stop offset="30%" stop-color="#f97316"/><stop offset="50%" stop-color="#eab308"/><stop offset="75%" stop-color="#84cc16"/><stop offset="100%" stop-color="#22c55e"/></linearGradient></defs>
-      <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round"/>
-      <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#g1)" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
-      <g transform="rotate(${angle},100,100)"><line x1="100" y1="100" x2="100" y2="32" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="${color}"/></g>
-      <text x="100" y="86" text-anchor="middle" font-size="20" font-weight="bold" fill="${color}">${value}</text>
-      <text x="100" y="102" text-anchor="middle" font-size="9" fill="#94a3b8">${getLabel(value)}</text>
-    </svg>
-    <div class="gauge-labels">${labels.map((l,i)=>`<span class="gauge-label ${i===activeIdx?'active':''}">${l}</span>`).join('')}</div>
-  `;
-}
-
-function renderSentimentIndicators() {
-  const indicators = [
-    { label:"社群討論熱度", value:"🔥 高熱度", sub:"PTT+爆料同學會", color:"var(--orange-400)", bg:"rgba(249,115,22,.08)", border:"rgba(249,115,22,.3)" },
-    { label:"外資動向", value:"↑ 買超", sub:"今日 +42.3億", color:"var(--green-400)", bg:"rgba(34,197,94,.08)", border:"rgba(34,197,94,.3)" },
-    { label:"融資變化", value:"↑ 增加", sub:"融資餘額 +1.2%", color:"var(--red-400)", bg:"rgba(239,68,68,.08)", border:"rgba(239,68,68,.3)" },
-    { label:"散戶情緒", value:"偏多", sub:"多空比 62:38", color:"var(--green-400)", bg:"rgba(34,197,94,.08)", border:"rgba(34,197,94,.3)" },
-    { label:"法人動向", value:"買超", sub:"三大法人合計", color:"var(--blue-400)", bg:"rgba(59,130,246,.08)", border:"rgba(59,130,246,.3)" },
-    { label:"恐慌指數VIX", value:"18.4", sub:"低波動區間", color:"var(--slate-300)", bg:"rgba(71,85,105,.3)", border:"var(--slate-600)" },
+  // 預設分析幾檔熱門標的
+  const preset = [
+    {id:"2330.TW", name:"台積電", type:"台股", cost:0, shares:0},
+    {id:"2317.TW", name:"鴻海", type:"台股", cost:0, shares:0},
+    {id:"2454.TW", name:"聯發科", type:"台股", cost:0, shares:0},
+    {id:"2382.TW", name:"廣達", type:"台股", cost:0, shares:0},
+    {id:"2603.TW", name:"長榮", type:"台股", cost:0, shares:0}
   ];
-  document.getElementById('sentiment-indicators').innerHTML = indicators.map(item => `
-    <div style="border:1px solid ${item.border};background:${item.bg};border-radius:12px;padding:12px">
-      <p style="font-size:11px;color:var(--slate-400)">${item.label}</p>
-      <p style="font-size:13px;font-weight:700;margin-top:4px;color:${item.color}">${item.value}</p>
-      <p style="font-size:11px;color:var(--slate-500);margin-top:2px">${item.sub}</p>
-    </div>
-  `).join('');
-}
 
-function renderSentimentTable(stocks) {
-  document.getElementById('sentiment-table').innerHTML = stocks.map(s => `
-    <tr onclick="toggleSentimentDetail('${s.code}')">
-      <td>
-        <span style="font-size:11px;color:var(--slate-500);font-family:monospace">${s.code}</span>
-        <span style="color:#fff;font-weight:500;margin-left:8px">${s.name}</span>
-        ${s.hot?'<span class="badge badge-orange" style="margin-left:6px">🔥 熱議</span>':''}
-        ${s.alert?'<span class="badge badge-red" style="margin-left:6px">⚠ 異常</span>':''}
-      </td>
-      <td>
-        <div class="bull-bear">
-          <span class="bull">多${s.bull}%</span>
-          <div class="bull-bear-track"><div class="bull-bear-fill" style="width:${s.bull}%"></div></div>
-          <span class="bear">空${s.bear}%</span>
-        </div>
-      </td>
-      <td style="text-align:right;font-family:monospace;font-weight:700;color:${s.change.startsWith('+')?'var(--red-400)':'var(--green-400)'}">${s.change}</td>
-      <td style="text-align:right"><span class="badge ${s.bull>60?'badge-green':s.bull>45?'badge-yellow':'badge-red'}">${s.bull>60?'偏多':s.bull>45?'中性':'偏空'}</span></td>
-    </tr>
-    <tr class="expand-row" id="sentiment-detail-${s.code}">
-      <td colspan="4">
-        <div class="ai-comment">
-          <span class="icon">🤖</span>
-          <p class="text"><span class="label">AI 情緒摘要：</span>市場對 ${s.name} 整體${s.bull>60?"偏多，社群討論熱度高，外資持續買超，短線動能強勁，建議關注突破訊號。":"偏空，近期賣壓較重，建議觀望等待止跌確認後再行佈局。"}</p>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function toggleSentimentDetail(code) {
-  document.getElementById('sentiment-detail-'+code).classList.toggle('show');
-}
-
-function fetchSentiment() {
-  renderSentimentGauge(67);
-  renderSentimentIndicators();
-  renderSentimentTable(mockData.sentimentStocks);
-}
-
-// ══════════════════════════════════════════
-// 6. AI 選股雷達
-// ══════════════════════════════════════════
-let currentScreenerSector = "全部";
-const screenerSectors = ["全部","半導體","伺服器","IC設計","封測","電源"];
-const screenerSuggestions = ["本益比低於20的半導體股","近三季獲利持續成長","AI概念潛力黑馬"];
-
-function renderScreenerFilters() {
-  document.getElementById('screener-filters').innerHTML = screenerSectors.map(s => `
-    <button class="filter-btn ${currentScreenerSector===s?'active':''}" onclick="filterScreener('${s}')">${s}</button>
-  `).join('');
-}
-
-function renderScreenerSuggestions() {
-  document.getElementById('screener-suggestions').innerHTML = screenerSuggestions.map(s => `
-    <button class="suggestion-btn" onclick="document.getElementById('screener-input').value='${s}';runScreener()">${s}</button>
-  `).join('');
-}
-
-function filterScreener(sector) {
-  currentScreenerSector = sector;
-  renderScreenerFilters();
-  renderScreenerResults();
-}
-
-function renderScreenerResults() {
-  const stocks = currentScreenerSector==="全部" ? mockData.screenedStocks : mockData.screenedStocks.filter(s=>s.sector===currentScreenerSector);
-  const tagColor = (tag) => ({"強力推薦":"badge-green","高成長":"badge-blue","趨勢向上":"badge-purple","潛力股":"badge-yellow","穩健成長":"badge-slate"}[tag]||"badge-slate");
-  const scoreClass = (s) => s>=90?"high":s>=80?"mid":"mid";
-  const scoreColor = (s) => s>=90?"var(--green-400)":s>=80?"var(--blue-400)":"var(--yellow-400)";
-
-  document.getElementById('screener-result').innerHTML = `
-    <div class="card">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-        <span>🎯 AI 篩選結果 <span style="color:var(--purple-400);margin-left:4px">${stocks.length} 檔</span></span>
-        <span style="font-size:11px;color:var(--slate-400);font-weight:400">依 AI 綜合評分排序</span>
-      </div>
-      <table class="data-table">
-        <thead><tr><th>排名 / 標的</th><th>產業</th><th style="text-align:right">本益比</th><th style="text-align:right">獲利成長</th><th style="text-align:right">AI評分</th><th style="text-align:right">標籤</th></tr></thead>
-        <tbody>
-          ${stocks.map((s,idx) => `
-            <tr onclick="toggleScreenerDetail('${s.code}')">
-              <td><span style="color:var(--slate-600);font-weight:700;width:20px;display:inline-block">#${idx+1}</span><span style="color:#fff;font-weight:500;margin-left:12px">${s.name}</span><span style="color:var(--slate-500);font-size:11px;font-family:monospace;margin-left:8px">${s.code}</span></td>
-              <td><span style="font-size:11px;background:var(--slate-700);color:var(--slate-300);padding:4px 8px;border-radius:4px">${s.sector}</span></td>
-              <td style="text-align:right;font-family:monospace;color:var(--slate-300)">${s.pe}</td>
-              <td style="text-align:right;font-weight:700;color:var(--green-400)">${s.growth}</td>
-              <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:64px"><div class="score-bar-fill ${scoreClass(s.score)}" style="width:${s.score}%"></div></div><span style="font-weight:700;font-size:13px;color:${scoreColor(s.score)};width:28px;text-align:right">${s.score}</span></div></td>
-              <td style="text-align:right"><span class="badge ${tagColor(s.tag)}">${s.tag}</span></td>
-            </tr>
-            <tr class="expand-row" id="screener-detail-${s.code}">
-              <td colspan="6">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-                  <div class="ai-comment" style="flex:1">
-                    <span class="icon">🤖</span>
-                    <p class="text"><span class="label">AI 選股理由：</span>${s.reason}</p>
-                  </div>
-                  <div style="display:flex;gap:8px;flex-shrink:0">
-                    <button style="font-size:11px;background:var(--purple-600);color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer">+ 加入自選股</button>
-                    <button style="font-size:11px;background:var(--slate-600);color:var(--slate-200);border:none;padding:6px 12px;border-radius:6px;cursor:pointer">查看完整報告</button>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function toggleScreenerDetail(code) {
-  document.getElementById('screener-detail-'+code).classList.toggle('show');
-}
-
-async function runScreener() {
-  const query = document.getElementById('screener-input').value;
-  const resultDiv = document.getElementById('screener-result');
-  resultDiv.innerHTML = '<div class="loading"><div class="spinner purple"></div><p class="loading-text">AI 正在分析 2,000+ 檔台股...</p></div>';
-
-  // 嘗試用 AI 聊天來做選股
-  if (query.trim()) {
-    const res = await apiCall('/chat', 'POST', { message: `作為選股助理，請根據以下條件推薦台股：${query}` });
-    // 不管結果如何，都顯示模擬結果
+  const res = await apiCall('/analyze', 'POST', { targets: preset });
+  
+  if(res.status === 'success') {
+      tbody.innerHTML = res.data.map(s => {
+          const scoreClass = s.score >= 70 ? "high" : s.score >= 40 ? "mid" : "low";
+          const scoreColor = s.score >= 70 ? "var(--green-400)" : s.score >= 40 ? "var(--yellow-400)" : "var(--red-400)";
+          const adviceBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
+          
+          return `
+          <tr>
+            <td><span style="color:#fff;font-weight:500">${s.ticker}</span></td>
+            <td style="text-align:right; font-family:monospace;">$${s.price}</td>
+            <td style="text-align:center"><span style="font-size:12px; color:var(--slate-300)">${s.valuation}</span></td>
+            <td><div style="font-size:11px; color:var(--slate-400); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.signals.join(' | ')}</div></td>
+            <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px;"><div class="score-bar-fill ${scoreClass}" style="width:${s.score}%"></div></div><span style="font-weight:700;font-size:13px;color:${scoreColor};width:28px;text-align:right">${s.score}</span></div></td>
+            <td style="text-align:right"><span class="badge ${adviceBadge}">${s.advice}</span></td>
+          </tr>
+          `;
+      }).join('');
+  } else {
+      tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400); text-align:center;">錯誤: ${res.message}</td></tr>`;
   }
-
-  setTimeout(() => {
-    renderScreenerResults();
-  }, 1400);
+  btn.disabled = false;
 }
 
 // ══════════════════════════════════════════
-// Chat
+// 4. 新聞知識圖譜 (News + AI Sentiment)
+// ══════════════════════════════════════════
+async function fetchNewsAnalysis() {
+  const btn = document.getElementById('btn-news');
+  const list = document.getElementById('news-list');
+  const statsBox = document.getElementById('news-stats');
+  
+  btn.disabled = true;
+  statsBox.innerHTML = '';
+  list.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">爬蟲擷取並交由 MaiAgent 批次判讀中...</p></div>';
+
+  const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['cnyes', 'investing'], limit: 3 });
+
+  if(res.status === 'success') {
+      // Stats
+      statsBox.innerHTML = `
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:28px">🟢</span><div><p style="font-size:12px;color:var(--slate-400)">AI 判定利多</p><p style="font-size:18px;font-weight:700;color:var(--green-400);margin-top:2px">${res.stats['利多']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:28px">⚪</span><div><p style="font-size:12px;color:var(--slate-400)">AI 判定中立</p><p style="font-size:18px;font-weight:700;color:var(--slate-300);margin-top:2px">${res.stats['中立']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:28px">🔴</span><div><p style="font-size:12px;color:var(--slate-400)">AI 判定利空</p><p style="font-size:18px;font-weight:700;color:var(--red-400);margin-top:2px">${res.stats['利空']} 則</p></div></div>
+      `;
+
+      // List
+      list.innerHTML = res.data.map(n => {
+          const sBadge = n.sentiment==='利多'?'badge-green':(n.sentiment==='利空'?'badge-red':'badge-slate');
+          const iBadge = n.impact==='高'?'badge-orange':(n.impact==='中'?'badge-yellow':'badge-slate');
+          return `
+            <div style="padding:16px 20px; border-bottom:1px solid rgba(51,65,85,.5);">
+              <div style="display:flex; gap:10px; margin-bottom:8px; align-items:center;">
+                 <span class="badge ${sBadge}">${n.sentiment}</span>
+                 <span class="badge ${iBadge}">影響:${n.impact}</span>
+                 <span style="font-size:11px; color:var(--slate-500);">${n.source} | ${n.published}</span>
+              </div>
+              <a href="${n.link}" target="_blank" style="display:block; font-size:14px; color:#fff; text-decoration:none; margin-bottom:8px; font-weight:500;">${n.title}</a>
+              <div style="font-size:12px; color:var(--blue-400); background:rgba(59,130,246,.08); padding:8px; border-radius:6px;">
+                🤖 AI 解析：${n.ai_reason || n.summary || '無特別說明'}
+              </div>
+            </div>
+          `;
+      }).join('');
+  } else {
+      list.innerHTML = `<p style="padding:20px; color:var(--red-400)">分析失敗：${res.message}</p>`;
+  }
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════
+// 5. 市場情緒雷達 (Sentiment)
+// ══════════════════════════════════════════
+async function fetchSentiment() {
+   const btn = document.getElementById('btn-sentiment');
+   const gaugeBox = document.getElementById('sentiment-gauge-container');
+   const insightBox = document.getElementById('sentiment-insight');
+   btn.disabled = true;
+   
+   gaugeBox.innerHTML = '<div class="spinner"></div>';
+   insightBox.innerHTML = '運算中...';
+
+   // 我們使用 AI 新聞分析的統計來建立一個簡單的情緒分數
+   const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['cnyes', 'investing'], limit: 5 });
+   
+   if(res.status === 'success') {
+       const pos = res.stats['利多'] || 0;
+       const neg = res.stats['利空'] || 0;
+       const total = pos + neg;
+       // 基礎分數 50，根據利多利空比例偏移
+       let score = 50; 
+       if (total > 0) {
+           score = Math.round((pos / total) * 100);
+       }
+       
+       const getColor = (v) => v>=60?"#22c55e":v>=40?"#eab308":"#ef4444";
+       const color = getColor(score);
+       const label = score >= 70 ? "極度貪婪" : score >= 55 ? "偏多" : score >= 45 ? "中立" : score >= 30 ? "偏空" : "極度恐慌";
+       
+       gaugeBox.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div style="font-size:48px; font-weight:bold; color:${color}; margin-bottom:10px;">${score}</div>
+            <div style="font-size:16px; color:var(--slate-300);">${label}</div>
+            <div style="font-size:12px; color:var(--slate-500); margin-top:8px;">基於近期 ${res.count} 則新聞分析</div>
+        </div>
+       `;
+
+       insightBox.innerHTML = `
+          <div style="margin-bottom:10px; font-size:13px; color:var(--slate-300);">近期市場驅動因素：</div>
+          ${res.data.slice(0,3).map(n => `<div style="font-size:12px; color:var(--slate-400); margin-bottom:6px;">• [${n.sentiment}] ${n.title}</div>`).join('')}
+       `;
+
+   } else {
+       gaugeBox.innerHTML = '分析失敗';
+       insightBox.innerHTML = res.message;
+   }
+   btn.disabled = false;
+}
+
+
+// ══════════════════════════════════════════
+// 6. AI 選股雷達 (Screener via Chat API)
+// ══════════════════════════════════════════
+async function runScreener() {
+  const query = document.getElementById('screener-input').value.trim();
+  if(!query) return;
+
+  const btn = document.getElementById('btn-screener');
+  const resBox = document.getElementById('screener-result');
+  btn.disabled = true;
+  resBox.innerHTML = '<div class="loading"><div class="spinner purple"></div><p class="loading-text">MaiAgent 正在資料庫中為您尋找潛力標的...</p></div>';
+
+  const prompt = `作為專業台股分析師，請根據以下使用者條件篩選出3檔最符合的台灣股票，並給出詳細理由與操作建議。使用者條件：「${query}」`;
+  
+  const res = await apiCall('/chat', 'POST', { message: prompt });
+  
+  if(res.status === 'success') {
+      resBox.innerHTML = `
+        <div class="card">
+           <div class="card-header">🎯 MaiAgent 篩選報告</div>
+           <div class="card-body">
+              <div class="advice-box advice-blue" style="margin:0;">
+                 <p class="desc">${res.reply}</p>
+              </div>
+           </div>
+        </div>
+      `;
+  } else {
+      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">錯誤：${res.message}</div></div>`;
+  }
+  btn.disabled = false;
+}
+
+
+// ══════════════════════════════════════════
+// 聊天室 (Chatbot)
 // ══════════════════════════════════════════
 let chatOpen = false;
-let conversationId = null;
 
 function toggleChat() {
   chatOpen = !chatOpen;
@@ -923,70 +642,44 @@ async function sendChat() {
   input.value = '';
 
   const messagesDiv = document.getElementById('chat-messages');
-  messagesDiv.innerHTML += `<div class="chat-msg user">${escapeHtml(msg)}</div>`;
+  const sendBtn = document.getElementById('chat-send-btn');
+  
+  messagesDiv.innerHTML += `<div class="chat-msg user">${msg}</div>`;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-  // 顯示 typing
-  messagesDiv.innerHTML += `<div class="chat-msg bot" id="typing">思考中...</div>`;
+  const typingId = 'typing-' + Date.now();
+  messagesDiv.innerHTML += `<div class="chat-msg bot" id="${typingId}"><div class="spinner" style="width:16px; height:16px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:8px;"></div>思考中...</div>`;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  sendBtn.disabled = true;
 
-  // 呼叫後端 API
   const body = { message: msg };
-  if (conversationId) body.conversation_id = conversationId;
+  if(currentChatbotId) body.conversation_id = currentChatbotId;
+
   const res = await apiCall('/chat', 'POST', body);
+  document.getElementById(typingId).remove();
 
-  // 移除 typing
-  const typing = document.getElementById('typing');
-  if (typing) typing.remove();
-
-  let reply = '抱歉，目前無法連線到 AI 服務，請稍後再試。';
   if (res.status === 'success') {
-    reply = res.reply || '（無回覆內容）';
-    if (res.conversation_id) conversationId = res.conversation_id;
-  } else if (res.message) {
-    reply = `⚠️ ${res.message}`;
+    if(res.conversation_id) currentChatbotId = res.conversation_id;
+    messagesDiv.innerHTML += `<div class="chat-msg bot">${res.reply}</div>`;
+  } else {
+    messagesDiv.innerHTML += `<div class="chat-msg bot" style="color:var(--red-400)">⚠️ ${res.message}</div>`;
   }
-
-  messagesDiv.innerHTML += `<div class="chat-msg bot">${escapeHtml(reply)}</div>`;
+  
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// ══════════════════════════════════════════
-// 系統設定
-// ══════════════════════════════════════════
-function openSettings() {
-  alert('系統設定功能開發中...\n\n目前 API 端點：' + API_BASE + '\n\n請在後端設定以下環境變數：\n- MAIAGENT_API_KEY\n- MAIAGENT_CHATBOT_ID\n- MAIAGENT_WEBCHAT_ID');
+  sendBtn.disabled = false;
+  input.focus();
 }
 
 // ══════════════════════════════════════════
 // 初始化
 // ══════════════════════════════════════════
 function init() {
-  renderWarPage(mockData);
+  checkHealth();
   renderPositions();
-  renderTechTable(mockData.techStocks);
-  renderNewsPage();
-  fetchSentiment();
-  renderScreenerFilters();
-  renderScreenerSuggestions();
-  renderScreenerResults();
-
-  // 檢查後端健康狀態
-  apiCall('/health').then(res => {
-    const statusEl = document.getElementById('api-status');
-    if (res.status === 'ok') {
-      statusEl.innerHTML = '<span class="status-dot"></span>LLM 推論 ✓';
-    }
-  });
+  // 先不要一進入頁面就瘋狂打 API 浪費 token，讓使用者點擊觸發
 }
 
-init();
+window.onload = init;
 </script>
 </body>
 </html>
