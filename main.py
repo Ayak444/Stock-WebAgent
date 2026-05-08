@@ -28,7 +28,7 @@ from notifier import EmailNotifier
 MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
 MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
 MAIAGENT_WEBCHAT_ID = os.environ.get("MAIAGENT_WEBCHAT_ID", "")
-MAIAGENT_BASE_URL = "https://api.maiagent.ai/api/v1"
+MAIAGENT_BASE_URL = "https://api.maiagent.ai/api"
 
 
 class MaiAgentClient:
@@ -59,7 +59,7 @@ class MaiAgentClient:
         發送訊息給 MaiAgent AI 助理並取得同步回覆
         端點: POST /api/v1/chatbots/{chatbot_id}/completions
         """
-        url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions"
+        url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions/"
         payload = {
             "message": {
                 "content": content
