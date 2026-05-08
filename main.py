@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-
+from dotenv import load_dotenv
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
     BacktestRequest, NewsSourceRequest, StockTarget
@@ -19,6 +19,8 @@ from news_crawler import NewsCrawler
 from database import Database
 from backtest import Backtester
 from notifier import EmailNotifier
+
+load_dotenv()
 
 API_KEY = os.environ.get("API_KEY", "")
 model = None
