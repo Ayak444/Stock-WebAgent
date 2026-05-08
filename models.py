@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 from pydantic import BaseModel
 
-
+#
 @dataclass
 class StockTarget:
     id: str
