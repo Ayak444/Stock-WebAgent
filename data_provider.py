@@ -4,13 +4,10 @@ from datetime import datetime, timedelta
 import time
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 }
 
-
 class DataProvider:
-    # ========== 市場狀態 ==========
     @staticmethod
     def is_market_open():
         now = datetime.now()
@@ -20,34 +17,55 @@ class DataProvider:
         end = now.replace(hour=13, minute=30, second=0)
         return start <= now <= end
 
-    # ========== 歷史 K 線 ==========
     @staticmethod
     def get_stock_history(ticker: str, days: int = 180) -> pd.DataFrame:
-        """優先 TWSE API，失敗才 fallback 到 yfinance"""
         try:
             df = DataProvider._fetch_twse_history(ticker, days)
             if not df.empty:
                 return df
-        except Exception as e:
-            print(f"[TWSE] {ticker} 失敗: {e}")
+        except Exception:
+            pass
 
-        # 備援 yfinance
         try:
             import yfinance as yf
             period = "1y" if days > 60 else f"{days}d"
             df = yf.Ticker(ticker).history(period=period)
             if not df.empty:
                 return df
-        except Exception as e:
-            print(f"[yfinance] {ticker} 失敗: {e}")
+        except Exception:
+            pass
+
+        try:
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=1y&interval=1d"
+            r = requests.get(url, headers=HEADERS, timeout=10)
+            data = r.json()
+            result = data['chart']['result'][0]
+            timestamps = result['timestamp']
+            quote = result['indicators']['quote'][0]
+            
+            df = pd.DataFrame({
+                'Date': pd.to_datetime(timestamps, unit='s'),
+                'Open': quote['open'],
+                'High': quote['high'],
+                'Low': quote['low'],
+                'Close': quote['close'],
+                'Volume': quote['volume']
+            })
+            df = df.dropna().set_index('Date')
+            cutoff = pd.Timestamp.now(tz='UTC').tz_localize(None) - pd.Timedelta(days=days)
+            df.index = df.index.tz_localize(None)
+            df = df[df.index >= cutoff]
+            if not df.empty:
+                return df
+        except Exception:
+            pass
 
         return pd.DataFrame()
 
     @staticmethod
-    def _fetch_twse_history(ticker: str, days: int) -> pd.DataFrame:
-        """證交所官方 API"""
-        stock_id = ticker.split('.')[0]
-        is_otc = ticker.upper().endswith('.TWO')
+    def _fetch_twse_history(stock_id: str, days: int) -> pd.DataFrame:
+        ticker = stock_id.split('.')[0]
+        is_otc = stock_id.upper().endswith('.TWO')
 
         months_needed = max(2, (days // 25) + 1)
         all_rows = []
@@ -56,9 +74,9 @@ class DataProvider:
         for i in range(months_needed):
             target = now - timedelta(days=30 * i)
             if is_otc:
-                rows = DataProvider._fetch_tpex_month(stock_id, target)
+                rows = DataProvider._fetch_tpex_month(ticker, target)
             else:
-                rows = DataProvider._fetch_twse_month(stock_id, target)
+                rows = DataProvider._fetch_twse_month(ticker, target)
             all_rows.extend(rows)
             time.sleep(0.3)
 
@@ -75,10 +93,8 @@ class DataProvider:
 
     @staticmethod
     def _fetch_twse_month(stock_id: str, date_obj: datetime):
-        """TWSE 上市單月資料"""
         date_str = date_obj.strftime("%Y%m") + "01"
-        url = (f"https://www.twse.com.tw/exchangeReport/STOCK_DAY"
-               f"?response=json&date={date_str}&stockNo={stock_id}")
+        url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date_str}&stockNo={stock_id}"
         r = requests.get(url, headers=HEADERS, timeout=10)
         data = r.json()
         if data.get("stat") != "OK":
@@ -88,7 +104,7 @@ class DataProvider:
         for row in data.get("data", []):
             try:
                 parts = row[0].split('/')
-                year = int(parts[0]) + 1911  # 民國轉西元
+                year = int(parts[0]) + 1911
                 date = f"{year}-{parts[1]}-{parts[2]}"
                 o = float(row[3].replace(',', ''))
                 h = float(row[4].replace(',', ''))
@@ -102,11 +118,9 @@ class DataProvider:
 
     @staticmethod
     def _fetch_tpex_month(stock_id: str, date_obj: datetime):
-        """TPEX 上櫃單月資料"""
         roc_year = date_obj.year - 1911
         date_str = f"{roc_year}/{date_obj.strftime('%m')}"
-        url = (f"https://www.tpex.org.tw/web/stock/aftertrading/"
-               f"daily_trading_info/st43_result.php?l=zh-tw&d={date_str}&stkno={stock_id}")
+        url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date_str}&stkno={stock_id}"
         try:
             r = requests.get(url, headers=HEADERS, timeout=10)
             data = r.json()
@@ -129,14 +143,12 @@ class DataProvider:
                 continue
         return result
 
-    # ========== 即時價格 ==========
     @staticmethod
     def get_realtime_price(ticker: str):
         try:
             stock_id = ticker.split('.')[0]
             market = "otc" if ticker.upper().endswith('.TWO') else "tse"
-            url = (f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
-                   f"?ex_ch={market}_{stock_id}.tw")
+            url = f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch={market}_{stock_id}.tw"
             r = requests.get(url, timeout=5, headers=HEADERS)
             data = r.json()
             if data.get("msgArray"):
@@ -144,17 +156,26 @@ class DataProvider:
                 z = info.get("z", "-")
                 if z != "-" and z != "":
                     return float(z)
-                y = info.get("y", "-")  # 昨收
+                y = info.get("y", "-")
                 if y != "-" and y != "":
                     return float(y)
-        except Exception as e:
-            print(f"[Realtime] {ticker} 失敗: {e}")
+        except Exception:
+            pass
+        
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=1d&interval=1d"
+            r = requests.get(url, headers=HEADERS, timeout=5)
+            data = r.json()
+            price = data['chart']['result'][0]['meta']['regularMarketPrice']
+            if price:
+                return float(price)
+        except Exception:
+            pass
+            
         return None
 
-    # ========== 匯率 ==========
     @staticmethod
     def get_fx_status():
-        """台銀美元匯率"""
         try:
             url = "https://rate.bot.com.tw/xrt/flcsv/0/day"
             r = requests.get(url, timeout=10, headers=HEADERS)
@@ -168,18 +189,16 @@ class DataProvider:
                     elif rate < 31.0:
                         return -1, f"台幣走強 ({rate:.2f})"
                     return 0, f"匯率平穩 ({rate:.2f})"
-        except Exception as e:
-            print(f"[FX] 失敗: {e}")
+        except Exception:
+            pass
         return 0, ""
 
-    # ========== 三大法人籌碼 ==========
     @staticmethod
     def get_chip_data():
         try:
             for i in range(5):
                 date = (datetime.now() - timedelta(days=i)).strftime("%Y%m%d")
-                url = (f"https://www.twse.com.tw/rwd/zh/fund/T86"
-                       f"?date={date}&selectType=ALL&response=json")
+                url = f"https://www.twse.com.tw/rwd/zh/fund/T86?date={date}&selectType=ALL&response=json"
                 r = requests.get(url, timeout=10, headers=HEADERS)
                 data = r.json()
                 if data.get("stat") == "OK" and data.get("data"):
@@ -195,10 +214,8 @@ class DataProvider:
                     if result:
                         return result
                 time.sleep(0.3)
-        except Exception as e:
-            print(f"[Chip] 失敗: {e}")
+        except Exception:
+            pass
         return {}
 
-
-# 別名相容
 MarketDataProvider = DataProvider
