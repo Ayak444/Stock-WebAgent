@@ -154,14 +154,22 @@ def chat(req: ChatRequest):
     if not model:
         return {"status": "error", "message": "Gemini 未設定 API_KEY"}
     try:
+        model._api_client.api_version = 'v1' 
+        
         prompt = f"你是專業的台股投資助理，請用繁體中文簡明扼要回答。\n使用者問題：{req.message}"
         response = model.generate_content(prompt)
         return {"status": "success", "reply": response.text}
     except Exception as e:
-        msg = str(e)
-        if "429" in msg or "quota" in msg.lower():
-            return {"status": "error", "message": "AI 請求過於頻繁，請稍等 30 秒再試"}
-        return {"status": "error", "message": msg[:200]}
+        try:
+            import google.generativeai as genai
+            temp_model = genai.GenerativeModel('gemini-1.5-flash')
+            response = temp_model.generate_content(req.message)
+            return {"status": "success", "reply": response.text}
+        except:
+            msg = str(e)
+            if "429" in msg or "quota" in msg.lower():
+                return {"status": "error", "message": "AI 請求過於頻繁，請稍等 30 秒再試"}
+            return {"status": "error", "message": "AI 目前連線異常，請稍後再試"}
 
 @app.post("/analyze_news")
 def analyze_news(req: NewsRequest):
