@@ -22,7 +22,7 @@ class DataProvider:
     @staticmethod
     def get_macro_indices():
         result = {}
-        tickers = {"^TWII": "加權指數", "CL=F": "油價", "GC=F": "金價"}
+        tickers = {"^TWII": "加權指數", "^SOX": "費半指數", "CL=F": "油價", "GC=F": "金價"}
         
         for symbol, name in tickers.items():
             try:
@@ -43,51 +43,7 @@ class DataProvider:
             except Exception:
                 pass
             result[name] = {"price": 0, "change": 0, "pct_change": 0}
-
-        result["台指期"] = {"price": 0, "change": 0, "pct_change": 0}
-        try:
-            url = "https://mis.taifex.com.tw/futures/api/getQuoteList"
-            payload = {"MarketType":"0", "SymbolType":"F", "KindID":"1", "CID":"TXF", "ExpireMonths":"", "Shrink":""}
-            r = requests.post(url, json=payload, headers=HEADERS, timeout=5)
-            data = r.json()
-            if data.get('RtData', {}).get('QuoteList'):
-                q = data['RtData']['QuoteList'][0]
-                price = float(q.get('CLastPrice') or q.get('CPrice') or 0)
-                change = float(q.get('CDiff') or 0)
-                if price > 0:
-                    prev = price - change
-                    pct = (change / prev * 100) if prev else 0
-                    result["台指期"] = {"price": round(price, 2), "change": round(change, 2), "pct_change": round(pct, 2)}
-        except Exception:
-            try:
-                r = requests.get("https://tw.stock.yahoo.com/quote/WTX%26T.EX", headers=HEADERS, timeout=5)
-                match = re.search(r'window\.__PRELOADED_STATE__\s*=\s*({.*?});</script>', r.text)
-                if match:
-                    state = json.loads(match.group(1))
-                    def find_quote(d, target="WTX&T.EX"):
-                        if isinstance(d, dict):
-                            if d.get('symbol') == target and 'price' in d:
-                                return d
-                            for k, v in d.items():
-                                res = find_quote(v, target)
-                                if res: return res
-                        elif isinstance(d, list):
-                            for item in d:
-                                res = find_quote(item, target)
-                                if res: return res
-                        return None
-                    
-                    quote = find_quote(state)
-                    if quote:
-                        price = float(quote.get('price', 0))
-                        change = float(quote.get('change', 0))
-                        if price > 0:
-                            prev = price - change
-                            pct = (change / prev * 100) if prev else 0
-                            result["台指期"] = {"price": round(price, 2), "change": round(change, 2), "pct_change": round(pct, 2)}
-            except Exception:
-                pass
-
+            
         return result
 
     @staticmethod
