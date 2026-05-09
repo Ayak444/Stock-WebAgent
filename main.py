@@ -27,6 +27,8 @@ model = None
 
 if API_KEY:
     try:
+        import google.generativeai as genai
+        genai.configure(api_key=API_KEY)
         try:
             model = genai.GenerativeModel(model_name='gemini-1.5-flash')
             model._api_client.api_version = 'v1'
@@ -38,7 +40,6 @@ if API_KEY:
         model = None
 else:
     print("⚠️ API_KEY 未設定")
-
 scheduler = None
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
