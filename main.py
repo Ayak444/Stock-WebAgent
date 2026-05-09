@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     if scheduler:
         scheduler.shutdown()
 
-app = FastAPI(title="台股智能分析 API", version="3.0", lifespan=lifespan)
+app = FastAPI(title="台股智能分析 API", version="4.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
