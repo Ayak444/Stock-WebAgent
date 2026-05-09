@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import google.generativeai as genai
 from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -21,6 +22,8 @@ from backtest import Backtester
 from notifier import EmailNotifier
 
 load_dotenv()
+os.environ["GOOGLE_API_USE_MTLS_ENDPOINT"] = "never"
+os.environ["GOOGLE_GENAI_USE_V1_API"] = "true"
 
 API_KEY = os.environ.get("API_KEY", "")
 model = None
