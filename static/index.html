@@ -305,12 +305,20 @@ async function fetchMacroData() {
   const res = await apiCall('/macro');
   if(res.status === 'success' && res.data) {
     bar.innerHTML = '';
+    const nMap = {
+      '加權指數': '加權指數 (TAIEX)',
+      '費城半導體指數': '費城半導體 (^SOX)',
+      '費半指數': '費城半導體 (^SOX)',
+      '油價': '油價 (WTI)',
+      '金價': '金價 (Gold)'
+    };
     Object.entries(res.data).forEach(([key, val]) => {
       const color = val.change >= 0 ? 'var(--green-400)' : 'var(--red-400)';
       const sign = val.change >= 0 ? '+' : '';
+      const dName = nMap[key] || key;
       bar.innerHTML += `
         <div class="card" style="margin-bottom:0; padding:16px;">
-          <div style="font-size:14px; color:var(--slate-400); font-weight:600;">${key}</div>
+          <div style="font-size:14px; color:var(--slate-400); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dName}</div>
           <div style="font-size:26px; font-weight:bold; color:#fff; margin:6px 0;">${fmt(val.price)}</div>
           <div style="font-size:14px; color:${color}; font-weight:600;">${sign}${fmt(val.change)} (${sign}${fmt(val.pct_change)}%)</div>
         </div>
