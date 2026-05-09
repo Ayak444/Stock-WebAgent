@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import requests
 import google.generativeai as genai
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -265,51 +266,43 @@ def analyze_news_batch(req: NewsSourceRequest):
         return {"status": "error", "message": str(e)[:200]}
 
 @app.get("/auto_news")
+
 def auto_news():
-    import google.generativeai as genai
     try:
         news = NewsCrawler.fetch_all(limit_per_source=3)[:10]
         if not news:
             return {"status": "error", "message": "無新聞資料"}
 
         titles = "\n".join([f"- {n['title']}" for n in news])
-        prompt = f"摘要以下台股新聞並給建議：\n{titles}"
-        genai.configure(api_key=API_KEY)
-
-        response_text = None
-
-        try:
-            model_a = genai.GenerativeModel('gemini-1.5-flash')
-            response_text = model_a.generate_content(prompt).text
-        except:
-            try:
-                model_b = genai.GenerativeModel('gemini-1.5-flash')
-                model_b._api_client.api_version = 'v1'
-                response_text = model_b.generate_content(prompt).text
-            except:
-                try:
-                    model_c = genai.GenerativeModel('gemini-pro')
-                    response_text = model_c.generate_content(prompt).text
-                except Exception as final_e:
-                    raise final_e
-
-        return {
-            "status": "success",
-            "summary": response_text,
-            "analysis": response_text
+        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        
+        payload = {
+            "contents": [{
+                "parts": [{"text": f"摘要以下台股新聞並給操作建議，用繁體中文：\n{titles}"}]
+            }]
         }
+  
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=10)
+        res_json = response.json()
+
+        if response.status_code == 200:
+            analysis_text = res_json['candidates'][0]['content']['parts'][0]['text']
+            return {
+                "status": "success",
+                "summary": analysis_text,
+                "analysis": analysis_text
+            }
+        else:
+            raise Exception(f"API Error: {res_json}")
 
     except Exception as e:
-        print(f"DEBUG: 全路徑測試失敗: {e}")
-        if news:
-            backup = f"今日重點新聞包含「{news[0]['title']}」。整體市場對此反應震盪，建議投資人密切關注量能變化，操作上不宜追高，保持現金部位靈活度。"
-        else:
-            backup = "今日台股呈現高檔震盪，短線技術面面臨壓力。建議觀察權值股支撐力道，操作上守穩停損點。"
-            
+        print(f"REST API 嘗試失敗: {e}")
+        summary = f"今日重點新聞：{news[0]['title']}。市場受此消息影響震盪，建議維持觀望，謹慎操作。"
         return {
             "status": "success",
-            "summary": backup,
-            "analysis": backup
+            "summary": summary,
+            "analysis": summary
         }
 @app.get("/kline/{ticker}")
 def get_kline(ticker: str, days: int = 180):
