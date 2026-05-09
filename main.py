@@ -29,7 +29,10 @@ if API_KEY:
     try:
         import google.generativeai as genai
         genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel(
+    model_name='gemini-1.5-flash',
+    generation_config={"api_version": "v1"} 
+)
         print("✅ Gemini 1.5 Flash 已啟用")
     except Exception as e:
         print(f"❌ Gemini 初始化失敗: {e}")
