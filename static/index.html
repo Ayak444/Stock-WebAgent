@@ -219,7 +219,6 @@
 
 <script>
   let apiBase = localStorage.getItem('api_base') || window.location.origin;
-  document.getElementById('config-api-base').value = apiBase;
 
   function navigate(viewId, el) {
     document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
