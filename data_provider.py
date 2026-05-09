@@ -18,6 +18,32 @@ class DataProvider:
         return start <= now <= end
 
     @staticmethod
+    def get_macro_indices():
+        try:
+            import yfinance as yf
+            tickers = {"^TWII": "加權指數", "TWF=F": "台指期", "CL=F": "原油", "GC=F": "黃金"}
+            result = {}
+            for symbol, name in tickers.items():
+                try:
+                    tkr = yf.Ticker(symbol)
+                    hist = tkr.history(period="2d")
+                    if len(hist) >= 1:
+                        current = float(hist['Close'].iloc[-1])
+                        prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else current
+                        change = current - prev
+                        pct_change = (change / prev) * 100 if prev else 0
+                        result[name] = {
+                            "price": round(current, 2),
+                            "change": round(change, 2),
+                            "pct_change": round(pct_change, 2)
+                        }
+                except Exception:
+                    result[name] = {"price": 0, "change": 0, "pct_change": 0}
+            return result
+        except Exception:
+            return {}
+
+    @staticmethod
     def get_stock_history(ticker: str, days: int = 180) -> pd.DataFrame:
         try:
             df = DataProvider._fetch_twse_history(ticker, days)
@@ -35,38 +61,12 @@ class DataProvider:
         except Exception:
             pass
 
-        try:
-            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=1y&interval=1d"
-            r = requests.get(url, headers=HEADERS, timeout=10)
-            data = r.json()
-            result = data['chart']['result'][0]
-            timestamps = result['timestamp']
-            quote = result['indicators']['quote'][0]
-            
-            df = pd.DataFrame({
-                'Date': pd.to_datetime(timestamps, unit='s'),
-                'Open': quote['open'],
-                'High': quote['high'],
-                'Low': quote['low'],
-                'Close': quote['close'],
-                'Volume': quote['volume']
-            })
-            df = df.dropna().set_index('Date')
-            cutoff = pd.Timestamp.now(tz='UTC').tz_localize(None) - pd.Timedelta(days=days)
-            df.index = df.index.tz_localize(None)
-            df = df[df.index >= cutoff]
-            if not df.empty:
-                return df
-        except Exception:
-            pass
-
         return pd.DataFrame()
 
     @staticmethod
-    def _fetch_twse_history(stock_id: str, days: int) -> pd.DataFrame:
-        ticker = stock_id.split('.')[0]
-        is_otc = stock_id.upper().endswith('.TWO')
-
+    def _fetch_twse_history(ticker: str, days: int) -> pd.DataFrame:
+        stock_id = ticker.split('.')[0]
+        is_otc = ticker.upper().endswith('.TWO')
         months_needed = max(2, (days // 25) + 1)
         all_rows = []
         now = datetime.now()
@@ -74,9 +74,9 @@ class DataProvider:
         for i in range(months_needed):
             target = now - timedelta(days=30 * i)
             if is_otc:
-                rows = DataProvider._fetch_tpex_month(ticker, target)
+                rows = DataProvider._fetch_tpex_month(stock_id, target)
             else:
-                rows = DataProvider._fetch_twse_month(ticker, target)
+                rows = DataProvider._fetch_twse_month(stock_id, target)
             all_rows.extend(rows)
             time.sleep(0.3)
 
@@ -86,7 +86,6 @@ class DataProvider:
         df = pd.DataFrame(all_rows, columns=['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.drop_duplicates('Date').sort_values('Date').set_index('Date')
-
         cutoff = datetime.now() - timedelta(days=days)
         df = df[df.index >= cutoff]
         return df
@@ -161,17 +160,6 @@ class DataProvider:
                     return float(y)
         except Exception:
             pass
-        
-        try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=1d&interval=1d"
-            r = requests.get(url, headers=HEADERS, timeout=5)
-            data = r.json()
-            price = data['chart']['result'][0]['meta']['regularMarketPrice']
-            if price:
-                return float(price)
-        except Exception:
-            pass
-            
         return None
 
     @staticmethod
