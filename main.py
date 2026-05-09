@@ -318,8 +318,9 @@ def get_kline(ticker: str, days: int = 180):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 @app.get("/history")
-def history(ticker: str = None, limit: int = 100):
-    return {"status": "success", "data": db.get_history(ticker, limit)}
+async def get_history():
+    data = db.get_latest_analysis() 
+    return data
 
 @app.get("/history/tickers")
 def history_tickers():
