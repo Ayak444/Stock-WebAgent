@@ -218,8 +218,7 @@
 </div>
 
 <script>
-  let apiBase = localStorage.getItem('api_base') || window.location.origin;
-  document.getElementById('config-api-base').value = apiBase;
+  let apiBase = "https://stock-webagent.onrender.com";
 
   function navigate(viewId, el) {
     document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
