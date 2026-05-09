@@ -267,13 +267,14 @@ def auto_news():
     try:
         news = NewsCrawler.fetch_all(limit_per_source=3)[:10]
         if not news:
-            return {"status": "success", "summary": "無新聞資料。"}
+            return {"status": "error", "message": "無新聞資料"}
 
         titles = "\n".join([f"- {n['title']}" for n in news])
         genai.configure(api_key=API_KEY)
-        legacy_model = genai.GenerativeModel('gemini-pro')
+        model_instance = genai.GenerativeModel('gemini-1.5-flash')
+        prompt = f"你是專業台股分析師，請摘要以下新聞並提供操作建議，用繁體中文：\n{titles}"
         
-        response = legacy_model.generate_content(f"請用繁體中文摘要這些新聞：\n{titles}")
+        response = model_instance.generate_content(prompt)
         
         return {
             "status": "success",
@@ -281,13 +282,8 @@ def auto_news():
             "analysis": response.text
         }
     except Exception as e:
-        print(f"DEBUG: {e}")
-        backup_text = "今日台股盤勢受美股影響表現震盪，台積電等權值股支撐大盤。建議投資人關注盤中量能變化，操作上保持謹慎，留意技術面支撐點位。"
-        return {
-            "status": "success",
-            "summary": backup_text,
-            "analysis": backup_text
-        }
+        print(f"CRITICAL Gemini Error: {e}")
+        return {"status": "error", "message": "AI 分析引擎暫時連線異常，請稍後再試。"}
 
 @app.get("/kline/{ticker}")
 def get_kline(ticker: str, days: int = 180):
