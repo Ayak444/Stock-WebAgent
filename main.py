@@ -265,15 +265,17 @@ def analyze_news_batch(req: NewsSourceRequest):
 def auto_news():
     import google.generativeai as genai
     try:
+        # 1. 確保抓得到新聞
         news = NewsCrawler.fetch_all(limit_per_source=3)[:10]
         if not news:
-            return {"status": "success", "summary": "目前暫無最新財經新聞，請稍後再試。"}
+            return {"status": "success", "summary": "抓不到新聞資料，請檢查網路。"}
 
-        titles = "\n".join([f"- [{n['source']}] {n['title']}" for n in news])
-        prompt = f"請摘要以下新聞：\n{titles}"
+        titles = "\n".join([f"- {n['title']}" for n in news])
+        
+        genai.configure(api_key=API_KEY)
+        model_simple = genai.GenerativeModel('gemini-1.5-flash')
 
-        model_instance = genai.GenerativeModel('gemini-1.5-flash')
-        response = model_instance.generate_content(prompt)
+        response = model_simple.generate_content(f"摘要這些新聞：{titles}")
         
         return {
             "status": "success",
@@ -281,12 +283,11 @@ def auto_news():
             "analysis": response.text
         }
     except Exception as e:
-        print(f"❌ Gemini 呼叫失敗，啟用保險方案: {e}")
-        default_text = "今日台股受國際市場波動影響，整體盤勢呈現震盪整理。建議投資人關注具備基本面支撐之個股，並留意後續量能變化，謹慎配置倉位。"
+        print(f"DEBUG_FINAL: {str(e)}")
         return {
             "status": "success",
-            "summary": default_text,
-            "analysis": default_text
+            "summary": f"AI 產生失敗。原因：{str(e)[:50]}...",
+            "analysis": "請檢查 Logs 獲取詳細資訊"
         }
 
 @app.get("/kline/{ticker}")
