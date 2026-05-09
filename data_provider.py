@@ -19,29 +19,37 @@ class DataProvider:
 
     @staticmethod
     def get_macro_indices():
-        try:
-            import yfinance as yf
-            tickers = {"^TWII": "加權指數", "TWF=F": "台指期", "CL=F": "原油", "GC=F": "黃金"}
-            result = {}
-            for symbol, name in tickers.items():
-                try:
-                    tkr = yf.Ticker(symbol)
-                    hist = tkr.history(period="2d")
-                    if len(hist) >= 1:
-                        current = float(hist['Close'].iloc[-1])
-                        prev = float(hist['Close'].iloc[-2]) if len(hist) > 1 else current
+        tickers = {"^TWII": "加權指數", "TWF=F": "台指期", "CL=F": "油價", "GC=F": "金價"}
+        result = {}
+        for symbol, name in tickers.items():
+            try:
+                url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d"
+                r = requests.get(url, headers=HEADERS, timeout=5)
+                data = r.json()
+                
+                if 'chart' in data and data['chart']['result']:
+                    result_data = data['chart']['result'][0]
+                    quote = result_data['indicators']['quote'][0]
+                    
+                    closes = [c for c in quote.get('close', []) if c is not None]
+                    
+                    if len(closes) >= 1:
+                        current = float(closes[-1])
+                        prev = float(closes[-2]) if len(closes) > 1 else current
                         change = current - prev
                         pct_change = (change / prev) * 100 if prev else 0
+                        
                         result[name] = {
                             "price": round(current, 2),
                             "change": round(change, 2),
                             "pct_change": round(pct_change, 2)
                         }
-                except Exception:
-                    result[name] = {"price": 0, "change": 0, "pct_change": 0}
-            return result
-        except Exception:
-            return {}
+                        continue
+                        
+                result[name] = {"price": 0, "change": 0, "pct_change": 0}
+            except Exception:
+                result[name] = {"price": 0, "change": 0, "pct_change": 0}
+        return result
 
     @staticmethod
     def get_stock_history(ticker: str, days: int = 180) -> pd.DataFrame:
@@ -53,9 +61,25 @@ class DataProvider:
             pass
 
         try:
-            import yfinance as yf
-            period = "1y" if days > 60 else f"{days}d"
-            df = yf.Ticker(ticker).history(period=period)
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=1y&interval=1d"
+            r = requests.get(url, headers=HEADERS, timeout=10)
+            data = r.json()
+            result = data['chart']['result'][0]
+            timestamps = result['timestamp']
+            quote = result['indicators']['quote'][0]
+            
+            df = pd.DataFrame({
+                'Date': pd.to_datetime(timestamps, unit='s'),
+                'Open': quote['open'],
+                'High': quote['high'],
+                'Low': quote['low'],
+                'Close': quote['close'],
+                'Volume': quote['volume']
+            })
+            df = df.dropna().set_index('Date')
+            cutoff = pd.Timestamp.now(tz='UTC').tz_localize(None) - pd.Timedelta(days=days)
+            df.index = df.index.tz_localize(None)
+            df = df[df.index >= cutoff]
             if not df.empty:
                 return df
         except Exception:
@@ -160,6 +184,17 @@ class DataProvider:
                     return float(y)
         except Exception:
             pass
+        
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=1d&interval=1d"
+            r = requests.get(url, headers=HEADERS, timeout=5)
+            data = r.json()
+            price = data['chart']['result'][0]['meta']['regularMarketPrice']
+            if price:
+                return float(price)
+        except Exception:
+            pass
+            
         return None
 
     @staticmethod
