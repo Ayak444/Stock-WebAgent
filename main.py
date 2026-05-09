@@ -40,6 +40,7 @@ if API_KEY:
         model = None
 else:
     print("⚠️ API_KEY 未設定")
+
 scheduler = None
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
