@@ -4,7 +4,7 @@ pandas
 numpy
 yfinance
 requests
-google-generativeai
+google-generativeai>=5.0
 pydantic
 python-multipart
 apscheduler
