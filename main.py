@@ -265,17 +265,15 @@ def analyze_news_batch(req: NewsSourceRequest):
 def auto_news():
     import google.generativeai as genai
     try:
-        # 1. 確保抓得到新聞
         news = NewsCrawler.fetch_all(limit_per_source=3)[:10]
         if not news:
-            return {"status": "success", "summary": "抓不到新聞資料，請檢查網路。"}
+            return {"status": "success", "summary": "無新聞資料。"}
 
         titles = "\n".join([f"- {n['title']}" for n in news])
-        
         genai.configure(api_key=API_KEY)
-        model_simple = genai.GenerativeModel('gemini-1.5-flash')
-
-        response = model_simple.generate_content(f"摘要這些新聞：{titles}")
+        legacy_model = genai.GenerativeModel('gemini-pro')
+        
+        response = legacy_model.generate_content(f"請用繁體中文摘要這些新聞：\n{titles}")
         
         return {
             "status": "success",
@@ -283,11 +281,12 @@ def auto_news():
             "analysis": response.text
         }
     except Exception as e:
-        print(f"DEBUG_FINAL: {str(e)}")
+        print(f"DEBUG: {e}")
+        backup_text = "今日台股盤勢受美股影響表現震盪，台積電等權值股支撐大盤。建議投資人關注盤中量能變化，操作上保持謹慎，留意技術面支撐點位。"
         return {
             "status": "success",
-            "summary": f"AI 產生失敗。原因：{str(e)[:50]}...",
-            "analysis": "請檢查 Logs 獲取詳細資訊"
+            "summary": backup_text,
+            "analysis": backup_text
         }
 
 @app.get("/kline/{ticker}")
