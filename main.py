@@ -28,13 +28,13 @@ model = None
 if API_KEY:
     try:
         import google.generativeai as genai
-
         genai.configure(api_key=API_KEY)
-
-        model = genai.GenerativeModel('gemini-1.5-flash')
-
-        print("✅ Gemini 1.5 Flash 已啟用")
-
+        try:
+            model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+            model._api_client.api_version = 'v1'
+        except Exception:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+        print("✅ Gemini 1.5 Flash 已啟用 (Force v1 mode)")
     except Exception as e:
         print(f"❌ Gemini 初始化失敗: {e}")
         model = None
