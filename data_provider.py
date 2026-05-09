@@ -2,6 +2,8 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import time
+import re
+import json
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -19,36 +21,73 @@ class DataProvider:
 
     @staticmethod
     def get_macro_indices():
-        tickers = {"^TWII": "加權指數", "TWF=F": "台指期", "CL=F": "油價", "GC=F": "金價"}
         result = {}
+        tickers = {"^TWII": "加權指數", "CL=F": "油價", "GC=F": "金價"}
+        
         for symbol, name in tickers.items():
             try:
                 url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d"
                 r = requests.get(url, headers=HEADERS, timeout=5)
                 data = r.json()
-                
                 if 'chart' in data and data['chart']['result']:
                     result_data = data['chart']['result'][0]
                     quote = result_data['indicators']['quote'][0]
-                    
                     closes = [c for c in quote.get('close', []) if c is not None]
-                    
                     if len(closes) >= 1:
                         current = float(closes[-1])
                         prev = float(closes[-2]) if len(closes) > 1 else current
                         change = current - prev
                         pct_change = (change / prev) * 100 if prev else 0
-                        
-                        result[name] = {
-                            "price": round(current, 2),
-                            "change": round(change, 2),
-                            "pct_change": round(pct_change, 2)
-                        }
+                        result[name] = {"price": round(current, 2), "change": round(change, 2), "pct_change": round(pct_change, 2)}
                         continue
-                        
-                result[name] = {"price": 0, "change": 0, "pct_change": 0}
             except Exception:
-                result[name] = {"price": 0, "change": 0, "pct_change": 0}
+                pass
+            result[name] = {"price": 0, "change": 0, "pct_change": 0}
+
+        result["台指期"] = {"price": 0, "change": 0, "pct_change": 0}
+        try:
+            url = "https://mis.taifex.com.tw/futures/api/getQuoteList"
+            payload = {"MarketType":"0", "SymbolType":"F", "KindID":"1", "CID":"TXF", "ExpireMonths":"", "Shrink":""}
+            r = requests.post(url, json=payload, headers=HEADERS, timeout=5)
+            data = r.json()
+            if data.get('RtData', {}).get('QuoteList'):
+                q = data['RtData']['QuoteList'][0]
+                price = float(q.get('CLastPrice') or q.get('CPrice') or 0)
+                change = float(q.get('CDiff') or 0)
+                if price > 0:
+                    prev = price - change
+                    pct = (change / prev * 100) if prev else 0
+                    result["台指期"] = {"price": round(price, 2), "change": round(change, 2), "pct_change": round(pct, 2)}
+        except Exception:
+            try:
+                r = requests.get("https://tw.stock.yahoo.com/quote/WTX%26T.EX", headers=HEADERS, timeout=5)
+                match = re.search(r'window\.__PRELOADED_STATE__\s*=\s*({.*?});</script>', r.text)
+                if match:
+                    state = json.loads(match.group(1))
+                    def find_quote(d, target="WTX&T.EX"):
+                        if isinstance(d, dict):
+                            if d.get('symbol') == target and 'price' in d:
+                                return d
+                            for k, v in d.items():
+                                res = find_quote(v, target)
+                                if res: return res
+                        elif isinstance(d, list):
+                            for item in d:
+                                res = find_quote(item, target)
+                                if res: return res
+                        return None
+                    
+                    quote = find_quote(state)
+                    if quote:
+                        price = float(quote.get('price', 0))
+                        change = float(quote.get('change', 0))
+                        if price > 0:
+                            prev = price - change
+                            pct = (change / prev * 100) if prev else 0
+                            result["台指期"] = {"price": round(price, 2), "change": round(change, 2), "pct_change": round(pct, 2)}
+            except Exception:
+                pass
+
         return result
 
     @staticmethod
