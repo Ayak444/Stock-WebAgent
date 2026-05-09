@@ -24,7 +24,7 @@ from notifier import EmailNotifier
 MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
 MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
 MAIAGENT_WEBCHAT_ID = os.environ.get("MAIAGENT_WEBCHAT_ID", "")
-MAIAGENT_BASE_URL = "https://api.maiagent.ai/api/v1"
+MAIAGENT_BASE_URL = "https://api.maiagent.ai/api"
 
 class MaiAgentClient:
     def __init__(self, api_key: str, chatbot_id: str, webchat_id: str):
@@ -47,28 +47,37 @@ class MaiAgentClient:
         return data.get("id", "")
 
     def send_message(self, content: str, conversation_id: str = None) -> str:
-        url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions"
-        payload = {"message": {"content": content}}
-        if conversation_id:
-            payload["conversation"] = conversation_id
-        response = http_requests.post(url, headers=self.headers, json=payload, timeout=60)
-        response.raise_for_status()
-        data = response.json()
-        if isinstance(data, dict):
-            if "message" in data and isinstance(data["message"], dict):
-                return data["message"].get("content", str(data))
-            elif "reply" in data:
-                return data["reply"]
-            elif "content" in data:
-                return data["content"]
-            elif "choices" in data:
-                choices = data["choices"]
-                if choices and isinstance(choices[0], dict):
-                    msg = choices[0].get("message", {})
-                    return msg.get("content", str(data))
-            else:
-                return str(data)
-        return str(data)
+            url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions/"
+            payload = {
+                "message": {
+                    "content": content
+                }
+            }
+
+            if conversation_id:
+                payload["conversation"] = conversation_id
+
+            response = http_requests.post(
+                url, headers=self.headers, json=payload, timeout=60
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if isinstance(data, dict):
+                if "message" in data and isinstance(data["message"], dict):
+                    return data["message"].get("content", str(data))
+                elif "reply" in data:
+                    return data["reply"]
+                elif "content" in data:
+                    return data["content"]
+                elif "choices" in data:
+                    choices = data["choices"]
+                    if choices and isinstance(choices[0], dict):
+                        msg = choices[0].get("message", {})
+                        return msg.get("content", str(data))
+                else:
+                    return str(data)
+            return str(data)
 
     def chat(self, user_message: str, conversation_id: str = None) -> dict:
         try:
