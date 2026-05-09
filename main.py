@@ -47,44 +47,45 @@ class MaiAgentClient:
         return data.get("id", "")
 
     def send_message(self, content: str, conversation_id: str = None) -> str:
-            url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions/"
-            payload = {
-                "message": {
-                    "content": content
-                }
+        url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions/"
+        payload = {
+            "message": {
+                "content": content
             }
-
-            if conversation_id:
-                payload["conversation"] = conversation_id
-
-            response = http_requests.post(
-                url, headers=self.headers, json=payload, timeout=60
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            if isinstance(data, dict):
-                if "message" in data and isinstance(data["message"], dict):
-                    return data["message"].get("content", str(data))
-                elif "reply" in data:
-                    return data["reply"]
-                elif "content" in data:
-                    return data["content"]
-                elif "choices" in data:
-                    choices = data["choices"]
-                    if choices and isinstance(choices[0], dict):
-                        msg = choices[0].get("message", {})
-                        return msg.get("content", str(data))
-                else:
-                    return str(data)
-            return str(data)
+        }
+        if conversation_id:
+            payload["conversation"] = conversation_id
+        response = http_requests.post(
+            url, headers=self.headers, json=payload, timeout=60
+        )
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, dict):
+            if "message" in data and isinstance(data["message"], dict):
+                return data["message"].get("content", str(data))
+            elif "reply" in data:
+                return data["reply"]
+            elif "content" in data:
+                return data["content"]
+            elif "choices" in data:
+                choices = data["choices"]
+                if choices and isinstance(choices[0], dict):
+                    msg = choices[0].get("message", {})
+                    return msg.get("content", str(data))
+            else:
+                return str(data)
+        return str(data)
 
     def chat(self, user_message: str, conversation_id: str = None) -> dict:
         try:
             if not conversation_id:
                 conversation_id = self.create_conversation()
             reply = self.send_message(user_message, conversation_id)
-            return {"status": "success", "reply": reply, "conversation_id": conversation_id}
+            return {
+                "status": "success",
+                "reply": reply,
+                "conversation_id": conversation_id
+            }
         except http_requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if e.response else 0
             if status_code == 429:
@@ -120,7 +121,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="台股智能分析 API", version="3.0", lifespan=lifespan)
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
 
 db = Database()
 notifier = EmailNotifier()
@@ -141,24 +144,35 @@ def _analyze_targets(targets):
                 })
                 continue
             rt_price = DataProvider.get_realtime_price(t.id)
-            eval_result = StrategyEngine.evaluate(t.id, df, chip, fx_val, t.cost, t.shares)
+            eval_result = StrategyEngine.evaluate(
+                t.id, df, chip, fx_val, t.cost, t.shares
+            )
             price = rt_price or eval_result['price']
             pl = round((price - t.cost) / t.cost * 100, 2) if t.cost > 0 else 0
             results.append({
-                "name": t.name, "ticker": t.id, "price": round(price, 2), "score": eval_result['score'],
-                "advice": eval_result['advice'], "pl": pl, "valuation": eval_result['valuation'],
-                "signals": eval_result['signals'], "exit": eval_result['exit_note'], "sl": eval_result['stop_loss']
+                "name": t.name, "ticker": t.id,
+                "price": round(price, 2), "score": eval_result['score'],
+                "advice": eval_result['advice'], "pl": pl,
+                "valuation": eval_result['valuation'],
+                "signals": eval_result['signals'],
+                "exit": eval_result['exit_note'],
+                "sl": eval_result['stop_loss']
             })
         except Exception as e:
             traceback.print_exc()
             results.append({
-                "name": t.name, "ticker": t.id, "price": 0, "score": 0, "advice": "運算錯誤",
-                "pl": 0, "valuation": "無數據", "signals": [f"例外: {str(e)[:80]}"], "exit": "-", "sl": 0
+                "name": t.name, "ticker": t.id, "price": 0,
+                "score": 0, "advice": "運算錯誤", "pl": 0,
+                "valuation": "無數據", "signals": [f"例外: {str(e)[:80]}"],
+                "exit": "-", "sl": 0
             })
     return results, fx_note
 
 def daily_analysis_task():
-    default_targets = [StockTarget("2330.TW", "台積電", "台股", 1000, 1000), StockTarget("0050.TW", "元大台灣50", "ETF", 180, 1000)]
+    default_targets = [
+        StockTarget("2330.TW", "台積電", "台股", 1000, 1000),
+        StockTarget("0050.TW", "元大台灣50", "ETF", 180, 1000),
+    ]
     results, _ = _analyze_targets(default_targets)
     db.save_analysis(results)
     html = notifier.format_analysis(results)
@@ -177,7 +191,9 @@ def ping():
 @app.get("/health")
 def health():
     return {
-        "status": "ok", "maiagent": mai_client.enabled, "email": notifier.enabled,
+        "status": "ok",
+        "maiagent": mai_client.enabled,
+        "email": notifier.enabled,
         "scheduler": scheduler is not None and scheduler.running if scheduler else False,
         "time": datetime.now().isoformat()
     }
@@ -197,7 +213,7 @@ def analyze(req: AnalyzeRequest):
 @app.post("/chat")
 def chat(req: ChatRequest):
     if not mai_client.enabled:
-        return {"status": "error", "message": "MaiAgent 未設定，請檢查環境變數 MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID"}
+        return {"status": "error", "message": "MaiAgent 未設定，請檢查環境變數"}
     conversation_id = getattr(req, 'conversation_id', None)
     result = mai_client.chat(req.message, conversation_id)
     return result
@@ -234,10 +250,15 @@ def get_news(sources: str = "", limit: int = 5):
 def analyze_news_batch(req: NewsSourceRequest):
     if not mai_client.enabled:
         return {"status": "error", "message": "MaiAgent 未設定"}
-    news_list = NewsCrawler.fetch_all(sources=req.sources, limit_per_source=req.limit)[:15]
+    news_list = NewsCrawler.fetch_all(
+        sources=req.sources, limit_per_source=req.limit
+    )[:15]
     if not news_list:
         return {"status": "error", "message": "沒有抓到新聞"}
-    combined = "\n".join([f"{i+1}. [{n['source']}] {n['title']}" for i, n in enumerate(news_list)])
+    combined = "\n".join([
+        f"{i+1}. [{n['source']}] {n['title']}"
+        for i, n in enumerate(news_list)
+    ])
     prompt = (
         "請分析以下新聞列表的情緒，以 JSON 陣列格式回覆：\n"
         '[{"index": 1, "sentiment": "利多/利空/中立", "impact": "高/中/低", "reason": "簡短說明(30字內)"}]\n\n'
@@ -267,11 +288,23 @@ def analyze_news_batch(req: NewsSourceRequest):
             item['impact'] = '低'
             item['ai_reason'] = ''
         db.save_news_analysis({
-            "source": item['source'], "title": item['title'], "sentiment": item['sentiment'],
-            "summary": item.get('ai_reason', ''), "link": item.get('link', '')
+            "source": item['source'],
+            "title": item['title'],
+            "sentiment": item['sentiment'],
+            "summary": item.get('ai_reason', ''),
+            "link": item.get('link', '')
         })
-    stats = {"利多": sum(1 for n in news_list if n.get('sentiment') == '利多'), "利空": sum(1 for n in news_list if n.get('sentiment') == '利空'), "中立": sum(1 for n in news_list if n.get('sentiment') == '中立')}
-    return {"status": "success", "count": len(news_list), "stats": stats, "data": news_list}
+    stats = {
+        "利多": sum(1 for n in news_list if n.get('sentiment') == '利多'),
+        "利空": sum(1 for n in news_list if n.get('sentiment') == '利空'),
+        "中立": sum(1 for n in news_list if n.get('sentiment') == '中立')
+    }
+    return {
+        "status": "success",
+        "count": len(news_list),
+        "stats": stats,
+        "data": news_list
+    }
 
 @app.get("/auto_news")
 def auto_news():
@@ -289,7 +322,12 @@ def auto_news():
         )
         result = mai_client.chat(prompt)
         if result["status"] == "success":
-            return {"status": "success", "summary": result["reply"], "news_count": len(news), "sources_used": list(set(n['source'] for n in news))}
+            return {
+                "status": "success",
+                "summary": result["reply"],
+                "news_count": len(news),
+                "sources_used": list(set(n['source'] for n in news))
+            }
         else:
             return result
     except Exception as e:
@@ -307,15 +345,28 @@ def get_kline(ticker: str, days: int = 180):
         for _, row in df.iterrows():
             import pandas as pd
             ts = int(row[date_col].timestamp()) if not pd.isna(row[date_col]) else 0
-            candles.append({"time": ts, "open": round(float(row['Open']), 2), "high": round(float(row['High']), 2), "low": round(float(row['Low']), 2), "close": round(float(row['Close']), 2)})
-            volumes.append({"time": ts, "value": float(row['Volume']), "color": "#26a69a" if row['Close'] >= row['Open'] else "#ef5350"})
+            candles.append({
+                "time": ts,
+                "open": round(float(row['Open']), 2),
+                "high": round(float(row['High']), 2),
+                "low": round(float(row['Low']), 2),
+                "close": round(float(row['Close']), 2),
+            })
+            volumes.append({
+                "time": ts, "value": float(row['Volume']),
+                "color": "#26a69a" if row['Close'] >= row['Open'] else "#ef5350"
+            })
             if not pd.isna(row.get('MA5')):
                 ma5.append({"time": ts, "value": round(float(row['MA5']), 2)})
             if not pd.isna(row.get('MA20')):
                 ma20.append({"time": ts, "value": round(float(row['MA20']), 2)})
             if not pd.isna(row.get('MA60')):
                 ma60.append({"time": ts, "value": round(float(row['MA60']), 2)})
-        return {"status": "success", "ticker": ticker, "candles": candles, "volumes": volumes, "ma5": ma5, "ma20": ma20, "ma60": ma60}
+        return {
+            "status": "success", "ticker": ticker,
+            "candles": candles, "volumes": volumes,
+            "ma5": ma5, "ma20": ma20, "ma60": ma60
+        }
     except Exception as e:
         traceback.print_exc()
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
@@ -331,6 +382,21 @@ def history_tickers():
 @app.post("/backtest")
 def backtest(req: BacktestRequest):
     return Backtester.run(req.ticker, req.days)
+
+@app.post("/stress_test")
+def save_stress_test(req: dict):
+    db.save_stress_test(
+        req.get('total_cost', 0),
+        req.get('total_value', 0),
+        req.get('total_pl', 0),
+        req.get('portfolio', [])
+    )
+    return {"status": "success"}
+
+@app.get("/stress_test/history")
+def get_stress_test_history():
+    records = db.get_stress_tests()
+    return {"status": "success", "data": records}
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")

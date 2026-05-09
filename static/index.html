@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>智盤 Pro v4.0 - 台股 AI 分析儀表板</title>
+<title>股金往來 v4.0 - 台股 AI 分析儀表板</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
@@ -45,6 +45,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .btn-analyze { display:flex; align-items:center; gap:8px; background:linear-gradient(135deg, var(--orange-500), var(--orange-400)); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; box-shadow: 0 4px 15px rgba(249,115,22,0.3); transform: translateY(0); }
 .btn-analyze:hover { box-shadow: 0 6px 20px rgba(249,115,22,0.5); transform: translateY(-2px); }
 .btn-analyze:disabled { opacity:0.6; cursor:not-allowed; transform: translateY(0); box-shadow: none;}
+.btn-outline { display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--slate-600); color:#fff; padding:10px 18px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
+.btn-outline:hover { background:var(--slate-800); }
 .card { background:var(--slate-800); border:1px solid var(--slate-700); border-radius:12px; overflow:hidden; margin-bottom:16px;}
 .card-header { padding:12px 20px; border-bottom:1px solid var(--slate-700); font-size:13px; font-weight:600; color:#fff; display: flex; justify-content: space-between; align-items: center;}
 .card-body { padding:16px 20px; }
@@ -107,8 +109,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
   <aside class="sidebar">
     <div class="sidebar-header">
       <span class="logo">🚀</span>
-      <span class="title">智盤 Pro</span>
-      <span class="ver">v4.0</span>
+      <span class="title">股金往來</span>
+      <span class="ver">台股 AI 分析儀表板</span>
     </div>
     <nav class="sidebar-nav" id="nav">
       <button class="nav-btn active" data-page="war"><span class="icon">🏠</span>首頁</button>
@@ -157,7 +159,10 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
       <div class="page" id="page-stress">
         <div class="page-header">
           <div><h2>資產壓力測試</h2><p class="sub">投資組合風險分析 × 停損點試算</p></div>
-          <button class="btn-analyze" id="btn-stress" onclick="runStressTest()">⚡ 執行深度分析</button>
+          <div style="display:flex; gap:12px;">
+            <button class="btn-outline" onclick="fetchStressHistory()">📜 歷史紀錄</button>
+            <button class="btn-analyze" id="btn-stress" onclick="runStressTest()">⚡ 執行深度分析</button>
+          </div>
         </div>
         <div class="card">
           <div class="card-header">投資組合設定</div>
@@ -237,6 +242,16 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
     </div>
   </div>
+</div>
+
+<div id="stress-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;">
+   <div class="card" style="width:800px; max-height:80vh; overflow-y:auto; display:flex; flex-direction:column; background:var(--slate-900);">
+       <div class="card-header" style="background:var(--slate-800);">
+           <span style="font-size:16px;">📜 壓力測試歷史紀錄</span>
+           <button onclick="document.getElementById('stress-history-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
+       </div>
+       <div class="card-body" id="stress-history-content"></div>
+   </div>
 </div>
 
 <button class="chat-fab" onclick="toggleChat()">🤖</button>
@@ -434,10 +449,70 @@ async function runStressTest() {
         </div>
         <div class="grid grid-2">${cardsHtml}</div>
       `;
+
+      const payload = {
+          total_cost: totalCost,
+          total_value: totalValue,
+          total_pl: totalPL,
+          portfolio: targets.map(t => {
+             const r = res.data.find(d => d.ticker === t.id);
+             return {
+                ticker: t.id,
+                cost: t.cost,
+                shares: t.shares,
+                price: r ? r.price : 0,
+                pl: r ? r.pl : 0
+             };
+          })
+      };
+      apiCall('/stress_test', 'POST', payload);
+
   } else {
       resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
   }
   btn.disabled = false;
+}
+
+async function fetchStressHistory() {
+   const modal = document.getElementById('stress-history-modal');
+   const content = document.getElementById('stress-history-content');
+   modal.style.display = 'flex';
+   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+   const res = await apiCall('/stress_test/history');
+   if (res.status === 'success') {
+       if(res.data.length === 0) {
+           content.innerHTML = '<span style="color:var(--slate-500);">尚無歷史紀錄</span>';
+           return;
+       }
+       content.innerHTML = res.data.map(r => {
+           const color = r.total_pl_percent >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+           const sign = r.total_pl_percent >= 0 ? '+' : '';
+           const portHtml = r.portfolio.map(p => `
+               <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--slate-300); margin-top:6px; border-bottom:1px dashed var(--slate-700); padding-bottom:6px;">
+                   <span>${p.ticker} (${p.shares}股)</span>
+                   <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
+               </div>
+           `).join('');
+           return `
+               <div style="background:var(--slate-800); padding:20px; border-radius:10px; border:1px solid var(--slate-700); margin-bottom:16px;">
+                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${r.timestamp}</span>
+                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(r.total_pl_percent)}%</span>
+                   </div>
+                   <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:16px; color:#fff;">
+                       <span>總投入成本: $${fmt(r.total_cost)}</span>
+                       <span>結算總現值: $${fmt(r.total_value)}</span>
+                   </div>
+                   <div style="background:rgba(15,23,42,0.5); padding:12px; border-radius:8px;">
+                       <div style="font-size:12px; color:var(--slate-500); margin-bottom:8px;">資產快照</div>
+                       ${portHtml}
+                   </div>
+               </div>
+           `;
+       }).join('');
+   } else {
+       content.innerHTML = `<span style="color:var(--red-400);">${res.message}</span>`;
+   }
 }
 
 async function fetchTechAnalysis() {

@@ -1,11 +1,10 @@
-"""SQLite 歷史紀錄"""
 import sqlite3
 import os
 import json
 from datetime import datetime
+import pandas as pd
 
 DB_PATH = os.environ.get("DB_PATH", "history.db")
-
 
 class Database:
     def __init__(self):
@@ -35,6 +34,28 @@ class Database:
                 sentiment TEXT,
                 summary TEXT,
                 link TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS daily_kline (
+                ticker TEXT NOT NULL,
+                date TEXT NOT NULL,
+                open REAL,
+                high REAL,
+                low REAL,
+                close REAL,
+                volume INTEGER,
+                PRIMARY KEY (ticker, date)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS stress_test_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                total_cost REAL,
+                total_value REAL,
+                total_pl_percent REAL,
+                portfolio_json TEXT
             )
         """)
         conn.commit()
@@ -93,3 +114,59 @@ class Database:
         ))
         conn.commit()
         conn.close()
+
+    def save_kline_batch(self, df: pd.DataFrame, ticker: str):
+        if df.empty:
+            return
+        conn = sqlite3.connect(DB_PATH)
+        df_save = df.copy()
+        df_save['ticker'] = ticker
+        df_save['date'] = df_save.index.strftime('%Y-%m-%d')
+        df_save = df_save[['ticker', 'date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+        df_save.columns = ['ticker', 'date', 'open', 'high', 'low', 'close', 'volume']
+        
+        df_save.to_sql('daily_kline', conn, if_exists='append', index=False)
+        
+        conn.execute("""
+            DELETE FROM daily_kline 
+            WHERE rowid NOT IN (
+                SELECT MIN(rowid) 
+                FROM daily_kline 
+                GROUP BY ticker, date
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+    def get_kline(self, ticker: str, days: int) -> pd.DataFrame:
+        conn = sqlite3.connect(DB_PATH)
+        query = "SELECT date, open, high, low, close, volume FROM daily_kline WHERE ticker = ? ORDER BY date DESC LIMIT ?"
+        df = pd.read_sql_query(query, conn, params=(ticker, days))
+        conn.close()
+        if df.empty:
+            return pd.DataFrame()
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.sort_values('date').set_index('date')
+        df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        return df
+
+    def save_stress_test(self, total_cost: float, total_value: float, total_pl: float, portfolio: list):
+        conn = sqlite3.connect(DB_PATH)
+        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute("""
+            INSERT INTO stress_test_records (timestamp, total_cost, total_value, total_pl_percent, portfolio_json)
+            VALUES (?, ?, ?, ?, ?)
+        """, (ts, total_cost, total_value, total_pl, json.dumps(portfolio, ensure_ascii=False)))
+        conn.commit()
+        conn.close()
+
+    def get_stress_tests(self, limit: int = 50):
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM stress_test_records ORDER BY id DESC LIMIT ?", (limit,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        for row in rows:
+            row['portfolio'] = json.loads(row['portfolio_json'])
+            del row['portfolio_json']
+        return rows
