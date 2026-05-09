@@ -274,7 +274,7 @@ def auto_news():
             return {"status": "error", "message": "無新聞資料"}
 
         titles = "\n".join([f"- {n['title']}" for n in news])
-        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
         
         payload = {
             "contents": [{
