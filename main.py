@@ -386,13 +386,15 @@ def backtest(req: BacktestRequest):
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 
 @app.get("/portfolio")
-def get_user_portfolio():
-    data = db.get_portfolio(DEFAULT_USER_ID)
+def get_user_portfolio(user_id: str):
+    data = db.get_portfolio(user_id)
     return {"status": "success", "data": data}
 
 @app.post("/portfolio")
 def sync_user_portfolio(req: dict):
-    db.save_portfolio(DEFAULT_USER_ID, req.get('portfolio', []))
+    user_id = req.get("user_id")
+    if not user_id: return {"status": "error", "message": "Missing user_id"}
+    db.save_portfolio(user_id, req.get('portfolio', []))
     return {"status": "success"}
 
 @app.post("/stress_test/save")
@@ -408,6 +410,26 @@ def save_stress_test_final(req: dict):
 def get_stress_test_history_final():
     data = db.get_stress_test_history(DEFAULT_USER_ID)
     return {"status": "success", "data": data}
+
+@app.post("/auth/login")
+def login(req: dict):
+    email = req.get("email")
+    name = req.get("name", "投資新手")
+    user = db.get_or_create_user(email, name)
+    if user:
+        return {"status": "success", "user": user}
+    raise HTTPException(status_code=400, detail="登入失敗")
+
+@app.post("/trade")
+def execute_trade(req: dict):
+    # 預期參數: user_id, action, ticker, amount, price
+    success = db.record_trade(
+        req['user_id'], req['action'], req['ticker'], 
+        float(req['amount']), float(req['price'])
+    )
+    if success:
+        return {"status": "success", "message": "交易已記錄"}
+    return {"status": "error", "message": "交易失敗"}
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")

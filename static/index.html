@@ -346,21 +346,36 @@ async function fetchMacroData() {
 
 let positions = [];
 
+let currentUser = JSON.parse(localStorage.getItem('trade_user'));
+
+async function loginUser(email, name) {
+    const res = await apiCall('/auth/login', 'POST', { email, name });
+    if(res.status === 'success') {
+        currentUser = res.user;
+        localStorage.setItem('trade_user', JSON.stringify(res.user));
+        alert('登入成功，歡迎 ' + currentUser.name);
+        init();
+    }
+}
+
 async function loadPositionsFromServer() {
-  const res = await apiCall('/portfolio');
+  if(!currentUser) {
+      console.log("未登入，顯示預設位");
+      return;
+  }
+  const res = await apiCall(`/portfolio?user_id=${currentUser.id}`);
   if (res.status === 'success' && res.data.length > 0) {
     positions = res.data;
-  } else {
-    positions = [
-      { code:"2330.TW", type:"台股", cost:"500", shares:"1000" },
-      { code:"0050.TW", type:"ETF", cost:"130", shares:"2000" }
-    ];
-  }
+  } 
   renderPositions();
 }
 
 async function syncPositions() {
-  await apiCall('/portfolio', 'POST', { portfolio: positions });
+  if(!currentUser) return;
+  await apiCall('/portfolio', 'POST', { 
+      user_id: currentUser.id, 
+      portfolio: positions 
+  });
 }
 
 function renderPositions() {

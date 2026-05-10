@@ -150,20 +150,8 @@ class Database:
 
     def get_portfolio(self, user_id: str):
         if not self.supabase: return []
-        try:
-            res = self.supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
-            output = []
-            for r in res.data:
-                output.append({
-                    "code": r['asset_name'],
-                    "type": r['asset_type'],
-                    "cost": str(r['avg_price']),
-                    "shares": str(r['amount'])
-                })
-            return output
-        except Exception as e:
-            print(e)
-            return []
+        res = self.supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
+        return [{"code": r['asset_name'], "type": r['asset_type'], "cost": str(r['avg_price']), "shares": str(r['amount'])} for r in res.data]
 
     def save_stress_test_record(self, user_id: str, scenario: str, result_data: dict):
         if not self.supabase: return
@@ -185,3 +173,41 @@ class Database:
         except Exception as e:
             print(e)
             return []
+    
+    def get_or_create_user(self, email: str, name: str):
+        if not self.supabase: return None
+        try:
+            res = self.supabase.table("users").select("*").eq("email", email).execute()
+            if res.data:
+                return res.data[0]
+            
+            new_user = {"email": email, "name": name, "virtual_balance": 500000}
+            res = self.supabase.table("users").insert(new_user).execute()
+            return res.data[0]
+        except Exception as e:
+            print(f"Error in get_or_create_user: {e}")
+            return None
+    
+    def record_trade(self, user_id: str, action: str, ticker: str, amount: float, price: float):
+        if not self.supabase: return False
+        try:
+            total = amount * price
+            trade_data = {
+                "user_id": user_id,
+                "action": action,
+                "asset_name": ticker,
+                "amount": amount,
+                "price": price,
+                "total": total
+            }
+            self.supabase.table("trades").insert(trade_data).execute()
+
+            user_res = self.supabase.table("users").select("virtual_balance").eq("id", user_id).execute()
+            current_balance = float(user_res.data[0]['virtual_balance'])
+            new_balance = current_balance - total if action == '買入' else current_balance + total
+            
+            self.supabase.table("users").update({"virtual_balance": new_balance}).eq("id", user_id).execute()
+            return True
+        except Exception as e:
+            print(f"Trade Error: {e}")
+            return False
