@@ -388,6 +388,39 @@ function removePosition(i) {
   syncPositions();
 }
 
+async function fetchWarData() {
+  const btn = document.getElementById('btn-war');
+  btn.disabled = true;
+  document.getElementById('war-ai-summary').innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">MaiAgent 生成摘要中...</p></div>';
+  document.getElementById('war-news').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  fetchMacroData();
+
+  const aiRes = await apiCall('/auto_news');
+  if(aiRes.status === 'success') {
+     document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0;"><p class="desc">${aiRes.summary}</p></div>`;
+  } else {
+     document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
+  }
+
+  const newsRes = await apiCall('/news?limit=10');
+  if(newsRes.status === 'success') {
+      document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
+        <details style="background:rgba(51,65,85,0.4); border:1px solid var(--slate-700); padding:14px; border-radius:8px; margin-bottom:10px; transition:0.3s;">
+          <summary style="cursor:pointer; outline:none; display:flex; gap:10px; align-items:flex-start;">
+            <span style="font-size:12px; color:var(--slate-500); width:110px; flex-shrink:0; font-family:monospace;">${n.published}</span>
+            <span class="badge badge-slate" style="flex-shrink:0;">${n.source}</span>
+            <span style="font-size:15px; color:var(--slate-200); font-weight:600; flex:1; line-height:1.4;">${n.title}</span>
+          </summary>
+          <div style="padding-top:12px; margin-top:12px; border-top:1px dashed var(--slate-600); color:var(--slate-300); font-size:14px; line-height:1.7;">
+            ${n.summary}
+            <div style="margin-top:10px;"><a href="${n.link}" target="_blank" style="color:var(--blue-400); text-decoration:none; font-weight:600;">閱讀全文 ⭧</a></div>
+          </div>
+        </details>
+      `).join('');
+  }
+  btn.disabled = false;
+}
+
 async function runStressTest() {
   const btn = document.getElementById('btn-stress');
   const resultDiv = document.getElementById('stress-result');
