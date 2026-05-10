@@ -383,20 +383,31 @@ def history_tickers():
 def backtest(req: BacktestRequest):
     return Backtester.run(req.ticker, req.days)
 
-@app.post("/stress_test")
-def save_stress_test(req: dict):
-    db.save_stress_test(
-        req.get('total_cost', 0),
-        req.get('total_value', 0),
-        req.get('total_pl', 0),
-        req.get('portfolio', [])
+DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
+
+@app.get("/portfolio")
+def get_user_portfolio():
+    data = db.get_portfolio(DEFAULT_USER_ID)
+    return {"status": "success", "data": data}
+
+@app.post("/portfolio")
+def sync_user_portfolio(req: dict):
+    db.save_portfolio(DEFAULT_USER_ID, req.get('portfolio', []))
+    return {"status": "success"}
+
+@app.post("/stress_test/save")
+def save_stress_test_final(req: dict):
+    db.save_stress_test_record(
+        DEFAULT_USER_ID, 
+        req.get('scenario', '常規測試'), 
+        req.get('result', {})
     )
     return {"status": "success"}
 
 @app.get("/stress_test/history")
-def get_stress_test_history():
-    records = db.get_stress_tests()
-    return {"status": "success", "data": records}
+def get_stress_test_history_final():
+    data = db.get_stress_test_history(DEFAULT_USER_ID)
+    return {"status": "success", "data": data}
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")

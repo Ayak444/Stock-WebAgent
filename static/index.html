@@ -344,59 +344,49 @@ async function fetchMacroData() {
   }
 }
 
-async function fetchWarData() {
-  const btn = document.getElementById('btn-war');
-  btn.disabled = true;
-  document.getElementById('war-ai-summary').innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">MaiAgent 生成摘要中...</p></div>';
-  document.getElementById('war-news').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  fetchMacroData();
+let positions = [];
 
-  const aiRes = await apiCall('/auto_news');
-  if(aiRes.status === 'success') {
-     document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0;"><p class="desc">${aiRes.summary}</p></div>`;
+async function loadPositionsFromServer() {
+  const res = await apiCall('/portfolio');
+  if (res.status === 'success' && res.data.length > 0) {
+    positions = res.data;
   } else {
-     document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
+    positions = [
+      { code:"2330.TW", type:"台股", cost:"500", shares:"1000" },
+      { code:"0050.TW", type:"ETF", cost:"130", shares:"2000" }
+    ];
   }
-
-  const newsRes = await apiCall('/news?limit=10');
-  if(newsRes.status === 'success') {
-      document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
-        <details style="background:rgba(51,65,85,0.4); border:1px solid var(--slate-700); padding:14px; border-radius:8px; margin-bottom:10px; transition:0.3s;">
-          <summary style="cursor:pointer; outline:none; display:flex; gap:10px; align-items:flex-start;">
-            <span style="font-size:12px; color:var(--slate-500); width:110px; flex-shrink:0; font-family:monospace;">${n.published}</span>
-            <span class="badge badge-slate" style="flex-shrink:0;">${n.source}</span>
-            <span style="font-size:15px; color:var(--slate-200); font-weight:600; flex:1; line-height:1.4;">${n.title}</span>
-          </summary>
-          <div style="padding-top:12px; margin-top:12px; border-top:1px dashed var(--slate-600); color:var(--slate-300); font-size:14px; line-height:1.7;">
-            ${n.summary}
-            <div style="margin-top:10px;"><a href="${n.link}" target="_blank" style="color:var(--blue-400); text-decoration:none; font-weight:600;">閱讀全文 ⭧</a></div>
-          </div>
-        </details>
-      `).join('');
-  }
-  btn.disabled = false;
+  renderPositions();
 }
 
-let positions = [
-  { code:"2330.TW", type:"台股", cost:"500", shares:"1000" },
-  { code:"0050.TW", type:"ETF", cost:"130", shares:"2000" }
-];
+async function syncPositions() {
+  await apiCall('/portfolio', 'POST', { portfolio: positions });
+}
 
 function renderPositions() {
   const types = ["台股","ETF"];
   document.getElementById('positions-list').innerHTML = positions.map((p,i) => `
     <div class="position-grid" style="margin-bottom:8px">
-      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value" placeholder="例如: 2330.TW">
-      <select class="input" onchange="positions[${i}].type=this.value">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
-      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value">
-      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value">
+      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value; syncPositions();" placeholder="例如: 2330.TW">
+      <select class="input" onchange="positions[${i}].type=this.value; syncPositions();">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
+      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value; syncPositions();">
+      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value; syncPositions();">
       <button class="btn-remove" onclick="removePosition(${i})">×</button>
     </div>
   `).join('');
 }
 
-function addPosition() { positions.push({code:"",type:"台股",cost:"",shares:""}); renderPositions(); }
-function removePosition(i) { positions.splice(i,1); renderPositions(); }
+function addPosition() { 
+  positions.push({code:"",type:"台股",cost:"",shares:""}); 
+  renderPositions(); 
+  syncPositions();
+}
+
+function removePosition(i) { 
+  positions.splice(i,1); 
+  renderPositions(); 
+  syncPositions();
+}
 
 async function runStressTest() {
   const btn = document.getElementById('btn-stress');
@@ -451,21 +441,24 @@ async function runStressTest() {
       `;
 
       const payload = {
-          total_cost: totalCost,
-          total_value: totalValue,
-          total_pl: totalPL,
-          portfolio: targets.map(t => {
-             const r = res.data.find(d => d.ticker === t.id);
-             return {
-                ticker: t.id,
-                cost: t.cost,
-                shares: t.shares,
-                price: r ? r.price : 0,
-                pl: r ? r.pl : 0
-             };
-          })
+          scenario: "常規壓力測試",
+          result: {
+              total_cost: totalCost,
+              total_value: totalValue,
+              total_pl: totalPL,
+              portfolio: targets.map(t => {
+                 const r = res.data.find(d => d.ticker === t.id);
+                 return {
+                    ticker: t.id,
+                    cost: t.cost,
+                    shares: t.shares,
+                    price: r ? r.price : 0,
+                    pl: r ? r.pl : 0
+                 };
+              })
+          }
       };
-      apiCall('/stress_test', 'POST', payload);
+      apiCall('/stress_test/save', 'POST', payload);
 
   } else {
       resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
@@ -478,30 +471,37 @@ async function fetchStressHistory() {
    const content = document.getElementById('stress-history-content');
    modal.style.display = 'flex';
    content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+   
    const res = await apiCall('/stress_test/history');
+   
    if (res.status === 'success') {
        if(res.data.length === 0) {
            content.innerHTML = '<span style="color:var(--slate-500);">尚無歷史紀錄</span>';
            return;
        }
        content.innerHTML = res.data.map(r => {
-           const color = r.total_pl_percent >= 0 ? 'var(--green-400)' : 'var(--red-400)';
-           const sign = r.total_pl_percent >= 0 ? '+' : '';
-           const portHtml = r.portfolio.map(p => `
+           const resultData = r.result || {};
+           const color = resultData.total_pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+           const sign = resultData.total_pl >= 0 ? '+' : '';
+           
+           const portHtml = (resultData.portfolio || []).map(p => `
                <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--slate-300); margin-top:6px; border-bottom:1px dashed var(--slate-700); padding-bottom:6px;">
                    <span>${p.ticker} (${p.shares}股)</span>
                    <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
                </div>
            `).join('');
+           
+           const ts = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : '';
+           
            return `
                <div style="background:var(--slate-800); padding:20px; border-radius:10px; border:1px solid var(--slate-700); margin-bottom:16px;">
                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${r.timestamp}</span>
-                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(r.total_pl_percent)}%</span>
+                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${ts} | ${r.scenario || '未知情境'}</span>
+                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(resultData.total_pl || 0)}%</span>
                    </div>
                    <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:16px; color:#fff;">
-                       <span>總投入成本: $${fmt(r.total_cost)}</span>
-                       <span>結算總現值: $${fmt(r.total_value)}</span>
+                       <span>總投入成本: $${fmt(resultData.total_cost || 0)}</span>
+                       <span>結算總現值: $${fmt(resultData.total_value || 0)}</span>
                    </div>
                    <div style="background:rgba(15,23,42,0.5); padding:12px; border-radius:8px;">
                        <div style="font-size:12px; color:var(--slate-500); margin-bottom:8px;">資產快照</div>
@@ -710,7 +710,7 @@ async function sendChat() {
 
 function init() {
   checkHealth();
-  renderPositions();
+  loadPositionsFromServer();
   fetchMacroData();
 }
 
