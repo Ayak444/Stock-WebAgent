@@ -756,6 +756,39 @@ async function sendChat() {
   input.focus();
 }
 
+// index.html 邏輯片段
+
+// 1. 執行註冊
+async function signUp(email, password, name) {
+    // 這裡可以直接呼叫 Supabase API 或透過 FastAPI 轉發
+    const res = await apiCall('/auth/signup', 'POST', { email, password, name });
+    if (res.status === 'success') {
+        alert("註冊成功！請登入");
+    }
+}
+
+// 2. 執行登入
+async function login(email, password) {
+    const res = await apiCall('/auth/login', 'POST', { email, password });
+    if (res.status === 'success') {
+        // 將登入成功的 User ID 與資訊存入 localStorage
+        localStorage.setItem('stock_user', JSON.stringify(res.user));
+        window.location.reload(); // 重新整理以載入該使用者的資料
+    }
+}
+
+// 3. 頁面載入時檢查狀態
+document.addEventListener('DOMContentLoaded', () => {
+    const userStr = localStorage.getItem('stock_user');
+    if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log("當前使用者 ID:", user.id);
+        // 後續所有的 API 請求（如 /portfolio）都要帶上這個 ID
+    } else {
+        // 顯示登入彈窗或導向登入頁
+    }
+});
+
 function init() {
   checkHealth();
   loadPositionsFromServer();

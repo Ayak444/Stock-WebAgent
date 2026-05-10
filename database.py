@@ -211,3 +211,24 @@ class Database:
         except Exception as e:
             print(f"Trade Error: {e}")
             return False
+    
+    def create_user(self, email, password, name):
+        if not self.supabase: return None
+        data = {
+            "email": email,
+            "name": name,
+            "password_hash": password, # 建議使用 passlib 進行雜湊
+            "virtual_balance": 500000
+        }
+        res = self.supabase.table("users").insert(data).execute()
+        return res.data[0] if res.data else None
+
+    def verify_user(self, email, password):
+        if not self.supabase: return None
+        res = self.supabase.table("users").select("*").eq("email", email).execute()
+        if res.data:
+            user = res.data[0]
+            # 比對密碼 (這裡僅為示範，實務需比對雜湊值)
+            if user['password_hash'] == password:
+                return user
+        return None

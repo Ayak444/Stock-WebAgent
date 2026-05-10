@@ -431,6 +431,29 @@ def execute_trade(req: dict):
         return {"status": "success", "message": "交易已記錄"}
     return {"status": "error", "message": "交易失敗"}
 
+@app.post("/auth/signup")
+def signup(req: dict):
+    email = req.get("email")
+    password = req.get("password") # 實務上應加密儲存
+    name = req.get("name")
+    
+    # 呼叫資料庫方法檢查並新增
+    user = db.create_user(email, password, name)
+    if user:
+        return {"status": "success", "user": user}
+    raise HTTPException(status_code=400, detail="註冊失敗")
+
+@app.post("/auth/login")
+def login(req: dict):
+    email = req.get("email")
+    password = req.get("password")
+    
+    # 驗證帳號密碼
+    user = db.verify_user(email, password)
+    if user:
+        return {"status": "success", "user": user}
+    raise HTTPException(status_code=401, detail="信箱或密碼錯誤")
+
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
