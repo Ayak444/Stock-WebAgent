@@ -399,30 +399,21 @@ def sync_user_portfolio(req: dict):
 
 @app.post("/stress_test/save")
 def save_stress_test_final(req: dict):
+    user_id = req.get('user_id', DEFAULT_USER_ID)
     db.save_stress_test_record(
-        DEFAULT_USER_ID, 
+        user_id, 
         req.get('scenario', '常規測試'), 
         req.get('result', {})
     )
     return {"status": "success"}
 
 @app.get("/stress_test/history")
-def get_stress_test_history_final():
-    data = db.get_stress_test_history(DEFAULT_USER_ID)
+def get_stress_test_history_final(user_id: str = DEFAULT_USER_ID):
+    data = db.get_stress_test_history(user_id)
     return {"status": "success", "data": data}
-
-@app.post("/auth/login")
-def login(req: dict):
-    email = req.get("email")
-    name = req.get("name", "投資新手")
-    user = db.get_or_create_user(email, name)
-    if user:
-        return {"status": "success", "user": user}
-    raise HTTPException(status_code=400, detail="登入失敗")
 
 @app.post("/trade")
 def execute_trade(req: dict):
-    # 預期參數: user_id, action, ticker, amount, price
     success = db.record_trade(
         req['user_id'], req['action'], req['ticker'], 
         float(req['amount']), float(req['price'])
@@ -434,21 +425,22 @@ def execute_trade(req: dict):
 @app.post("/auth/signup")
 def signup(req: dict):
     email = req.get("email")
-    password = req.get("password") # 實務上應加密儲存
+    password = req.get("password")
     name = req.get("name")
     
-    # 呼叫資料庫方法檢查並新增
-    user = db.create_user(email, password, name)
-    if user:
-        return {"status": "success", "user": user}
-    raise HTTPException(status_code=400, detail="註冊失敗")
+    try:
+        user = db.create_user(email, password, name)
+        if user:
+            return {"status": "success", "user": user}
+        raise HTTPException(status_code=400, detail="註冊失敗")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/login")
 def login(req: dict):
     email = req.get("email")
     password = req.get("password")
     
-    # 驗證帳號密碼
     user = db.verify_user(email, password)
     if user:
         return {"status": "success", "user": user}

@@ -217,7 +217,7 @@ class Database:
         data = {
             "email": email,
             "name": name,
-            "password_hash": password, # 建議使用 passlib 進行雜湊
+            "password_hash": password,
             "virtual_balance": 500000
         }
         res = self.supabase.table("users").insert(data).execute()
@@ -228,7 +228,6 @@ class Database:
         res = self.supabase.table("users").select("*").eq("email", email).execute()
         if res.data:
             user = res.data[0]
-            # 比對密碼 (這裡僅為示範，實務需比對雜湊值)
             if user['password_hash'] == password:
                 return user
         return None
