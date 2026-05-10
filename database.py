@@ -213,15 +213,26 @@ class Database:
             return False
     
     def create_user(self, email, password, name):
-        if not self.supabase: return None
+        if not self.supabase: 
+            raise Exception("Supabase 連線失敗：遺失 SUPABASE_URL 或 SUPABASE_KEY")
+            
         data = {
             "email": email,
             "name": name,
             "password_hash": password,
             "virtual_balance": 500000
         }
-        res = self.supabase.table("users").insert(data).execute()
-        return res.data[0] if res.data else None
+        
+        try:
+            res = self.supabase.table("users").insert(data).execute()
+            if not res.data:
+                raise Exception("寫入成功但未回傳資料，請檢查 Supabase RLS 設定")
+            return res.data[0]
+        except Exception as e:
+            # 把錯誤印在終端機，方便你看
+            print(f"\n[⚠️ 註冊錯誤] {str(e)}\n")
+            # 把錯誤往上拋給 main.py
+            raise Exception(f"資料庫錯誤: {str(e)}")
 
     def verify_user(self, email, password):
         if not self.supabase: return None
