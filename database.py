@@ -3,12 +3,18 @@ import os
 import json
 from datetime import datetime
 import pandas as pd
+from supabase import create_client, Client
 
 DB_PATH = os.environ.get("DB_PATH", "history.db")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 class Database:
     def __init__(self):
         self._init_db()
+        self.supabase: Client = None
+        if SUPABASE_URL and SUPABASE_KEY:
+            self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
     def _init_db(self):
         conn = sqlite3.connect(DB_PATH)
@@ -46,16 +52,6 @@ class Database:
                 close REAL,
                 volume INTEGER,
                 PRIMARY KEY (ticker, date)
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS stress_test_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                total_cost REAL,
-                total_value REAL,
-                total_pl_percent REAL,
-                portfolio_json TEXT
             )
         """)
         conn.commit()
@@ -151,22 +147,29 @@ class Database:
         return df
 
     def save_stress_test(self, total_cost: float, total_value: float, total_pl: float, portfolio: list):
-        conn = sqlite3.connect(DB_PATH)
+        if not self.supabase:
+            return
         ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        conn.execute("""
-            INSERT INTO stress_test_records (timestamp, total_cost, total_value, total_pl_percent, portfolio_json)
-            VALUES (?, ?, ?, ?, ?)
-        """, (ts, total_cost, total_value, total_pl, json.dumps(portfolio, ensure_ascii=False)))
-        conn.commit()
-        conn.close()
+        data = {
+            "timestamp": ts,
+            "total_cost": total_cost,
+            "total_value": total_value,
+            "total_pl_percent": total_pl,
+            "portfolio_json": portfolio
+        }
+        try:
+            self.supabase.table("stress_test_records").insert(data).execute()
+        except Exception:
+            pass
 
     def get_stress_tests(self, limit: int = 50):
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute("SELECT * FROM stress_test_records ORDER BY id DESC LIMIT ?", (limit,))
-        rows = [dict(r) for r in cursor.fetchall()]
-        conn.close()
-        for row in rows:
-            row['portfolio'] = json.loads(row['portfolio_json'])
-            del row['portfolio_json']
-        return rows
+        if not self.supabase:
+            return []
+        try:
+            response = self.supabase.table("stress_test_records").select("*").order("id", desc=True).limit(limit).execute()
+            rows = response.data
+            for row in rows:
+                row['portfolio'] = row.pop('portfolio_json', [])
+            return rows
+        except Exception:
+            return []
