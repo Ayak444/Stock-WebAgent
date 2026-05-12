@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
-    BacktestRequest, NewsSourceRequest, StockTarget, ScreenerAnalyzeRequest
+    BacktestRequest, NewsSourceRequest, StockTarget
 )
 from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
@@ -20,7 +20,6 @@ from news_crawler import NewsCrawler
 from database import Database
 from backtest import Backtester
 from notifier import EmailNotifier
-from screener_engine import analyze_related_stocks
 
 MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
 MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
@@ -407,30 +406,6 @@ def save_stress_test_final(req: dict):
         req.get('result', {})
     )
     return {"status": "success"}
-
-@app.post("/screener/analyze")
-def screener_analyze(req: ScreenerAnalyzeRequest):
-    filters = req.filters or []
-    if not filters:
-        return {"status": "error", "message": "請至少勾選一個篩選條件"}
-
-    targets = req.targets or []
-    if req.source == "portfolio":
-        user_id = req.user_id or DEFAULT_USER_ID
-        portfolio = db.get_portfolio(user_id)
-        targets = [p.get("code", "").strip() for p in portfolio if p.get("code")]
-
-    targets = [t for t in targets if t]
-    if not targets:
-        return {"status": "error", "message": "沒有可分析的標的，請先輸入代號或匯入持股"}
-
-    data = analyze_related_stocks(targets, filters)
-    return {
-        "status": "success",
-        "source": req.source,
-        "targets_count": len(targets),
-        "data": data
-    }
 
 @app.get("/stress_test/history")
 def get_stress_test_history_final(user_id: str = DEFAULT_USER_ID):
