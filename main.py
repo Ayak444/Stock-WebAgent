@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
-    BacktestRequest, NewsSourceRequest, StockTarget
+    BacktestRequest, NewsSourceRequest, StockTarget, ScreenerAnalyzeRequest
 )
 from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
@@ -20,6 +20,7 @@ from news_crawler import NewsCrawler
 from database import Database
 from backtest import Backtester
 from notifier import EmailNotifier
+from screener_engine import analyze_related_stocks
 
 MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
 MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
@@ -383,20 +384,92 @@ def history_tickers():
 def backtest(req: BacktestRequest):
     return Backtester.run(req.ticker, req.days)
 
-@app.post("/stress_test")
-def save_stress_test(req: dict):
-    db.save_stress_test(
-        req.get('total_cost', 0),
-        req.get('total_value', 0),
-        req.get('total_pl', 0),
-        req.get('portfolio', [])
+DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
+
+@app.get("/portfolio")
+def get_user_portfolio(user_id: str):
+    data = db.get_portfolio(user_id)
+    return {"status": "success", "data": data}
+
+@app.post("/portfolio")
+def sync_user_portfolio(req: dict):
+    user_id = req.get("user_id")
+    if not user_id: return {"status": "error", "message": "Missing user_id"}
+    db.save_portfolio(user_id, req.get('portfolio', []))
+    return {"status": "success"}
+
+@app.post("/stress_test/save")
+def save_stress_test_final(req: dict):
+    user_id = req.get('user_id', DEFAULT_USER_ID)
+    db.save_stress_test_record(
+        user_id, 
+        req.get('scenario', '常規測試'), 
+        req.get('result', {})
     )
     return {"status": "success"}
 
+@app.post("/screener/analyze")
+def screener_analyze(req: ScreenerAnalyzeRequest):
+    filters = req.filters or []
+    if not filters:
+        return {"status": "error", "message": "請至少勾選一個篩選條件"}
+
+    targets = req.targets or []
+    if req.source == "portfolio":
+        user_id = req.user_id or DEFAULT_USER_ID
+        portfolio = db.get_portfolio(user_id)
+        targets = [p.get("code", "").strip() for p in portfolio if p.get("code")]
+
+    targets = [t for t in targets if t]
+    if not targets:
+        return {"status": "error", "message": "沒有可分析的標的，請先輸入代號或匯入持股"}
+
+    data = analyze_related_stocks(targets, filters)
+    return {
+        "status": "success",
+        "source": req.source,
+        "targets_count": len(targets),
+        "data": data
+    }
+
 @app.get("/stress_test/history")
-def get_stress_test_history():
-    records = db.get_stress_tests()
-    return {"status": "success", "data": records}
+def get_stress_test_history_final(user_id: str = DEFAULT_USER_ID):
+    data = db.get_stress_test_history(user_id)
+    return {"status": "success", "data": data}
+
+@app.post("/trade")
+def execute_trade(req: dict):
+    success = db.record_trade(
+        req['user_id'], req['action'], req['ticker'], 
+        float(req['amount']), float(req['price'])
+    )
+    if success:
+        return {"status": "success", "message": "交易已記錄"}
+    return {"status": "error", "message": "交易失敗"}
+
+@app.post("/auth/signup")
+def signup(req: dict):
+    email = req.get("email")
+    password = req.get("password")
+    name = req.get("name")
+    
+    try:
+        user = db.create_user(email, password, name)
+        if user:
+            return {"status": "success", "user": user}
+        raise HTTPException(status_code=400, detail="註冊失敗")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/auth/login")
+def login(req: dict):
+    email = req.get("email")
+    password = req.get("password")
+    
+    user = db.verify_user(email, password)
+    if user:
+        return {"status": "success", "user": user}
+    raise HTTPException(status_code=401, detail="信箱或密碼錯誤")
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")

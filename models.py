@@ -42,3 +42,10 @@ class BacktestRequest(BaseModel):
 class NewsSourceRequest(BaseModel):
     sources: Optional[List[str]] = None  # ['bloomberg', 'investing', 'ctee', 'udn']
     limit: int = 10
+
+
+class ScreenerAnalyzeRequest(BaseModel):
+    user_id: Optional[str] = None
+    source: str = "manual"  # manual | portfolio
+    targets: Optional[List[str]] = None
+    filters: List[str]

@@ -102,6 +102,19 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 10px; }
+
+.scr-filter {
+  accent-color: var(--orange-500);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.screener-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -118,7 +131,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
       <button class="nav-btn" data-page="tech"><span class="icon">📐</span>異質技術分析</button>
       <button class="nav-btn" data-page="news"><span class="icon">📰</span>新聞知識圖譜</button>
       <button class="nav-btn" data-page="sentiment"><span class="icon">📡</span>市場情緒雷達</button>
-      <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 選股雷達</button>
+      <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 關聯選股</button>
     </nav>
     <div class="sidebar-footer">
       <button class="nav-btn" onclick="checkHealth()"><span class="icon">⚙️</span>測試系統連線</button>
@@ -127,6 +140,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
   <div class="main">
     <header class="top-bar">
+      <div id="auth-section" style="display:flex; align-items:center; gap:12px; margin-right: auto;">
+      </div>
       <span class="status-item"><span class="status-dot" id="dot-api"></span>核心 API</span>
       <span class="status-item"><span class="status-dot" id="dot-ai"></span>MaiAgent 推論</span>
     </header>
@@ -226,17 +241,41 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
       <div class="page" id="page-screener">
         <div class="page-header">
-          <div><h2>AI 選股雷達</h2><p class="sub">透過 MaiAgent 自然語言進行條件篩選與諮詢</p></div>
+          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股，並套用自訂篩選條件</p></div>
         </div>
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-body">
-            <p style="font-size:12px;color:var(--slate-400);margin-bottom:8px">💬 告訴 AI 你的選股條件</p>
-            <div style="display:flex; gap:8px;">
-              <input class="input" id="screener-input" placeholder="例：找出適合存股的高殖利率金融股..." onkeydown="if(event.key==='Enter')runScreener()">
-              <button class="btn-analyze" id="btn-screener" onclick="runScreener()">🧠 AI 篩選</button>
+        
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">1. 設定目標核心標的</div>
+            <div class="card-body">
+              <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
+                <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0;">加入</button>
+                <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0; color:var(--blue-400); border-color:var(--blue-500);">從部位匯入</button>
+              </div>
+              <div id="screener-target-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:30px;">
+                 <span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">2. 勾選關聯股篩選條件</div>
+            <div class="card-body">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:14px; color:var(--slate-200);">
+                <label class="screener-label"><input type="checkbox" value="近5日跌幅超過10%" class="scr-filter"> 近 5 日跌逾 10% (錯殺)</label>
+                <label class="screener-label"><input type="checkbox" value="近5日漲幅超過10%" class="scr-filter"> 近 5 日漲逾 10% (強勢)</label>
+                <label class="screener-label"><input type="checkbox" value="外資或投信近期連續買超" class="scr-filter"> 法人近期連續買超</label>
+                <label class="screener-label"><input type="checkbox" value="預估殖利率大於5%" class="scr-filter"> 預估殖利率 > 5%</label>
+                <label class="screener-label"><input type="checkbox" value="本益比低於同業平均" class="scr-filter"> 本益比低於同業平均</label>
+                <label class="screener-label"><input type="checkbox" value="營收連續三個月年月雙增" class="scr-filter"> 營收連續三月雙增</label>
+              </div>
             </div>
           </div>
         </div>
+
+        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%; justify-content:center; margin-bottom:20px; padding:14px; font-size:16px; letter-spacing:2px;">⚡ 開始深度展開與篩選</button>
+        
         <div id="screener-result"></div>
       </div>
 
@@ -251,6 +290,25 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
            <button onclick="document.getElementById('stress-history-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
        </div>
        <div class="card-body" id="stress-history-content"></div>
+   </div>
+</div>
+
+<div id="auth-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; align-items:center; justify-content:center;">
+   <div class="card" style="width:400px; background:var(--slate-900);">
+       <div class="card-header" style="background:var(--slate-800); display:flex; justify-content:space-between;">
+           <span id="auth-modal-title" style="font-size:16px;">登入</span>
+           <button onclick="document.getElementById('auth-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
+       </div>
+       <div class="card-body">
+           <div id="auth-error" style="color:var(--red-400); font-size:13px; margin-bottom:10px; display:none;"></div>
+           <input id="auth-email" class="input" type="email" placeholder="信箱" style="margin-bottom:12px;">
+           <input id="auth-name" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px; display:none;">
+           <input id="auth-password" class="input" type="password" placeholder="密碼" style="margin-bottom:16px;" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
+           <button id="auth-submit-btn" class="btn-analyze" style="width:100%; justify-content:center;" onclick="handleAuthSubmit()">登入</button>
+           <div style="text-align:center; margin-top:12px; font-size:13px;">
+               <a href="#" id="auth-toggle-link" style="color:var(--blue-400); text-decoration:none;" onclick="toggleAuthMode()">還沒有帳號？點此註冊</a>
+           </div>
+       </div>
    </div>
 </div>
 
@@ -273,6 +331,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 <script>
 const API_BASE = window.location.origin; 
 let currentChatbotId = null;
+let screenerTargets = [];
 
 const fmt = (num, decimals = 2) => Number(num).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
 
@@ -344,6 +403,182 @@ async function fetchMacroData() {
   }
 }
 
+let positions = [];
+let currentUser = JSON.parse(localStorage.getItem('trade_user'));
+let authMode = 'login';
+
+function showAuthModal(mode='login') {
+    authMode = mode;
+    document.getElementById('auth-modal').style.display = 'flex';
+    document.getElementById('auth-error').style.display = 'none';
+    if(mode === 'signup') {
+        document.getElementById('auth-modal-title').innerText = '註冊';
+        document.getElementById('auth-name').style.display = 'block';
+        document.getElementById('auth-submit-btn').innerText = '註冊';
+        document.getElementById('auth-toggle-link').innerText = '已有帳號？點此登入';
+    } else {
+        document.getElementById('auth-modal-title').innerText = '登入';
+        document.getElementById('auth-name').style.display = 'none';
+        document.getElementById('auth-submit-btn').innerText = '登入';
+        document.getElementById('auth-toggle-link').innerText = '還沒有帳號？點此註冊';
+    }
+}
+
+function toggleAuthMode() {
+    showAuthModal(authMode === 'login' ? 'signup' : 'login');
+}
+
+async function handleAuthSubmit() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    const name = document.getElementById('auth-name').value.trim();
+    const errDiv = document.getElementById('auth-error');
+
+    if(!email || !password) {
+        errDiv.innerText = "請填寫信箱與密碼";
+        errDiv.style.display = 'block';
+        return;
+    }
+
+    if(authMode === 'signup') {
+        const res = await apiCall('/auth/signup', 'POST', { email, password, name });
+        if(res.status === 'success') {
+            alert("註冊成功！請登入");
+            showAuthModal('login');
+        } else {
+            errDiv.innerText = res.detail || res.message || "註冊失敗";
+            errDiv.style.display = 'block';
+        }
+    } else {
+        const res = await apiCall('/auth/login', 'POST', { email, password });
+        if(res.status === 'success') {
+            currentUser = res.user;
+            localStorage.setItem('trade_user', JSON.stringify(res.user));
+            document.getElementById('auth-modal').style.display = 'none';
+            updateAuthUI();
+            loadPositionsFromServer();
+        } else {
+            errDiv.innerText = res.detail || res.message || "登入失敗";
+            errDiv.style.display = 'block';
+        }
+    }
+}
+
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('trade_user');
+    positions = [];
+    renderPositions();
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    const authSec = document.getElementById('auth-section');
+    if(currentUser) {
+        authSec.innerHTML = `<span style="color:#fff; font-size:14px; font-weight:600;">👤 ${currentUser.name || currentUser.email}</span>
+                             <button class="btn-outline" style="padding:4px 10px; font-size:12px;" onclick="logout()">登出</button>`;
+    } else {
+        authSec.innerHTML = `<button class="btn-analyze" style="padding:6px 14px; font-size:13px;" onclick="showAuthModal('login')">登入 / 註冊</button>`;
+    }
+}
+
+async function loadPositionsFromServer() {
+  if(!currentUser) {
+      positions = [];
+      renderPositions();
+      return;
+  }
+  const res = await apiCall(`/portfolio?user_id=${currentUser.id}`);
+  if (res.status === 'success' && res.data.length > 0) {
+    positions = res.data;
+  } else {
+    positions = [];
+  }
+  renderPositions();
+}
+
+async function syncPositions() {
+  if(!currentUser) return;
+  await apiCall('/portfolio', 'POST', { 
+      user_id: currentUser.id, 
+      portfolio: positions 
+  });
+}
+
+function renderPositions() {
+  const types = ["台股","ETF"];
+  document.getElementById('positions-list').innerHTML = positions.map((p,i) => `
+    <div class="position-grid" style="margin-bottom:8px">
+      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value; syncPositions();" placeholder="例如: 2330.TW">
+      <select class="input" onchange="positions[${i}].type=this.value; syncPositions();">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
+      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value; syncPositions();">
+      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value; syncPositions();">
+      <button class="btn-remove" onclick="removePosition(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addPosition() { 
+  if(!currentUser) {
+      showAuthModal('login');
+      return;
+  }
+  positions.push({code:"",type:"台股",cost:"",shares:""}); 
+  renderPositions(); 
+  syncPositions();
+}
+
+function removePosition(i) { 
+  positions.splice(i,1); 
+  renderPositions(); 
+  syncPositions();
+}
+
+function addScreenerTarget() {
+    const input = document.getElementById('screener-target-input');
+    const val = input.value.trim();
+    if(val && !screenerTargets.includes(val)) {
+        screenerTargets.push(val);
+        renderScreenerTargets();
+    }
+    input.value = '';
+}
+
+function importFromPortfolio() {
+    if(positions.length === 0) {
+        alert('投資組合目前是空的！請先在資產壓力測試頁面新增部位。');
+        return;
+    }
+    let added = 0;
+    positions.forEach(p => {
+        if(p.code && !screenerTargets.includes(p.code)) {
+            screenerTargets.push(p.code);
+            added++;
+        }
+    });
+    if(added > 0) renderScreenerTargets();
+    else alert('投資組合內的標的皆已在清單中。');
+}
+
+function removeScreenerTarget(idx) {
+    screenerTargets.splice(idx, 1);
+    renderScreenerTargets();
+}
+
+function renderScreenerTargets() {
+    const list = document.getElementById('screener-target-list');
+    if(screenerTargets.length === 0) {
+        list.innerHTML = '<span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>';
+        return;
+    }
+    list.innerHTML = screenerTargets.map((t, i) => `
+        <div style="background:var(--slate-700); padding:4px 12px; border-radius:16px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; color:#fff;">
+            ${t} 
+            <button onclick="removeScreenerTarget(${i})" style="background:var(--slate-600); border:none; color:var(--slate-300); width:20px; height:20px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s;" onmouseover="this.style.background='var(--red-500)'; this.style.color='#fff';" onmouseout="this.style.background='var(--slate-600)'; this.style.color='var(--slate-300)';">✕</button>
+        </div>
+    `).join('');
+}
+
 async function fetchWarData() {
   const btn = document.getElementById('btn-war');
   btn.disabled = true;
@@ -376,27 +611,6 @@ async function fetchWarData() {
   }
   btn.disabled = false;
 }
-
-let positions = [
-  { code:"2330.TW", type:"台股", cost:"500", shares:"1000" },
-  { code:"0050.TW", type:"ETF", cost:"130", shares:"2000" }
-];
-
-function renderPositions() {
-  const types = ["台股","ETF"];
-  document.getElementById('positions-list').innerHTML = positions.map((p,i) => `
-    <div class="position-grid" style="margin-bottom:8px">
-      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value" placeholder="例如: 2330.TW">
-      <select class="input" onchange="positions[${i}].type=this.value">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
-      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value">
-      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value">
-      <button class="btn-remove" onclick="removePosition(${i})">×</button>
-    </div>
-  `).join('');
-}
-
-function addPosition() { positions.push({code:"",type:"台股",cost:"",shares:""}); renderPositions(); }
-function removePosition(i) { positions.splice(i,1); renderPositions(); }
 
 async function runStressTest() {
   const btn = document.getElementById('btn-stress');
@@ -451,21 +665,25 @@ async function runStressTest() {
       `;
 
       const payload = {
-          total_cost: totalCost,
-          total_value: totalValue,
-          total_pl: totalPL,
-          portfolio: targets.map(t => {
-             const r = res.data.find(d => d.ticker === t.id);
-             return {
-                ticker: t.id,
-                cost: t.cost,
-                shares: t.shares,
-                price: r ? r.price : 0,
-                pl: r ? r.pl : 0
-             };
-          })
+          user_id: currentUser ? currentUser.id : "00000000-0000-0000-0000-000000000000",
+          scenario: "常規壓力測試",
+          result: {
+              total_cost: totalCost,
+              total_value: totalValue,
+              total_pl: totalPL,
+              portfolio: targets.map(t => {
+                 const r = res.data.find(d => d.ticker === t.id);
+                 return {
+                    ticker: t.id,
+                    cost: t.cost,
+                    shares: t.shares,
+                    price: r ? r.price : 0,
+                    pl: r ? r.pl : 0
+                 };
+              })
+          }
       };
-      apiCall('/stress_test', 'POST', payload);
+      apiCall('/stress_test/save', 'POST', payload);
 
   } else {
       resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
@@ -478,30 +696,38 @@ async function fetchStressHistory() {
    const content = document.getElementById('stress-history-content');
    modal.style.display = 'flex';
    content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-   const res = await apiCall('/stress_test/history');
+   
+   let uid = currentUser ? currentUser.id : "00000000-0000-0000-0000-000000000000";
+   const res = await apiCall(`/stress_test/history?user_id=${uid}`);
+   
    if (res.status === 'success') {
        if(res.data.length === 0) {
-           content.innerHTML = '<span style="color:var(--slate-500);">尚無歷史紀錄</span>';
+           content.innerHTML = '<span style="color:var(--slate-500); padding:20px;">尚無歷史紀錄</span>';
            return;
        }
        content.innerHTML = res.data.map(r => {
-           const color = r.total_pl_percent >= 0 ? 'var(--green-400)' : 'var(--red-400)';
-           const sign = r.total_pl_percent >= 0 ? '+' : '';
-           const portHtml = r.portfolio.map(p => `
+           const resultData = r.result || {};
+           const color = resultData.total_pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+           const sign = resultData.total_pl >= 0 ? '+' : '';
+           
+           const portHtml = (resultData.portfolio || []).map(p => `
                <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--slate-300); margin-top:6px; border-bottom:1px dashed var(--slate-700); padding-bottom:6px;">
                    <span>${p.ticker} (${p.shares}股)</span>
                    <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
                </div>
            `).join('');
+           
+           const ts = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : '';
+           
            return `
                <div style="background:var(--slate-800); padding:20px; border-radius:10px; border:1px solid var(--slate-700); margin-bottom:16px;">
                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${r.timestamp}</span>
-                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(r.total_pl_percent)}%</span>
+                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${ts} | ${r.scenario || '未知情境'}</span>
+                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(resultData.total_pl || 0)}%</span>
                    </div>
                    <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:16px; color:#fff;">
-                       <span>總投入成本: $${fmt(r.total_cost)}</span>
-                       <span>結算總現值: $${fmt(r.total_value)}</span>
+                       <span>總投入成本: $${fmt(resultData.total_cost || 0)}</span>
+                       <span>結算總現值: $${fmt(resultData.total_value || 0)}</span>
                    </div>
                    <div style="background:rgba(15,23,42,0.5); padding:12px; border-radius:8px;">
                        <div style="font-size:12px; color:var(--slate-500); margin-bottom:8px;">資產快照</div>
@@ -511,7 +737,7 @@ async function fetchStressHistory() {
            `;
        }).join('');
    } else {
-       content.innerHTML = `<span style="color:var(--red-400);">${res.message}</span>`;
+       content.innerHTML = `<span style="color:var(--red-400); padding:20px;">${res.message}</span>`;
    }
 }
 
@@ -638,30 +864,89 @@ async function fetchSentiment() {
 }
 
 async function runScreener() {
-  const query = document.getElementById('screener-input').value.trim();
-  if(!query) return;
+  const filters = Array.from(document.querySelectorAll('.scr-filter:checked')).map(cb => cb.value);
+  if(filters.length === 0) {
+      alert('請至少勾選一項篩選條件。');
+      return;
+  }
 
   const btn = document.getElementById('btn-screener');
   const resBox = document.getElementById('screener-result');
   btn.disabled = true;
-  resBox.innerHTML = '<div class="loading"><div class="spinner purple"></div><p class="loading-text">MaiAgent 正在資料庫中為您尋找潛力標的...</p></div>';
+  resBox.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text" style="margin-top:12px;">正在展開關聯供應鏈並套用篩選條件...</p></div>';
 
-  const prompt = `作為專業台股分析師，請根據以下使用者條件篩選出3檔最符合的台灣股票，並給出詳細理由與操作建議。使用者條件：「${query}」`;
-  const res = await apiCall('/chat', 'POST', { message: prompt });
+  const usePortfolio = screenerTargets.length === 0;
+  const res = await apiCall('/screener/analyze', 'POST', {
+      source: usePortfolio ? 'portfolio' : 'manual',
+      user_id: currentUser ? currentUser.id : null,
+      targets: usePortfolio ? [] : screenerTargets,
+      filters
+  });
   
   if(res.status === 'success') {
-      resBox.innerHTML = `
-        <div class="card">
-           <div class="card-header">🎯 MaiAgent 篩選報告</div>
-           <div class="card-body">
-              <div class="advice-box advice-blue" style="margin:0; padding:20px;">
-                 <p class="desc" style="font-size:16px; line-height:1.8;">${res.reply}</p>
-              </div>
-           </div>
-        </div>
-      `;
+          const data = res.data || [];
+          if(data.length === 0) {
+              resBox.innerHTML = '<div class="card"><div class="card-body" style="color:var(--slate-400);">目前沒有可分析資料，請先新增標的或匯入部位。</div></div>';
+              btn.disabled = false;
+              return;
+          }
+
+          resBox.innerHTML = data.map(item => `
+              <details style="background:var(--slate-800); border:1px solid var(--slate-700); padding:16px; border-radius:12px; margin-bottom:16px; transition:0.3s;" open>
+                  <summary style="cursor:pointer; outline:none; display:flex; align-items:center; font-size:18px; font-weight:bold; color:#fff;">
+                      🎯 目標標的：${item.target.ticker} ${item.target.name || ''}
+                  </summary>
+                  <div style="margin-top:20px; display:grid; gap:12px;">
+                      <div style="background:rgba(15,23,42,0.4); padding:12px; border-radius:8px; border-left:4px solid var(--blue-500);">
+                          <div style="color:var(--slate-400); font-size:13px; margin-bottom:4px;">所屬產業族群</div>
+                          <div style="color:var(--blue-400); font-size:15px; font-weight:600;">${item.group}</div>
+                      </div>
+                      <div class="grid grid-2">
+                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
+                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">🔗 相關概念分類</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.6;">
+                                  ${item.concepts.map(c => `<span style="display:inline-block; background:var(--slate-700); padding:2px 8px; border-radius:4px; margin:0 6px 6px 0; font-size:12px;">${c}</span>`).join('')}
+                              </div>
+                          </div>
+                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
+                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">⚙️ 產業供應鏈地圖</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.8;">
+                                  上游：${(item.supply_chain.upstream || []).join('、') || '無'}<br>
+                                  中游：${(item.supply_chain.midstream || []).join('、') || '無'}<br>
+                                  下游：${(item.supply_chain.downstream || []).join('、') || '無'}
+                              </div>
+                          </div>
+                      </div>
+                      <div style="background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.3); padding:16px; border-radius:8px; margin-top:4px;">
+                          <div style="color:var(--orange-400); font-size:15px; font-weight:bold; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                             <span>🔍</span> 符合自訂篩選條件的關聯個股
+                          </div>
+                          ${(item.matched_stocks || []).length > 0 ? 
+                              item.matched_stocks.map(fs => `
+                                  <div style="margin-bottom:10px; border-bottom:1px dashed var(--slate-700); padding-bottom:10px; display:flex; flex-direction:column; gap:4px;">
+                                      <span style="color:#fff; font-weight:600; font-size:15px;">${fs.ticker} ${fs.name || ''}</span>
+                                      <span style="color:var(--slate-400); font-size:13px; line-height:1.5;">近5日漲跌：${fs.pct_5d}% / 現價：${fs.price}</span>
+                                      <span style="color:var(--slate-400); font-size:13px; line-height:1.5;">符合原因：${(fs.reasons || []).join('、')}</span>
+                                      <div style="margin-top:8px; background:rgba(15,23,42,0.55); border:1px solid var(--slate-700); border-radius:8px; padding:10px;">
+                                          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                                              <span style="font-size:13px; color:var(--slate-300);">🧠 主力偵測：${fs.main_force?.bias || '無法判斷'}</span>
+                                              <span style="font-size:12px; color:var(--orange-400);">分數 ${fs.main_force?.score ?? 0}/100</span>
+                                          </div>
+                                          <div style="font-size:12px; color:var(--slate-500); line-height:1.5; margin-bottom:6px;">${fs.main_force?.summary || '無資料'}</div>
+                                          <div style="font-size:12px; color:var(--slate-300); line-height:1.6;">
+                                              ${(fs.main_force?.patterns || []).map(p => `• ${p}`).join('<br>')}
+                                          </div>
+                                      </div>
+                                  </div>
+                              `).join('') 
+                              : '<div style="color:var(--slate-500); font-size:14px; padding:10px 0;">目前無符合您勾選條件的關聯股。</div>'
+                          }
+                      </div>
+                  </div>
+              </details>
+          `).join('');
   } else {
-      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">錯誤：${res.message}</div></div>`;
+      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
   }
   btn.disabled = false;
 }
@@ -710,7 +995,8 @@ async function sendChat() {
 
 function init() {
   checkHealth();
-  renderPositions();
+  updateAuthUI();
+  loadPositionsFromServer();
   fetchMacroData();
 }
 

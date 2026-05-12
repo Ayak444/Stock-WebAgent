@@ -1,0 +1,312 @@
+import re
+from typing import Dict, List, Tuple
+
+from data_provider import DataProvider
+
+# 常見台股關聯知識庫（可持續擴充）
+RELATION_DB: Dict[str, Dict] = {
+    "2330.TW": {
+        "name": "台積電",
+        "group": "晶圓代工 / 半導體",
+        "concepts": ["AI", "HPC", "先進製程", "CoWoS"],
+        "supply_chain": {
+            "upstream": ["2303.TW", "2327.TW", "2408.TW"],
+            "midstream": ["2330.TW", "2454.TW"],
+            "downstream": ["3711.TW", "3231.TW", "2382.TW"]
+        },
+        "related": ["2303.TW", "2454.TW", "3035.TW", "3711.TW", "3661.TW", "2379.TW", "2308.TW"]
+    },
+    "2317.TW": {
+        "name": "鴻海",
+        "group": "EMS / AI 伺服器",
+        "concepts": ["AI 伺服器", "電動車", "蘋果供應鏈"],
+        "supply_chain": {
+            "upstream": ["1301.TW", "1303.TW", "2408.TW"],
+            "midstream": ["2317.TW", "3231.TW", "2382.TW"],
+            "downstream": ["2356.TW", "3017.TW", "6669.TW"]
+        },
+        "related": ["3231.TW", "2382.TW", "2356.TW", "3017.TW", "6669.TW", "2324.TW"]
+    },
+    "2454.TW": {
+        "name": "聯發科",
+        "group": "IC 設計",
+        "concepts": ["邊緣 AI", "手機晶片", "網通"],
+        "supply_chain": {
+            "upstream": ["2330.TW", "5347.TWO"],
+            "midstream": ["2454.TW", "2379.TW"],
+            "downstream": ["2357.TW", "2382.TW", "2301.TW"]
+        },
+        "related": ["3034.TW", "2379.TW", "4966.TW", "6415.TW", "8299.TWO"]
+    },
+    "2308.TW": {
+        "name": "台達電",
+        "group": "電源供應 / 工業自動化",
+        "concepts": ["電動車", "資料中心", "散熱電源"],
+        "supply_chain": {
+            "upstream": ["2303.TW", "3711.TW"],
+            "midstream": ["2308.TW", "3017.TW"],
+            "downstream": ["6669.TW", "4938.TW", "2356.TW"]
+        },
+        "related": ["3017.TW", "6669.TW", "2356.TW", "4938.TW", "3044.TW"]
+    },
+    "0050.TW": {
+        "name": "元大台灣50",
+        "group": "台灣大型權值 ETF",
+        "concepts": ["大型權值股", "被動投資", "大盤連動"],
+        "supply_chain": {
+            "upstream": ["2330.TW", "2317.TW", "2454.TW"],
+            "midstream": ["0050.TW"],
+            "downstream": ["006208.TW", "00631L.TW"]
+        },
+        "related": ["2330.TW", "2317.TW", "2454.TW", "2308.TW", "2882.TW", "2412.TW"]
+    }
+}
+
+FILTER_KEYS = {
+    "近5日跌幅超過10%": "drop_5d_10",
+    "近5日漲幅超過10%": "rise_5d_10",
+    "外資或投信近期連續買超": "chip_buy",
+    "預估殖利率大於5%": "dividend_5",
+    "本益比低於同業平均": "pe_low",
+    "營收連續三個月年月雙增": "revenue_3m",
+    "站上20日均線": "above_ma20",
+    "近5日平均量放大30%": "vol_up_30"
+}
+
+
+def _normalize_ticker(raw: str) -> str:
+    txt = (raw or "").strip().upper()
+    m = re.search(r"\d{4}", txt)
+    if not m:
+        return txt
+    base = m.group(0)
+    if ".TW" in txt or ".TWO" in txt:
+        return f"{base}.TWO" if ".TWO" in txt else f"{base}.TW"
+    # 先以上市預設，抓不到資料時再嘗試上櫃
+    return f"{base}.TW"
+
+
+def _pick_relation(ticker: str) -> Dict:
+    if ticker in RELATION_DB:
+        return RELATION_DB[ticker]
+    code = ticker.split(".")[0]
+    for k, v in RELATION_DB.items():
+        if code in k:
+            return v
+    return {
+        "name": code,
+        "group": "未分類",
+        "concepts": ["待補充"],
+        "supply_chain": {"upstream": [], "midstream": [ticker], "downstream": []},
+        "related": []
+    }
+
+
+def _get_history_safely(ticker: str):
+    df = DataProvider.get_stock_history(ticker, days=80)
+    if df.empty and ticker.endswith(".TW"):
+        df = DataProvider.get_stock_history(ticker.replace(".TW", ".TWO"), days=80)
+    return df
+
+
+def _calc_metrics(ticker: str) -> Dict:
+    df = _get_history_safely(ticker)
+    if df.empty or len(df) < 6:
+        return {
+            "ticker": ticker,
+            "price": 0,
+            "pct_5d": 0,
+            "ma20": 0,
+            "above_ma20": False,
+            "vol_up_30": False,
+            "has_data": False
+        }
+
+    close = df["Close"].astype(float)
+    vol = df["Volume"].astype(float)
+    last = float(close.iloc[-1])
+    prev_5 = float(close.iloc[-6])
+    pct_5d = ((last - prev_5) / prev_5 * 100) if prev_5 else 0
+    ma20 = float(close.tail(20).mean()) if len(close) >= 20 else float(close.mean())
+    recent_vol = float(vol.tail(5).mean())
+    base_vol = float(vol.tail(25).head(20).mean()) if len(vol) >= 25 else float(vol.mean())
+    vol_up_30 = base_vol > 0 and recent_vol >= base_vol * 1.3
+
+    return {
+        "ticker": ticker,
+        "price": round(last, 2),
+        "pct_5d": round(pct_5d, 2),
+        "ma20": round(ma20, 2),
+        "above_ma20": last >= ma20,
+        "vol_up_30": vol_up_30,
+        "close_series": close.tail(20).tolist(),
+        "volume_series": vol.tail(20).tolist(),
+        "has_data": True
+    }
+
+
+def _detect_main_force(metrics: Dict) -> Dict:
+    if not metrics.get("has_data"):
+        return {
+            "score": 0,
+            "bias": "無法判斷",
+            "patterns": ["資料不足，無法辨識主力操作模式"],
+            "summary": "缺少有效行情資料"
+        }
+
+    closes = metrics.get("close_series", [])
+    vols = metrics.get("volume_series", [])
+    if len(closes) < 10 or len(vols) < 10:
+        return {
+            "score": 0,
+            "bias": "無法判斷",
+            "patterns": ["樣本不足，無法辨識主力操作模式"],
+            "summary": "近20日資料不足"
+        }
+
+    last_price = closes[-1]
+    low_20 = min(closes)
+    high_20 = max(closes)
+    recent_5_avg = sum(vols[-5:]) / 5
+    base_15_avg = sum(vols[:-5]) / max(1, len(vols[:-5]))
+    vol_ratio = recent_5_avg / base_15_avg if base_15_avg > 0 else 1
+    range_pos = (last_price - low_20) / (high_20 - low_20) if high_20 > low_20 else 0.5
+
+    score = 50
+    patterns = []
+
+    if vol_ratio >= 1.5 and range_pos >= 0.7:
+        score += 20
+        patterns.append("放量突破偏多：主力偏向追價拉抬")
+    elif vol_ratio >= 1.3 and 0.4 <= range_pos < 0.7:
+        score += 10
+        patterns.append("放量整理：主力可能在區間內換手吸籌")
+    elif vol_ratio < 0.9 and range_pos >= 0.65:
+        score += 5
+        patterns.append("量縮守高：主力偏向鎖籌等待續攻")
+
+    if range_pos <= 0.25 and vol_ratio >= 1.4:
+        score -= 15
+        patterns.append("低檔爆量：主力洗盤或調節，波動風險偏高")
+    elif range_pos >= 0.85 and vol_ratio >= 1.6:
+        score -= 10
+        patterns.append("高檔爆量：主力可能邊拉邊出，留意反轉")
+
+    if metrics.get("pct_5d", 0) >= 10 and vol_ratio >= 1.3:
+        score += 8
+        patterns.append("短線強攻：主力短期作價動能明顯")
+    elif metrics.get("pct_5d", 0) <= -10 and vol_ratio >= 1.3:
+        score -= 8
+        patterns.append("急跌放量：主力可能測試支撐或轉弱出貨")
+
+    score = max(0, min(100, int(round(score))))
+    if score >= 70:
+        bias = "主力偏多"
+    elif score >= 55:
+        bias = "主力中性偏多"
+    elif score >= 45:
+        bias = "主力中性"
+    elif score >= 30:
+        bias = "主力中性偏空"
+    else:
+        bias = "主力偏空"
+
+    if not patterns:
+        patterns.append("區間整理：目前未見明顯主力表態")
+
+    return {
+        "score": score,
+        "bias": bias,
+        "patterns": patterns,
+        "summary": f"近5日量比 {vol_ratio:.2f}x，20日區間位置 {range_pos * 100:.0f}%"
+    }
+
+
+def _evaluate_filter(filter_key: str, metrics: Dict) -> Tuple[bool, str]:
+    if not metrics.get("has_data"):
+        return False, "無法取得行情資料"
+
+    pct_5d = metrics["pct_5d"]
+    if filter_key == "drop_5d_10":
+        ok = pct_5d <= -10
+        return ok, f"近5日漲跌 {pct_5d}%"
+    if filter_key == "rise_5d_10":
+        ok = pct_5d >= 10
+        return ok, f"近5日漲跌 {pct_5d}%"
+    if filter_key == "above_ma20":
+        ok = metrics["above_ma20"]
+        return ok, f"現價 {metrics['price']} / MA20 {metrics['ma20']}"
+    if filter_key == "vol_up_30":
+        ok = metrics["vol_up_30"]
+        return ok, "近5日均量較前20日均量放大 >= 30%"
+
+    # 下列為預留條件，需搭配法人、財報資料源後可精準化
+    if filter_key == "chip_buy":
+        return False, "待串接法人連買資料"
+    if filter_key == "dividend_5":
+        return False, "待串接殖利率資料"
+    if filter_key == "pe_low":
+        return False, "待串接本益比同業資料"
+    if filter_key == "revenue_3m":
+        return False, "待串接月營收資料"
+
+    return False, "未知條件"
+
+
+def analyze_related_stocks(target_inputs: List[str], filters: List[str]):
+    normalized_filters = [FILTER_KEYS[f] for f in filters if f in FILTER_KEYS]
+    out = []
+
+    for raw in target_inputs:
+        ticker = _normalize_ticker(raw)
+        relation = _pick_relation(ticker)
+
+        related_universe = []
+        related_universe.extend(relation.get("related", []))
+        for lvl in ("upstream", "midstream", "downstream"):
+            related_universe.extend(relation.get("supply_chain", {}).get(lvl, []))
+
+        dedup_related = []
+        seen = set()
+        for r in related_universe:
+            if r not in seen:
+                seen.add(r)
+                dedup_related.append(r)
+
+        matched = []
+        for r_ticker in dedup_related:
+            metrics = _calc_metrics(r_ticker)
+            main_force = _detect_main_force(metrics)
+            matched_reasons = []
+            for fk in normalized_filters:
+                ok, reason = _evaluate_filter(fk, metrics)
+                if ok:
+                    matched_reasons.append(reason)
+
+            if matched_reasons:
+                matched.append({
+                    "ticker": r_ticker,
+                    "name": _pick_relation(r_ticker).get("name", r_ticker.split('.')[0]),
+                    "price": metrics["price"],
+                    "pct_5d": metrics["pct_5d"],
+                    "reasons": matched_reasons,
+                    "main_force": main_force
+                })
+
+        supply_chain = relation.get("supply_chain", {})
+        out.append({
+            "target": {
+                "ticker": ticker,
+                "name": relation.get("name", ticker)
+            },
+            "group": relation.get("group", "未分類"),
+            "concepts": relation.get("concepts", []),
+            "supply_chain": {
+                "upstream": supply_chain.get("upstream", []),
+                "midstream": supply_chain.get("midstream", []),
+                "downstream": supply_chain.get("downstream", [])
+            },
+            "matched_stocks": matched
+        })
+
+    return out
