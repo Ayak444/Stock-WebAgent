@@ -102,6 +102,19 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 10px; }
+
+.scr-filter {
+  accent-color: var(--orange-500);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.screener-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -118,7 +131,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
       <button class="nav-btn" data-page="tech"><span class="icon">📐</span>異質技術分析</button>
       <button class="nav-btn" data-page="news"><span class="icon">📰</span>新聞知識圖譜</button>
       <button class="nav-btn" data-page="sentiment"><span class="icon">📡</span>市場情緒雷達</button>
-      <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 選股雷達</button>
+      <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 關聯選股</button>
     </nav>
     <div class="sidebar-footer">
       <button class="nav-btn" onclick="checkHealth()"><span class="icon">⚙️</span>測試系統連線</button>
@@ -228,17 +241,41 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
       <div class="page" id="page-screener">
         <div class="page-header">
-          <div><h2>AI 選股雷達</h2><p class="sub">透過 MaiAgent 自然語言進行條件篩選與諮詢</p></div>
+          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股，並套用自訂篩選條件</p></div>
         </div>
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-body">
-            <p style="font-size:12px;color:var(--slate-400);margin-bottom:8px">💬 告訴 AI 你的選股條件</p>
-            <div style="display:flex; gap:8px;">
-              <input class="input" id="screener-input" placeholder="例：找出適合存股的高殖利率金融股..." onkeydown="if(event.key==='Enter')runScreener()">
-              <button class="btn-analyze" id="btn-screener" onclick="runScreener()">🧠 AI 篩選</button>
+        
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">1. 設定目標核心標的</div>
+            <div class="card-body">
+              <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
+                <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0;">加入</button>
+                <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0; color:var(--blue-400); border-color:var(--blue-500);">從部位匯入</button>
+              </div>
+              <div id="screener-target-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:30px;">
+                 <span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">2. 勾選關聯股篩選條件</div>
+            <div class="card-body">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:14px; color:var(--slate-200);">
+                <label class="screener-label"><input type="checkbox" value="近5日跌幅超過10%" class="scr-filter"> 近 5 日跌逾 10% (錯殺)</label>
+                <label class="screener-label"><input type="checkbox" value="近5日漲幅超過10%" class="scr-filter"> 近 5 日漲逾 10% (強勢)</label>
+                <label class="screener-label"><input type="checkbox" value="外資或投信近期連續買超" class="scr-filter"> 法人近期連續買超</label>
+                <label class="screener-label"><input type="checkbox" value="預估殖利率大於5%" class="scr-filter"> 預估殖利率 > 5%</label>
+                <label class="screener-label"><input type="checkbox" value="本益比低於同業平均" class="scr-filter"> 本益比低於同業平均</label>
+                <label class="screener-label"><input type="checkbox" value="營收連續三個月年月雙增" class="scr-filter"> 營收連續三月雙增</label>
+              </div>
             </div>
           </div>
         </div>
+
+        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%; justify-content:center; margin-bottom:20px; padding:14px; font-size:16px; letter-spacing:2px;">⚡ 開始深度展開與篩選</button>
+        
         <div id="screener-result"></div>
       </div>
 
@@ -294,6 +331,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 <script>
 const API_BASE = window.location.origin; 
 let currentChatbotId = null;
+let screenerTargets = [];
 
 const fmt = (num, decimals = 2) => Number(num).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
 
@@ -494,6 +532,51 @@ function removePosition(i) {
   positions.splice(i,1); 
   renderPositions(); 
   syncPositions();
+}
+
+function addScreenerTarget() {
+    const input = document.getElementById('screener-target-input');
+    const val = input.value.trim();
+    if(val && !screenerTargets.includes(val)) {
+        screenerTargets.push(val);
+        renderScreenerTargets();
+    }
+    input.value = '';
+}
+
+function importFromPortfolio() {
+    if(positions.length === 0) {
+        alert('投資組合目前是空的！請先在資產壓力測試頁面新增部位。');
+        return;
+    }
+    let added = 0;
+    positions.forEach(p => {
+        if(p.code && !screenerTargets.includes(p.code)) {
+            screenerTargets.push(p.code);
+            added++;
+        }
+    });
+    if(added > 0) renderScreenerTargets();
+    else alert('投資組合內的標的皆已在清單中。');
+}
+
+function removeScreenerTarget(idx) {
+    screenerTargets.splice(idx, 1);
+    renderScreenerTargets();
+}
+
+function renderScreenerTargets() {
+    const list = document.getElementById('screener-target-list');
+    if(screenerTargets.length === 0) {
+        list.innerHTML = '<span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>';
+        return;
+    }
+    list.innerHTML = screenerTargets.map((t, i) => `
+        <div style="background:var(--slate-700); padding:4px 12px; border-radius:16px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; color:#fff;">
+            ${t} 
+            <button onclick="removeScreenerTarget(${i})" style="background:var(--slate-600); border:none; color:var(--slate-300); width:20px; height:20px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s;" onmouseover="this.style.background='var(--red-500)'; this.style.color='#fff';" onmouseout="this.style.background='var(--slate-600)'; this.style.color='var(--slate-300)';">✕</button>
+        </div>
+    `).join('');
 }
 
 async function fetchWarData() {
@@ -781,30 +864,101 @@ async function fetchSentiment() {
 }
 
 async function runScreener() {
-  const query = document.getElementById('screener-input').value.trim();
-  if(!query) return;
+  if(screenerTargets.length === 0) {
+      alert('請在上方設定至少一檔目標標的。');
+      return;
+  }
+  
+  const filters = Array.from(document.querySelectorAll('.scr-filter:checked')).map(cb => cb.value);
+  if(filters.length === 0) {
+      alert('請至少勾選一項篩選條件。');
+      return;
+  }
 
   const btn = document.getElementById('btn-screener');
   const resBox = document.getElementById('screener-result');
   btn.disabled = true;
-  resBox.innerHTML = '<div class="loading"><div class="spinner purple"></div><p class="loading-text">MaiAgent 正在資料庫中為您尋找潛力標的...</p></div>';
+  resBox.innerHTML = '<div class="loading"><div class="spinner purple"></div><p class="loading-text" style="margin-top:12px;">MaiAgent 正在向下展開供應鏈並套用條件篩選，請稍候...</p></div>';
 
-  const prompt = `作為專業台股分析師，請根據以下使用者條件篩選出3檔最符合的台灣股票，並給出詳細理由與操作建議。使用者條件：「${query}」`;
+  const prompt = `作為專業台股分析師，請對以下目標股票進行深度關聯分析：${screenerTargets.join(', ')}。
+請務必以 JSON 陣列格式回覆，陣列中每個物件代表一檔目標股票，格式如下：
+[
+  {
+    "target": "股票代號與名稱",
+    "group": "所屬族群",
+    "concepts": ["概念股1", "概念股2"],
+    "supply_chain": ["上游: XXX", "中游: XXX", "下游: XXX"],
+    "filtered_stocks": [
+      {
+        "name": "關聯股票名稱",
+        "reason": "符合的條件說明(需對應使用者勾選的條件)"
+      }
+    ]
+  }
+]
+使用者勾選的篩選條件為：${filters.join(', ')}。
+請嚴格輸出 JSON 格式，不要包含其他說明文字，以利前端系統解析。`;
+
   const res = await apiCall('/chat', 'POST', { message: prompt });
   
   if(res.status === 'success') {
-      resBox.innerHTML = `
-        <div class="card">
-           <div class="card-header">🎯 MaiAgent 篩選報告</div>
-           <div class="card-body">
-              <div class="advice-box advice-blue" style="margin:0; padding:20px;">
-                 <p class="desc" style="font-size:16px; line-height:1.8;">${res.reply}</p>
-              </div>
-           </div>
-        </div>
-      `;
+      try {
+          let text = res.reply.trim();
+          if(text.startsWith('\`\`\`')) {
+              const match = text.match(/\`\`\`(?:json)?\n([\s\S]*?)\`\`\`/);
+              if(match) text = match[1];
+          }
+          const data = JSON.parse(text);
+          
+          resBox.innerHTML = data.map(item => `
+              <details style="background:var(--slate-800); border:1px solid var(--slate-700); padding:16px; border-radius:12px; margin-bottom:16px; transition:0.3s;" open>
+                  <summary style="cursor:pointer; outline:none; display:flex; align-items:center; font-size:18px; font-weight:bold; color:#fff;">
+                      🎯 目標標的：${item.target}
+                  </summary>
+                  <div style="margin-top:20px; display:grid; gap:12px;">
+                      <div style="background:rgba(15,23,42,0.4); padding:12px; border-radius:8px; border-left:4px solid var(--blue-500);">
+                          <div style="color:var(--slate-400); font-size:13px; margin-bottom:4px;">所屬產業族群</div>
+                          <div style="color:var(--blue-400); font-size:15px; font-weight:600;">${item.group}</div>
+                      </div>
+                      <div class="grid grid-2">
+                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
+                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">🔗 相關概念分類</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.6;">
+                                  ${item.concepts.map(c => `<span style="display:inline-block; background:var(--slate-700); padding:2px 8px; border-radius:4px; margin:0 6px 6px 0; font-size:12px;">${c}</span>`).join('')}
+                              </div>
+                          </div>
+                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
+                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">⚙️ 產業供應鏈地圖</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.8;">${item.supply_chain.join('<br>')}</div>
+                          </div>
+                      </div>
+                      <div style="background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.3); padding:16px; border-radius:8px; margin-top:4px;">
+                          <div style="color:var(--orange-400); font-size:15px; font-weight:bold; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                             <span>🔍</span> 符合自訂篩選條件的關聯個股
+                          </div>
+                          ${item.filtered_stocks.length > 0 ? 
+                              item.filtered_stocks.map(fs => `
+                                  <div style="margin-bottom:10px; border-bottom:1px dashed var(--slate-700); padding-bottom:10px; display:flex; flex-direction:column; gap:4px;">
+                                      <span style="color:#fff; font-weight:600; font-size:15px;">${fs.name}</span>
+                                      <span style="color:var(--slate-400); font-size:13px; line-height:1.5;">原因：${fs.reason}</span>
+                                  </div>
+                              `).join('') 
+                              : '<div style="color:var(--slate-500); font-size:14px; padding:10px 0;">目前無符合您勾選條件的關聯股。</div>'
+                          }
+                      </div>
+                  </div>
+              </details>
+          `).join('');
+      } catch(e) {
+          resBox.innerHTML = `
+              <div class="card"><div class="card-body">
+                  <p style="color:var(--orange-400); margin-bottom:12px; font-weight:600;">AI 分析完成，但格式轉換失敗。以下為原始推論內容：</p>
+                  <div style="white-space:pre-wrap; color:var(--slate-300); font-size:14px; line-height:1.8; background:var(--slate-900); padding:16px; border-radius:8px;">${res.reply}</div>
+              </div></div>
+          `;
+      }
   } else {
-      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">錯誤：${res.message}</div></div>`;
+      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
   }
   btn.disabled = false;
 }
