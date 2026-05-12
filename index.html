@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>股金往來 - 台股 AI 分析儀表板</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --slate-950:#020617; --slate-900:#0f172a; --slate-800:#1e293b;
+  --slate-700:#334155; --slate-600:#475569; --slate-500:#64748b;
+  --slate-400:#94a3b8; --slate-300:#cbd5e1; --slate-200:#e2e8f0;
+  --blue-600:#2563eb; --blue-500:#3b82f6; --blue-400:#60a5fa;
+  --green-500:#22c55e; --green-400:#4ade80;
+  --red-500:#ef4444; --red-400:#f87171;
+  --orange-500:#f97316; --orange-400:#ea580c;
+  --purple-600:#9333ea; --purple-500:#a855f7;
+}
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--slate-950); color:var(--slate-300); height:100vh; overflow:hidden; }
+.app { display:flex; height:100vh; }
+.sidebar { width:220px; background:var(--slate-900); border-right:1px solid var(--slate-800); display:flex; flex-direction:column; flex-shrink:0; }
+.sidebar-header { padding:16px 20px; border-bottom:1px solid var(--slate-800); display:flex; align-items:center; gap:8px; }
+.sidebar-header .logo { font-size:18px; }
+.sidebar-header .title { color:#fff; font-weight:700; font-size:14px; }
+.sidebar-header .ver { color:var(--slate-500); font-size:12px; margin-left:4px; }
+.sidebar-nav { flex:1; padding:16px 12px; display:flex; flex-direction:column; gap:4px; }
+.nav-btn { width:100%; display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px; border:none; background:transparent; color:var(--slate-400); font-size:13px; font-weight:500; cursor:pointer; transition:all .2s; text-align:left; }
+.nav-btn:hover { background:var(--slate-800); color:var(--slate-200); }
+.nav-btn.active { background:var(--blue-600); color:#fff; }
+.nav-btn .icon { font-size:16px; width:20px; text-align:center; }
+.sidebar-footer { padding:12px; border-top:1px solid var(--slate-800); }
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.top-bar { display:flex; align-items:center; justify-content:flex-end; gap:16px; padding:12px 24px; border-bottom:1px solid var(--slate-800); background:rgba(15,23,42,.5); }
+.status-dot { width:8px; height:8px; border-radius:50%; background:var(--green-400); animation:pulse 2s infinite; }
+.status-dot.err { background:var(--red-400); animation:none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+.status-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--slate-400); }
+.content { flex:1; overflow-y:auto; scroll-behavior: smooth; }
+.page { display:none; padding:24px; animation: fadeIn 0.3s ease;}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.page.active { display:block; }
+.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.page-header h2 { font-size:20px; font-weight:700; color:#fff; }
+.page-header .sub { font-size:12px; color:var(--slate-400); margin-top:2px; }
+.btn-analyze { display:flex; align-items:center; gap:8px; background:linear-gradient(135deg, var(--orange-500), var(--orange-400)); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; box-shadow: 0 4px 15px rgba(249,115,22,0.3); transform: translateY(0); }
+.btn-analyze:hover { box-shadow: 0 6px 20px rgba(249,115,22,0.5); transform: translateY(-2px); }
+.btn-analyze:disabled { opacity:0.6; cursor:not-allowed; transform: translateY(0); box-shadow: none;}
+.btn-outline { display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--slate-600); color:#fff; padding:10px 18px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
+.btn-outline:hover { background:var(--slate-800); }
+.card { background:var(--slate-800); border:1px solid var(--slate-700); border-radius:12px; overflow:hidden; margin-bottom:16px;}
+.card-header { padding:12px 20px; border-bottom:1px solid var(--slate-700); font-size:13px; font-weight:600; color:#fff; display: flex; justify-content: space-between; align-items: center;}
+.card-body { padding:16px 20px; }
+.grid { display:grid; gap:16px; }
+.grid-2 { grid-template-columns:repeat(2,1fr); }
+.grid-3 { grid-template-columns:repeat(3,1fr); }
+.grid-4 { grid-template-columns:repeat(4,1fr); }
+.badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid; }
+.badge-green { background:rgba(34,197,94,.15); color:var(--green-400); border-color:rgba(34,197,94,.3); }
+.badge-red { background:rgba(239,68,68,.15); color:var(--red-400); border-color:rgba(239,68,68,.3); }
+.badge-blue { background:rgba(59,130,246,.15); color:var(--blue-400); border-color:rgba(59,130,246,.3); }
+.badge-orange { background:rgba(249,115,22,.15); color:var(--orange-400); border-color:rgba(249,115,22,.3); }
+.badge-slate { background:rgba(71,85,105,.4); color:var(--slate-300); border-color:var(--slate-600); }
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table thead th { text-align:left; padding:8px 16px; font-size:11px; color:var(--slate-500); font-weight:500; border-bottom:1px solid var(--slate-700); }
+.data-table tbody tr { border-bottom:1px solid rgba(51,65,85,.5); cursor:pointer; transition:background .2s; }
+.data-table tbody tr:hover { background:rgba(51,65,85,.4); }
+.data-table tbody td { padding:12px 16px; }
+.input { background:var(--slate-900); border:1px solid var(--slate-600); color:#fff; font-size:13px; border-radius:8px; padding:10px 14px; outline:none; transition:border-color .2s; width:100%; }
+.input:focus { border-color:var(--blue-500); }
+.position-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr auto; gap:12px; align-items:center; }
+.btn-remove { background:none; border:none; color:var(--slate-500); font-size:18px; cursor:pointer; transition:color .2s; }
+.btn-remove:hover { color:var(--red-400); }
+.btn-add { width:100%; border:1px dashed var(--slate-600); background:transparent; color:var(--slate-400); padding:10px; border-radius:8px; cursor:pointer; font-size:13px; transition:all .2s; }
+.btn-add:hover { border-color:var(--purple-500); color:var(--purple-400); }
+.advice-box { padding:16px; border-radius:8px; margin-bottom:12px; }
+.advice-box .title { font-size:14px; font-weight:600; margin-bottom:8px; }
+.advice-box .desc { font-size:15px; color:var(--slate-200); line-height:1.7; white-space: pre-wrap;}
+.advice-blue { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.3); }
+.advice-blue .title { color:var(--blue-400); }
+.loading { display:flex; flex-direction:column; align-items:center; padding:40px; gap:12px; }
+.spinner { width:40px; height:40px; border:4px solid var(--slate-600); border-top-color:var(--orange-500); border-radius:50%; animation:spin 1s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.loading-text { font-size:13px; color:var(--slate-400); }
+.score-bar { display:flex; align-items:center; gap:8px; }
+.score-bar-track { width:56px; height:6px; background:var(--slate-600); border-radius:3px; overflow:hidden; }
+.score-bar-fill { height:100%; border-radius:3px; }
+.score-bar-fill.high { background:var(--green-500); }
+.score-bar-fill.mid { background:var(--yellow-500); }
+.score-bar-fill.low { background:var(--red-500); }
+.chat-fab { position:fixed; bottom:24px; right:24px; width:48px; height:48px; background:var(--blue-600); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; box-shadow:0 4px 20px rgba(37,99,235,.4); transition:all .2s; z-index:100; }
+.chat-fab:hover { background:var(--blue-500); transform:scale(1.1); }
+.chat-panel { position:fixed; bottom:80px; right:24px; width:380px; max-height:500px; height:60vh; background:var(--slate-900); border:1px solid var(--slate-700); border-radius:16px; display:none; flex-direction:column; z-index:100; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.chat-panel.open { display:flex; }
+.chat-header { padding:14px 20px; border-bottom:1px solid var(--slate-700); display:flex; align-items:center; justify-content:space-between; }
+.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.chat-msg { max-width:85%; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; white-space: pre-wrap;}
+.chat-msg.user { align-self:flex-end; background:var(--blue-600); color:#fff; border-bottom-right-radius:4px; }
+.chat-msg.bot { align-self:flex-start; background:var(--slate-800); color:var(--slate-200); border-bottom-left-radius:4px; border:1px solid var(--slate-700);}
+.chat-input-wrap { padding:12px 16px; border-top:1px solid var(--slate-700); display:flex; gap:8px; }
+.chat-input { flex:1; background:var(--slate-800); border:1px solid var(--slate-600); color:#fff; font-size:13px; padding:10px 14px; border-radius:8px; outline:none; }
+.chat-send { background:var(--blue-600); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 10px; }
+
+.scr-filter {
+  accent-color: var(--orange-500);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.screener-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">🚀</span>
+      <span class="title">股金往來</span>
+      <span class="ver">台股 AI 分析儀表板</span>
+    </div>
+    <nav class="sidebar-nav" id="nav">
+      <button class="nav-btn active" data-page="war"><span class="icon">🏠</span>首頁</button>
+      <button class="nav-btn" data-page="stress"><span class="icon">🧪</span>資產壓力測試</button>
+      <button class="nav-btn" data-page="tech"><span class="icon">📐</span>異質技術分析</button>
+      <button class="nav-btn" data-page="news"><span class="icon">📰</span>新聞知識圖譜</button>
+      <button class="nav-btn" data-page="sentiment"><span class="icon">📡</span>市場情緒雷達</button>
+      <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 關聯選股</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="nav-btn" onclick="checkHealth()"><span class="icon">⚙️</span>測試系統連線</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top-bar">
+      <div id="auth-section" style="display:flex; align-items:center; gap:12px; margin-right: auto;">
+      </div>
+      <span class="status-item"><span class="status-dot" id="dot-api"></span>核心 API</span>
+      <span class="status-item"><span class="status-dot" id="dot-ai"></span>MaiAgent 推論</span>
+    </header>
+    <div class="content">
+
+      <div class="page active" id="page-war">
+        <div class="page-header">
+          <div><h2>首頁</h2><p class="sub">AI 盤前摘要 × 即時新聞動態</p></div>
+        </div>
+        <div id="macro-bar" class="grid grid-4" style="margin-bottom:24px;"></div>
+        
+        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width: 100%; margin-bottom: 24px; padding: 14px; font-size: 16px; justify-content: center; letter-spacing: 2px;">⚡ 即時更新</button>
+
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header">🤖 MaiAgent 每日大盤摘要</div>
+            <div class="card-body" id="war-ai-summary">
+              <span style="color:var(--slate-500)">點擊上方即時更新以獲取最新 AI 解析...</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">📰 各大財經頭條 (近3天)</div>
+            <div class="card-body" id="war-news" style="padding:16px;">
+               <span style="color:var(--slate-500); display:block;">無最新新聞</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-stress">
+        <div class="page-header">
+          <div><h2>資產壓力測試</h2><p class="sub">投資組合風險分析 × 停損點試算</p></div>
+          <div style="display:flex; gap:12px;">
+            <button class="btn-outline" onclick="fetchStressHistory()">📜 歷史紀錄</button>
+            <button class="btn-analyze" id="btn-stress" onclick="runStressTest()">⚡ 執行深度分析</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">投資組合設定</div>
+          <div class="card-body">
+            <div class="position-grid" style="margin-bottom:8px;font-size:11px;color:var(--slate-500);">
+              <span>標的代號 (.TW)</span><span>資產類型</span><span>平均成本</span><span>持有股數</span><span></span>
+            </div>
+            <div id="positions-list"></div>
+            <button class="btn-add" onclick="addPosition()" style="margin-top:12px">+ 新增部位</button>
+          </div>
+        </div>
+        <div id="stress-result" style="margin-top:16px"></div>
+      </div>
+
+      <div class="page" id="page-tech">
+        <div class="page-header">
+          <div><h2>異質技術分析</h2><p class="sub">技術指標融合 × K線型態識別</p></div>
+          <button class="btn-analyze" id="btn-tech" onclick="fetchTechAnalysis()">⚡ 分析熱門權值股</button>
+        </div>
+        <div class="card">
+          <div class="card-header">熱門權值股技術分析總覽</div>
+          <table class="data-table">
+            <thead><tr><th>標的</th><th style="text-align:right">收盤價</th><th style="text-align:center">AI 估值狀態</th><th style="text-align:left">技術訊號追蹤</th><th style="text-align:right">綜合評分</th><th style="text-align:right">操作建議</th></tr></thead>
+            <tbody id="tech-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="page" id="page-news">
+        <div class="page-header">
+          <div><h2>新聞知識圖譜</h2><p class="sub">MaiAgent 批次新聞情緒分析</p></div>
+          <button class="btn-analyze" id="btn-news" onclick="fetchNewsAnalysis()">⚡ 啟動 AI 批次解析</button>
+        </div>
+        <div class="grid grid-3" style="margin-bottom:16px" id="news-stats"></div>
+        <div class="card">
+          <div class="card-header">📋 AI 情緒解析列表</div>
+          <div id="news-list"></div>
+        </div>
+      </div>
+
+      <div class="page" id="page-sentiment">
+        <div class="page-header">
+          <div><h2>市場情緒雷達</h2><p class="sub">籌碼面與近期利空/利多比例綜合評估</p></div>
+          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 計算大盤情緒</button>
+        </div>
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-header">📊 新聞情緒儀表板</div>
+                <div class="card-body" id="sentiment-gauge-container" style="display:flex; justify-content:center; padding:60px 0;">
+                    <span style="color:var(--slate-500)">點擊計算以啟動分析...</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">🤖 AI 市場洞察 (熱門焦點)</div>
+                <div class="card-body" id="sentiment-insight" style="max-height:500px; overflow-y:auto;">
+                   <span style="color:var(--slate-500)">等待數據載入...</span>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-screener">
+        <div class="page-header">
+          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股，並套用自訂篩選條件</p></div>
+        </div>
+        
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">1. 設定目標核心標的</div>
+            <div class="card-body">
+              <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
+                <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0;">加入</button>
+                <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0; color:var(--blue-400); border-color:var(--blue-500);">從部位匯入</button>
+              </div>
+              <div id="screener-target-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:30px;">
+                 <span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">2. 勾選關聯股篩選條件</div>
+            <div class="card-body">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:14px; color:var(--slate-200);">
+                <label class="screener-label"><input type="checkbox" value="近5日跌幅超過10%" class="scr-filter"> 近 5 日跌逾 10% (錯殺)</label>
+                <label class="screener-label"><input type="checkbox" value="近5日漲幅超過10%" class="scr-filter"> 近 5 日漲逾 10% (強勢)</label>
+                <label class="screener-label"><input type="checkbox" value="外資或投信近期連續買超" class="scr-filter"> 法人近期連續買超</label>
+                <label class="screener-label"><input type="checkbox" value="預估殖利率大於5%" class="scr-filter"> 預估殖利率 > 5%</label>
+                <label class="screener-label"><input type="checkbox" value="本益比低於同業平均" class="scr-filter"> 本益比低於同業平均</label>
+                <label class="screener-label"><input type="checkbox" value="營收連續三個月年月雙增" class="scr-filter"> 營收連續三月雙增</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%; justify-content:center; margin-bottom:20px; padding:14px; font-size:16px; letter-spacing:2px;">⚡ 開始深度展開與篩選</button>
+        
+        <div id="screener-result"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="stress-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;">
+   <div class="card" style="width:800px; max-height:80vh; overflow-y:auto; display:flex; flex-direction:column; background:var(--slate-900);">
+       <div class="card-header" style="background:var(--slate-800);">
+           <span style="font-size:16px;">📜 壓力測試歷史紀錄</span>
+           <button onclick="document.getElementById('stress-history-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
+       </div>
+       <div class="card-body" id="stress-history-content"></div>
+   </div>
+</div>
+
+<div id="auth-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; align-items:center; justify-content:center;">
+   <div class="card" style="width:400px; background:var(--slate-900);">
+       <div class="card-header" style="background:var(--slate-800); display:flex; justify-content:space-between;">
+           <span id="auth-modal-title" style="font-size:16px;">登入</span>
+           <button onclick="document.getElementById('auth-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
+       </div>
+       <div class="card-body">
+           <div id="auth-error" style="color:var(--red-400); font-size:13px; margin-bottom:10px; display:none;"></div>
+           <input id="auth-email" class="input" type="email" placeholder="信箱" style="margin-bottom:12px;">
+           <input id="auth-name" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px; display:none;">
+           <input id="auth-password" class="input" type="password" placeholder="密碼" style="margin-bottom:16px;" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
+           <button id="auth-submit-btn" class="btn-analyze" style="width:100%; justify-content:center;" onclick="handleAuthSubmit()">登入</button>
+           <div style="text-align:center; margin-top:12px; font-size:13px;">
+               <a href="#" id="auth-toggle-link" style="color:var(--blue-400); text-decoration:none;" onclick="toggleAuthMode()">還沒有帳號？點此註冊</a>
+           </div>
+       </div>
+   </div>
+</div>
+
+<button class="chat-fab" onclick="toggleChat()">🤖</button>
+
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <span class="title">🤖 MaiAgent 投資助理</span>
+    <button style="background:none; border:none; color:var(--slate-400); cursor:pointer;" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg bot">您好！我是智盤 Pro 內建的 MaiAgent AI 助理，已連線至您的後端。請問有什麼可以幫您的？</div>
+  </div>
+  <div class="chat-input-wrap">
+    <input class="chat-input" id="chat-input" placeholder="輸入問題..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send" onclick="sendChat()" id="chat-send-btn">發送</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin; 
+let currentChatbotId = null;
+let screenerTargets = [];
+
+const fmt = (num, decimals = 2) => Number(num).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+
+async function apiCall(endpoint, method='GET', body=null) {
+  const opts = { method, headers:{'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, opts);
+    return await res.json();
+  } catch(e) {
+    return { status:'error', message: '無法連線至伺服器' };
+  }
+}
+
+async function checkHealth() {
+  const dotApi = document.getElementById('dot-api');
+  const dotAi = document.getElementById('dot-ai');
+  dotApi.className = 'status-dot'; dotAi.className = 'status-dot';
+  const res = await apiCall('/health');
+  if(res.status === 'ok') {
+    dotApi.classList.add('ok');
+    if(res.maiagent) {
+        dotAi.classList.add('ok');
+    } else {
+        dotAi.classList.add('err');
+    }
+  } else {
+    dotApi.classList.add('err');
+    dotAi.classList.add('err');
+  }
+}
+
+document.querySelectorAll('#nav .nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#nav .nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + btn.dataset.page).classList.add('active');
+  });
+});
+
+async function fetchMacroData() {
+  const bar = document.getElementById('macro-bar');
+  bar.innerHTML = '<div class="loading" style="grid-column: span 4;"><div class="spinner"></div></div>';
+  const res = await apiCall('/macro');
+  if(res.status === 'success' && res.data) {
+    bar.innerHTML = '';
+    const nMap = {
+      '加權指數': '加權指數 (TAIEX)',
+      '費城半導體指數': '費城半導體 (^SOX)',
+      '費半指數': '費城半導體 (^SOX)',
+      '油價': '油價 (WTI)',
+      '金價': '金價 (Gold)'
+    };
+    Object.entries(res.data).forEach(([key, val]) => {
+      const color = val.change >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+      const sign = val.change >= 0 ? '+' : '';
+      const dName = nMap[key] || key;
+      bar.innerHTML += `
+        <div class="card" style="margin-bottom:0; padding:16px;">
+          <div style="font-size:14px; color:var(--slate-400); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dName}</div>
+          <div style="font-size:26px; font-weight:bold; color:#fff; margin:6px 0;">${fmt(val.price)}</div>
+          <div style="font-size:14px; color:${color}; font-weight:600;">${sign}${fmt(val.change)} (${sign}${fmt(val.pct_change)}%)</div>
+        </div>
+      `;
+    });
+  } else {
+    bar.innerHTML = '';
+  }
+}
+
+let positions = [];
+let currentUser = JSON.parse(localStorage.getItem('trade_user'));
+let authMode = 'login';
+
+function showAuthModal(mode='login') {
+    authMode = mode;
+    document.getElementById('auth-modal').style.display = 'flex';
+    document.getElementById('auth-error').style.display = 'none';
+    if(mode === 'signup') {
+        document.getElementById('auth-modal-title').innerText = '註冊';
+        document.getElementById('auth-name').style.display = 'block';
+        document.getElementById('auth-submit-btn').innerText = '註冊';
+        document.getElementById('auth-toggle-link').innerText = '已有帳號？點此登入';
+    } else {
+        document.getElementById('auth-modal-title').innerText = '登入';
+        document.getElementById('auth-name').style.display = 'none';
+        document.getElementById('auth-submit-btn').innerText = '登入';
+        document.getElementById('auth-toggle-link').innerText = '還沒有帳號？點此註冊';
+    }
+}
+
+function toggleAuthMode() {
+    showAuthModal(authMode === 'login' ? 'signup' : 'login');
+}
+
+async function handleAuthSubmit() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    const name = document.getElementById('auth-name').value.trim();
+    const errDiv = document.getElementById('auth-error');
+
+    if(!email || !password) {
+        errDiv.innerText = "請填寫信箱與密碼";
+        errDiv.style.display = 'block';
+        return;
+    }
+
+    if(authMode === 'signup') {
+        const res = await apiCall('/auth/signup', 'POST', { email, password, name });
+        if(res.status === 'success') {
+            alert("註冊成功！請登入");
+            showAuthModal('login');
+        } else {
+            errDiv.innerText = res.detail || res.message || "註冊失敗";
+            errDiv.style.display = 'block';
+        }
+    } else {
+        const res = await apiCall('/auth/login', 'POST', { email, password });
+        if(res.status === 'success') {
+            currentUser = res.user;
+            localStorage.setItem('trade_user', JSON.stringify(res.user));
+            document.getElementById('auth-modal').style.display = 'none';
+            updateAuthUI();
+            loadPositionsFromServer();
+        } else {
+            errDiv.innerText = res.detail || res.message || "登入失敗";
+            errDiv.style.display = 'block';
+        }
+    }
+}
+
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('trade_user');
+    positions = [];
+    renderPositions();
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    const authSec = document.getElementById('auth-section');
+    if(currentUser) {
+        authSec.innerHTML = `<span style="color:#fff; font-size:14px; font-weight:600;">👤 ${currentUser.name || currentUser.email}</span>
+                             <button class="btn-outline" style="padding:4px 10px; font-size:12px;" onclick="logout()">登出</button>`;
+    } else {
+        authSec.innerHTML = `<button class="btn-analyze" style="padding:6px 14px; font-size:13px;" onclick="showAuthModal('login')">登入 / 註冊</button>`;
+    }
+}
+
+async function loadPositionsFromServer() {
+  if(!currentUser) {
+      positions = [];
+      renderPositions();
+      return;
+  }
+  const res = await apiCall(`/portfolio?user_id=${currentUser.id}`);
+  if (res.status === 'success' && res.data.length > 0) {
+    positions = res.data;
+  } else {
+    positions = [];
+  }
+  renderPositions();
+}
+
+async function syncPositions() {
+  if(!currentUser) return;
+  await apiCall('/portfolio', 'POST', { 
+      user_id: currentUser.id, 
+      portfolio: positions 
+  });
+}
+
+function renderPositions() {
+  const types = ["台股","ETF"];
+  document.getElementById('positions-list').innerHTML = positions.map((p,i) => `
+    <div class="position-grid" style="margin-bottom:8px">
+      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value; syncPositions();" placeholder="例如: 2330.TW">
+      <select class="input" onchange="positions[${i}].type=this.value; syncPositions();">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
+      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value; syncPositions();">
+      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value; syncPositions();">
+      <button class="btn-remove" onclick="removePosition(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addPosition() { 
+  if(!currentUser) {
+      showAuthModal('login');
+      return;
+  }
+  positions.push({code:"",type:"台股",cost:"",shares:""}); 
+  renderPositions(); 
+  syncPositions();
+}
+
+function removePosition(i) { 
+  positions.splice(i,1); 
+  renderPositions(); 
+  syncPositions();
+}
+
+function addScreenerTarget() {
+    const input = document.getElementById('screener-target-input');
+    const val = input.value.trim();
+    if(val && !screenerTargets.includes(val)) {
+        screenerTargets.push(val);
+        renderScreenerTargets();
+    }
+    input.value = '';
+}
+
+function importFromPortfolio() {
+    if(positions.length === 0) {
+        alert('投資組合目前是空的！請先在資產壓力測試頁面新增部位。');
+        return;
+    }
+    let added = 0;
+    positions.forEach(p => {
+        if(p.code && !screenerTargets.includes(p.code)) {
+            screenerTargets.push(p.code);
+            added++;
+        }
+    });
+    if(added > 0) renderScreenerTargets();
+    else alert('投資組合內的標的皆已在清單中。');
+}
+
+function removeScreenerTarget(idx) {
+    screenerTargets.splice(idx, 1);
+    renderScreenerTargets();
+}
+
+function renderScreenerTargets() {
+    const list = document.getElementById('screener-target-list');
+    if(screenerTargets.length === 0) {
+        list.innerHTML = '<span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>';
+        return;
+    }
+    list.innerHTML = screenerTargets.map((t, i) => `
+        <div style="background:var(--slate-700); padding:4px 12px; border-radius:16px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; color:#fff;">
+            ${t} 
+            <button onclick="removeScreenerTarget(${i})" style="background:var(--slate-600); border:none; color:var(--slate-300); width:20px; height:20px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s;" onmouseover="this.style.background='var(--red-500)'; this.style.color='#fff';" onmouseout="this.style.background='var(--slate-600)'; this.style.color='var(--slate-300)';">✕</button>
+        </div>
+    `).join('');
+}
+
+async function fetchWarData() {
+  const btn = document.getElementById('btn-war');
+  btn.disabled = true;
+  document.getElementById('war-ai-summary').innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">MaiAgent 生成摘要中...</p></div>';
+  document.getElementById('war-news').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  fetchMacroData();
+
+  const aiRes = await apiCall('/auto_news');
+  if(aiRes.status === 'success') {
+     document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0;"><p class="desc">${aiRes.summary}</p></div>`;
+  } else {
+     document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
+  }
+
+  const newsRes = await apiCall('/news?limit=10');
+  if(newsRes.status === 'success') {
+      document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
+        <details style="background:rgba(51,65,85,0.4); border:1px solid var(--slate-700); padding:14px; border-radius:8px; margin-bottom:10px; transition:0.3s;">
+          <summary style="cursor:pointer; outline:none; display:flex; gap:10px; align-items:flex-start;">
+            <span style="font-size:12px; color:var(--slate-500); width:110px; flex-shrink:0; font-family:monospace;">${n.published}</span>
+            <span class="badge badge-slate" style="flex-shrink:0;">${n.source}</span>
+            <span style="font-size:15px; color:var(--slate-200); font-weight:600; flex:1; line-height:1.4;">${n.title}</span>
+          </summary>
+          <div style="padding-top:12px; margin-top:12px; border-top:1px dashed var(--slate-600); color:var(--slate-300); font-size:14px; line-height:1.7;">
+            ${n.summary}
+            <div style="margin-top:10px;"><a href="${n.link}" target="_blank" style="color:var(--blue-400); text-decoration:none; font-weight:600;">閱讀全文 ⭧</a></div>
+          </div>
+        </details>
+      `).join('');
+  }
+  btn.disabled = false;
+}
+
+async function runStressTest() {
+  const btn = document.getElementById('btn-stress');
+  const resultDiv = document.getElementById('stress-result');
+  btn.disabled = true;
+  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">正在回測技術指標與籌碼計算...</p></div>';
+
+  const targets = positions.filter(p=>p.code).map(p=>({id:p.code, name:"", type:p.type, cost:parseFloat(p.cost)||0, shares:parseInt(p.shares)||0}));
+  const res = await apiCall('/analyze', 'POST', { targets });
+
+  if (res.status === 'success') {
+      let totalCost = 0;
+      let totalValue = 0;
+
+      const cardsHtml = res.data.map(r => {
+          const cost = targets.find(t=>t.id===r.ticker).cost * targets.find(t=>t.id===r.ticker).shares;
+          const val = r.price * targets.find(t=>t.id===r.ticker).shares;
+          totalCost += cost; totalValue += val;
+
+          const color = r.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+          const adviceColor = r.score >= 60 ? 'badge-green' : (r.score < 40 ? 'badge-red' : 'badge-orange');
+          return `
+            <div class="card" style="margin-bottom:0;"><div class="card-body">
+              <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                <span style="font-size:18px; font-weight:bold; color:#fff;">${r.ticker}</span>
+                <span style="font-weight:bold; font-size:16px; color:${color}">${r.pl >= 0 ? '+' : ''}${fmt(r.pl)}%</span>
+              </div>
+              <div style="font-size:14px; color:var(--slate-400); margin-bottom:12px;">現價: $${fmt(r.price)} | 估值: ${r.valuation}</div>
+              <div style="margin-bottom:10px;"><span class="badge ${adviceColor}" style="font-size:13px; padding:4px 10px;">策略: ${r.advice} (分:${r.score})</span></div>
+              <div style="font-size:13px; color:var(--red-400); margin-bottom:16px;">⚠ ${r.exit}</div>
+              <div style="background:rgba(15,23,42,0.5); padding:10px; border-radius:6px;">
+                ${r.signals.map(s => `<div style="font-size:12px; color:var(--slate-300); margin-bottom:4px;">${s}</div>`).join('') || '<span style="font-size:12px; color:var(--slate-500);">無特殊訊號</span>'}
+              </div>
+            </div></div>
+          `;
+      }).join('');
+
+      let totalPL = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
+      
+      resultDiv.innerHTML = `
+        <div class="card">
+          <div class="card-header" style="font-size:16px;">📊 投資組合總結</div>
+          <div class="card-body" style="display:flex; justify-content:space-between; align-items:center;">
+             <div><span style="color:var(--slate-400); font-size:14px;">外匯狀態：</span><span style="color:#fff; font-size:16px;">${res.fx}</span></div>
+             <div style="text-align:right;">
+                <div style="font-size:13px; color:var(--slate-400); margin-bottom:4px;">總未實現損益</div>
+                <div style="font-size:32px; font-weight:bold; color:${totalPL >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${totalPL >= 0 ? '+' : ''}${fmt(totalPL)}%</div>
+             </div>
+          </div>
+        </div>
+        <div class="grid grid-2">${cardsHtml}</div>
+      `;
+
+      const payload = {
+          user_id: currentUser ? currentUser.id : "00000000-0000-0000-0000-000000000000",
+          scenario: "常規壓力測試",
+          result: {
+              total_cost: totalCost,
+              total_value: totalValue,
+              total_pl: totalPL,
+              portfolio: targets.map(t => {
+                 const r = res.data.find(d => d.ticker === t.id);
+                 return {
+                    ticker: t.id,
+                    cost: t.cost,
+                    shares: t.shares,
+                    price: r ? r.price : 0,
+                    pl: r ? r.pl : 0
+                 };
+              })
+          }
+      };
+      apiCall('/stress_test/save', 'POST', payload);
+
+  } else {
+      resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
+  }
+  btn.disabled = false;
+}
+
+async function fetchStressHistory() {
+   const modal = document.getElementById('stress-history-modal');
+   const content = document.getElementById('stress-history-content');
+   modal.style.display = 'flex';
+   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+   
+   let uid = currentUser ? currentUser.id : "00000000-0000-0000-0000-000000000000";
+   const res = await apiCall(`/stress_test/history?user_id=${uid}`);
+   
+   if (res.status === 'success') {
+       if(res.data.length === 0) {
+           content.innerHTML = '<span style="color:var(--slate-500); padding:20px;">尚無歷史紀錄</span>';
+           return;
+       }
+       content.innerHTML = res.data.map(r => {
+           const resultData = r.result || {};
+           const color = resultData.total_pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+           const sign = resultData.total_pl >= 0 ? '+' : '';
+           
+           const portHtml = (resultData.portfolio || []).map(p => `
+               <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--slate-300); margin-top:6px; border-bottom:1px dashed var(--slate-700); padding-bottom:6px;">
+                   <span>${p.ticker} (${p.shares}股)</span>
+                   <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
+               </div>
+           `).join('');
+           
+           const ts = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : '';
+           
+           return `
+               <div style="background:var(--slate-800); padding:20px; border-radius:10px; border:1px solid var(--slate-700); margin-bottom:16px;">
+                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${ts} | ${r.scenario || '未知情境'}</span>
+                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(resultData.total_pl || 0)}%</span>
+                   </div>
+                   <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:16px; color:#fff;">
+                       <span>總投入成本: $${fmt(resultData.total_cost || 0)}</span>
+                       <span>結算總現值: $${fmt(resultData.total_value || 0)}</span>
+                   </div>
+                   <div style="background:rgba(15,23,42,0.5); padding:12px; border-radius:8px;">
+                       <div style="font-size:12px; color:var(--slate-500); margin-bottom:8px;">資產快照</div>
+                       ${portHtml}
+                   </div>
+               </div>
+           `;
+       }).join('');
+   } else {
+       content.innerHTML = `<span style="color:var(--red-400); padding:20px;">${res.message}</span>`;
+   }
+}
+
+async function fetchTechAnalysis() {
+  const btn = document.getElementById('btn-tech');
+  const tbody = document.getElementById('tech-table');
+  btn.disabled = true;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:0 auto;"></div></td></tr>';
+
+  const preset = [
+    {id:"2330.TW", name:"台積電", type:"台股", cost:0, shares:0},
+    {id:"2317.TW", name:"鴻海", type:"台股", cost:0, shares:0},
+    {id:"2454.TW", name:"聯發科", type:"台股", cost:0, shares:0},
+    {id:"2382.TW", name:"廣達", type:"台股", cost:0, shares:0},
+    {id:"2603.TW", name:"長榮", type:"台股", cost:0, shares:0}
+  ];
+
+  const res = await apiCall('/analyze', 'POST', { targets: preset });
+  
+  if(res.status === 'success') {
+      tbody.innerHTML = res.data.map(s => {
+          const scoreClass = s.score >= 70 ? "high" : s.score >= 40 ? "mid" : "low";
+          const scoreColor = s.score >= 70 ? "var(--green-400)" : s.score >= 40 ? "var(--yellow-400)" : "var(--red-400)";
+          const adviceBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
+          return `
+          <tr>
+            <td><span style="color:#fff;font-size:15px;font-weight:600">${s.ticker}</span></td>
+            <td style="text-align:right; font-family:monospace; font-size:15px;">$${fmt(s.price)}</td>
+            <td style="text-align:center"><span style="font-size:13px; color:var(--slate-300)">${s.valuation}</span></td>
+            <td><div style="font-size:12px; color:var(--slate-400); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.signals.join(' | ')}</div></td>
+            <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px;"><div class="score-bar-fill ${scoreClass}" style="width:${s.score}%"></div></div><span style="font-weight:700;font-size:14px;color:${scoreColor};width:32px;text-align:right">${s.score}</span></div></td>
+            <td style="text-align:right"><span class="badge ${adviceBadge}" style="font-size:12px;">${s.advice}</span></td>
+          </tr>
+          `;
+      }).join('');
+  } else {
+      tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400); text-align:center;">錯誤: ${res.message}</td></tr>`;
+  }
+  btn.disabled = false;
+}
+
+async function fetchNewsAnalysis() {
+  const btn = document.getElementById('btn-news');
+  const list = document.getElementById('news-list');
+  const statsBox = document.getElementById('news-stats');
+  btn.disabled = true;
+  statsBox.innerHTML = '';
+  list.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">爬蟲擷取並交由 MaiAgent 批次判讀中...</p></div>';
+
+  const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['cnyes', 'investing'], limit: 3 });
+
+  if(res.status === 'success') {
+      statsBox.innerHTML = `
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🟢</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利多</p><p style="font-size:22px;font-weight:700;color:var(--green-400);margin-top:4px">${res.stats['利多']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">⚪</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定中立</p><p style="font-size:22px;font-weight:700;color:var(--slate-300);margin-top:4px">${res.stats['中立']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🔴</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利空</p><p style="font-size:22px;font-weight:700;color:var(--red-400);margin-top:4px">${res.stats['利空']} 則</p></div></div>
+      `;
+
+      list.innerHTML = res.data.map(n => {
+          const sBadge = n.sentiment==='利多'?'badge-green':(n.sentiment==='利空'?'badge-red':'badge-slate');
+          const iBadge = n.impact==='高'?'badge-orange':(n.impact==='中'?'badge-yellow':'badge-slate');
+          return `
+            <div style="padding:20px; border-bottom:1px solid rgba(51,65,85,.5);">
+              <div style="display:flex; gap:12px; margin-bottom:12px; align-items:center;">
+                 <span class="badge ${sBadge}" style="font-size:13px; padding:4px 10px;">${n.sentiment}</span>
+                 <span class="badge ${iBadge}" style="font-size:13px; padding:4px 10px;">影響:${n.impact}</span>
+                 <span style="font-size:13px; color:var(--slate-500); font-family:monospace;">${n.source} | ${n.published}</span>
+              </div>
+              <a href="${n.link}" target="_blank" style="display:block; font-size:16px; font-weight:600; color:#fff; text-decoration:none; margin-bottom:12px; line-height:1.5;">${n.title}</a>
+              <div style="font-size:14px; color:var(--blue-400); background:rgba(59,130,246,.08); padding:12px; border-radius:8px; line-height:1.6;">
+                🤖 AI 解析：${n.ai_reason || n.summary || '無特別說明'}
+              </div>
+            </div>
+          `;
+      }).join('');
+  } else {
+      list.innerHTML = `<p style="padding:20px; color:var(--red-400); font-size:16px;">分析失敗：${res.message}</p>`;
+  }
+  btn.disabled = false;
+}
+
+async function fetchSentiment() {
+   const btn = document.getElementById('btn-sentiment');
+   const gaugeBox = document.getElementById('sentiment-gauge-container');
+   const insightBox = document.getElementById('sentiment-insight');
+   btn.disabled = true;
+   
+   gaugeBox.innerHTML = '<div class="spinner"></div>';
+   insightBox.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+   const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['cnyes', 'investing'], limit: 10 });
+   
+   if(res.status === 'success') {
+       const pos = res.stats['利多'] || 0;
+       const neg = res.stats['利空'] || 0;
+       const total = pos + neg;
+       let score = 50; 
+       if (total > 0) score = Math.round((pos / total) * 100);
+       
+       const getColor = (v) => v>=60?"#22c55e":v>=40?"#eab308":"#ef4444";
+       const color = getColor(score);
+       const label = score >= 70 ? "極度貪婪" : score >= 55 ? "偏多" : score >= 45 ? "中立" : score >= 30 ? "偏空" : "極度恐慌";
+       
+       gaugeBox.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div style="font-size:72px; font-weight:900; color:${color}; margin-bottom:16px; text-shadow: 0 0 20px ${color}40;">${score}</div>
+            <div style="font-size:24px; font-weight:700; color:#fff; letter-spacing:2px;">${label}</div>
+            <div style="font-size:14px; color:var(--slate-500); margin-top:16px; padding:6px 12px; border:1px solid var(--slate-700); border-radius:20px;">基於近期 ${res.count} 則新聞分析計算</div>
+        </div>
+       `;
+
+       insightBox.innerHTML = res.data.slice(0,8).map(n => `
+          <div style="padding:16px; background:rgba(15,23,42,0.6); border-radius:10px; margin-bottom:12px; border-left:6px solid ${n.sentiment==='利多'?'var(--green-400)':n.sentiment==='利空'?'var(--red-400)':'var(--slate-500)'}; transition:0.2s;">
+            <div style="font-size:16px; color:#fff; font-weight:600; margin-bottom:8px; line-height:1.4;">${n.title}</div>
+            <div style="font-size:14px; color:var(--slate-400); line-height:1.6;">${n.ai_reason || n.summary}</div>
+          </div>
+       `).join('');
+
+   } else {
+       gaugeBox.innerHTML = '<span style="color:var(--red-400);">分析失敗</span>';
+       insightBox.innerHTML = `<span style="color:var(--red-400); padding:20px; display:block;">${res.message}</span>`;
+   }
+   btn.disabled = false;
+}
+
+async function runScreener() {
+  const filters = Array.from(document.querySelectorAll('.scr-filter:checked')).map(cb => cb.value);
+  if(filters.length === 0) {
+      alert('請至少勾選一項篩選條件。');
+      return;
+  }
+
+  const btn = document.getElementById('btn-screener');
+  const resBox = document.getElementById('screener-result');
+  btn.disabled = true;
+  resBox.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text" style="margin-top:12px;">正在展開關聯供應鏈並套用篩選條件...</p></div>';
+
+  const usePortfolio = screenerTargets.length === 0;
+  const res = await apiCall('/screener/analyze', 'POST', {
+      source: usePortfolio ? 'portfolio' : 'manual',
+      user_id: currentUser ? currentUser.id : null,
+      targets: usePortfolio ? [] : screenerTargets,
+      filters
+  });
+  
+  if(res.status === 'success') {
+          const data = res.data || [];
+          if(data.length === 0) {
+              resBox.innerHTML = '<div class="card"><div class="card-body" style="color:var(--slate-400);">目前沒有可分析資料，請先新增標的或匯入部位。</div></div>';
+              btn.disabled = false;
+              return;
+          }
+
+          resBox.innerHTML = data.map(item => `
+              <details style="background:var(--slate-800); border:1px solid var(--slate-700); padding:16px; border-radius:12px; margin-bottom:16px; transition:0.3s;" open>
+                  <summary style="cursor:pointer; outline:none; display:flex; align-items:center; font-size:18px; font-weight:bold; color:#fff;">
+                      🎯 目標標的：${item.target.ticker} ${item.target.name || ''}
+                  </summary>
+                  <div style="margin-top:20px; display:grid; gap:12px;">
+                      <div style="background:rgba(15,23,42,0.4); padding:12px; border-radius:8px; border-left:4px solid var(--blue-500);">
+                          <div style="color:var(--slate-400); font-size:13px; margin-bottom:4px;">所屬產業族群</div>
+                          <div style="color:var(--blue-400); font-size:15px; font-weight:600;">${item.group}</div>
+                      </div>
+                      <div class="grid grid-2">
+                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
+                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">🔗 相關概念分類</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.6;">
+                                  ${item.concepts.map(c => `<span style="display:inline-block; background:var(--slate-700); padding:2px 8px; border-radius:4px; margin:0 6px 6px 0; font-size:12px;">${c}</span>`).join('')}
+                              </div>
+                          </div>
+                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
+                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">⚙️ 產業供應鏈地圖</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.8;">
+                                  上游：${(item.supply_chain.upstream || []).join('、') || '無'}<br>
+                                  中游：${(item.supply_chain.midstream || []).join('、') || '無'}<br>
+                                  下游：${(item.supply_chain.downstream || []).join('、') || '無'}
+                              </div>
+                          </div>
+                      </div>
+                      <div style="background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.3); padding:16px; border-radius:8px; margin-top:4px;">
+                          <div style="color:var(--orange-400); font-size:15px; font-weight:bold; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                             <span>🔍</span> 符合自訂篩選條件的關聯個股
+                          </div>
+                          ${(item.matched_stocks || []).length > 0 ? 
+                              item.matched_stocks.map(fs => `
+                                  <div style="margin-bottom:10px; border-bottom:1px dashed var(--slate-700); padding-bottom:10px; display:flex; flex-direction:column; gap:4px;">
+                                      <span style="color:#fff; font-weight:600; font-size:15px;">${fs.ticker} ${fs.name || ''}</span>
+                                      <span style="color:var(--slate-400); font-size:13px; line-height:1.5;">近5日漲跌：${fs.pct_5d}% / 現價：${fs.price}</span>
+                                      <span style="color:var(--slate-400); font-size:13px; line-height:1.5;">符合原因：${(fs.reasons || []).join('、')}</span>
+                                      <div style="margin-top:8px; background:rgba(15,23,42,0.55); border:1px solid var(--slate-700); border-radius:8px; padding:10px;">
+                                          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                                              <span style="font-size:13px; color:var(--slate-300);">🧠 主力偵測：${fs.main_force?.bias || '無法判斷'}</span>
+                                              <span style="font-size:12px; color:var(--orange-400);">分數 ${fs.main_force?.score ?? 0}/100</span>
+                                          </div>
+                                          <div style="font-size:12px; color:var(--slate-500); line-height:1.5; margin-bottom:6px;">${fs.main_force?.summary || '無資料'}</div>
+                                          <div style="font-size:12px; color:var(--slate-300); line-height:1.6;">
+                                              ${(fs.main_force?.patterns || []).map(p => `• ${p}`).join('<br>')}
+                                          </div>
+                                      </div>
+                                  </div>
+                              `).join('') 
+                              : '<div style="color:var(--slate-500); font-size:14px; padding:10px 0;">目前無符合您勾選條件的關聯股。</div>'
+                          }
+                      </div>
+                  </div>
+              </details>
+          `).join('');
+  } else {
+      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
+  }
+  btn.disabled = false;
+}
+
+let chatOpen = false;
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open', chatOpen);
+  if (chatOpen) document.getElementById('chat-input').focus();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  const messagesDiv = document.getElementById('chat-messages');
+  const sendBtn = document.getElementById('chat-send-btn');
+  
+  messagesDiv.innerHTML += `<div class="chat-msg user">${msg}</div>`;
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+  const typingId = 'typing-' + Date.now();
+  messagesDiv.innerHTML += `<div class="chat-msg bot" id="${typingId}"><div class="spinner" style="width:16px; height:16px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:8px;"></div>思考中...</div>`;
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  sendBtn.disabled = true;
+
+  const body = { message: msg };
+  if(currentChatbotId) body.conversation_id = currentChatbotId;
+
+  const res = await apiCall('/chat', 'POST', body);
+  document.getElementById(typingId).remove();
+
+  if (res.status === 'success') {
+    if(res.conversation_id) currentChatbotId = res.conversation_id;
+    messagesDiv.innerHTML += `<div class="chat-msg bot">${res.reply}</div>`;
+  } else {
+    messagesDiv.innerHTML += `<div class="chat-msg bot" style="color:var(--red-400)">⚠️ ${res.message}</div>`;
+  }
+  
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function init() {
+  checkHealth();
+  updateAuthUI();
+  loadPositionsFromServer();
+  fetchMacroData();
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
