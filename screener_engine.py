@@ -1,6 +1,8 @@
 import re
+import time
 from typing import Dict, List, Tuple
 
+import requests
 from data_provider import DataProvider
 
 # 常見台股關聯知識庫（可持續擴充）
@@ -62,6 +64,9 @@ RELATION_DB: Dict[str, Dict] = {
     }
 }
 
+TWSE_PROFILE_CACHE = {"ts": 0, "listed": [], "otc": []}
+TWSE_PROFILE_TTL = 60 * 60 * 12  # 12 小時
+
 FILTER_KEYS = {
     "近5日跌幅超過10%": "drop_5d_10",
     "近5日漲幅超過10%": "rise_5d_10",
@@ -72,6 +77,150 @@ FILTER_KEYS = {
     "站上20日均線": "above_ma20",
     "近5日平均量放大30%": "vol_up_30"
 }
+
+
+def _load_market_profiles():
+    now = time.time()
+    if TWSE_PROFILE_CACHE["listed"] and now - TWSE_PROFILE_CACHE["ts"] < TWSE_PROFILE_TTL:
+        return TWSE_PROFILE_CACHE["listed"], TWSE_PROFILE_CACHE["otc"]
+
+    listed, otc = [], []
+    try:
+        r1 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", timeout=12)
+        if r1.ok:
+            listed = r1.json()
+    except Exception:
+        listed = []
+    try:
+        r2 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", timeout=12)
+        if r2.ok:
+            otc = r2.json()
+    except Exception:
+        otc = []
+
+    TWSE_PROFILE_CACHE["ts"] = now
+    TWSE_PROFILE_CACHE["listed"] = listed if isinstance(listed, list) else []
+    TWSE_PROFILE_CACHE["otc"] = otc if isinstance(otc, list) else []
+    return TWSE_PROFILE_CACHE["listed"], TWSE_PROFILE_CACHE["otc"]
+
+
+def _pick_field(row: dict, names: List[str]) -> str:
+    for n in names:
+        if n in row and row[n] not in (None, ""):
+            return str(row[n]).strip()
+    return ""
+
+
+def _find_company_profile(ticker: str) -> Dict:
+    code = ticker.split(".")[0]
+    listed, otc = _load_market_profiles()
+
+    for row in listed:
+        c = _pick_field(row, ["公司代號", "代號", "Code"])
+        if c == code:
+            return {
+                "ticker": f"{code}.TW",
+                "name": _pick_field(row, ["公司簡稱", "公司名稱", "Name"]) or code,
+                "industry": _pick_field(row, ["產業別", "Industry"]) or "未分類",
+                "market": "listed"
+            }
+    for row in otc:
+        c = _pick_field(row, ["公司代號", "代號", "Code"])
+        if c == code:
+            return {
+                "ticker": f"{code}.TWO",
+                "name": _pick_field(row, ["公司簡稱", "公司名稱", "Name"]) or code,
+                "industry": _pick_field(row, ["產業別", "Industry"]) or "未分類",
+                "market": "otc"
+            }
+    return {"ticker": ticker, "name": code, "industry": "未分類", "market": "unknown"}
+
+
+def _industry_concepts(industry: str) -> List[str]:
+    if "半導體" in industry:
+        return ["半導體", "AI", "HPC", "先進製程"]
+    if "電子零組件" in industry:
+        return ["電子零組件", "AI 伺服器", "高速傳輸"]
+    if "電腦及週邊" in industry:
+        return ["伺服器", "筆電", "AI PC"]
+    if "通信網路" in industry:
+        return ["網通", "資料中心", "邊緣運算"]
+    if "光電" in industry:
+        return ["光電", "面板", "車用光學"]
+    if "金融" in industry or "保險" in industry:
+        return ["金融股", "高股息", "利率敏感"]
+    return [industry or "未分類", "待補充"]
+
+
+def _build_industry_peers(target_ticker: str, industry: str, limit: int = 9) -> List[str]:
+    listed, otc = _load_market_profiles()
+    peers = []
+    target_code = target_ticker.split(".")[0]
+    for row in listed:
+        c = _pick_field(row, ["公司代號", "代號", "Code"])
+        ind = _pick_field(row, ["產業別", "Industry"])
+        if c and c != target_code and ind == industry:
+            peers.append(f"{c}.TW")
+            if len(peers) >= limit:
+                return peers
+    for row in otc:
+        c = _pick_field(row, ["公司代號", "代號", "Code"])
+        ind = _pick_field(row, ["產業別", "Industry"])
+        if c and c != target_code and ind == industry:
+            peers.append(f"{c}.TWO")
+            if len(peers) >= limit:
+                return peers
+    return peers
+
+
+def ensure_relation_profile(ticker: str, ai_enricher=None):
+    if ticker in RELATION_DB:
+        return
+    code = ticker.split(".")[0]
+    for k in RELATION_DB.keys():
+        if k.split(".")[0] == code:
+            return
+
+    profile = _find_company_profile(ticker)
+    p_ticker = profile["ticker"]
+    name = profile["name"]
+    industry = profile["industry"]
+    peers = _build_industry_peers(p_ticker, industry, limit=9)
+
+    relation = {
+        "name": name,
+        "group": industry or "未分類",
+        "concepts": _industry_concepts(industry),
+        "supply_chain": {
+            "upstream": peers[:3],
+            "midstream": [p_ticker],
+            "downstream": peers[3:6]
+        },
+        "related": peers[:8]
+    }
+
+    if ai_enricher:
+        try:
+            ai_data = ai_enricher(p_ticker, name, industry)
+            if isinstance(ai_data, dict):
+                relation["group"] = ai_data.get("group") or relation["group"]
+                c = ai_data.get("concepts")
+                if isinstance(c, list) and c:
+                    relation["concepts"] = [str(x).strip() for x in c if str(x).strip()][:8]
+                r = ai_data.get("related")
+                if isinstance(r, list) and r:
+                    relation["related"] = [str(x).strip().upper() for x in r if str(x).strip()][:12]
+                sc = ai_data.get("supply_chain")
+                if isinstance(sc, dict):
+                    relation["supply_chain"] = {
+                        "upstream": [str(x).strip().upper() for x in sc.get("upstream", []) if str(x).strip()][:6],
+                        "midstream": [str(x).strip().upper() for x in sc.get("midstream", []) if str(x).strip()][:6] or [p_ticker],
+                        "downstream": [str(x).strip().upper() for x in sc.get("downstream", []) if str(x).strip()][:6]
+                    }
+        except Exception:
+            pass
+
+    RELATION_DB[p_ticker] = relation
 
 
 def _normalize_ticker(raw: str) -> str:
@@ -253,12 +402,13 @@ def _evaluate_filter(filter_key: str, metrics: Dict) -> Tuple[bool, str]:
     return False, "未知條件"
 
 
-def analyze_related_stocks(target_inputs: List[str], filters: List[str]):
+def analyze_related_stocks(target_inputs: List[str], filters: List[str], ai_enricher=None):
     normalized_filters = [FILTER_KEYS[f] for f in filters if f in FILTER_KEYS]
     out = []
 
     for raw in target_inputs:
         ticker = _normalize_ticker(raw)
+        ensure_relation_profile(ticker, ai_enricher=ai_enricher)
         relation = _pick_relation(ticker)
 
         related_universe = []

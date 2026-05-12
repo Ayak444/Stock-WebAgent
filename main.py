@@ -239,6 +239,40 @@ def _to_legacy_screener_shape(items: list):
         })
     return out
 
+
+def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
+    if not mai_client.enabled:
+        return None
+    prompt = (
+        "你是台股產業分析助手。請根據股票資訊回覆 JSON，且只能輸出 JSON。\n"
+        '格式：{"group":"所屬族群","concepts":["概念1","概念2"],'
+        '"related":["2330.TW"],"supply_chain":{"upstream":["2303.TW"],"midstream":["xxxx.TW"],"downstream":["xxxx.TW"]}}\n'
+        "規則：\n"
+        "- related 與 supply_chain 只放台股代號，格式必須是 4 碼 + .TW 或 .TWO\n"
+        "- 每個陣列最多 6 個\n"
+        "- 若不確定可留空陣列\n"
+        f"股票代號: {ticker}\n"
+        f"股票名稱: {name}\n"
+        f"已知產業: {industry}"
+    )
+    result = mai_client.chat(prompt)
+    if result.get("status") != "success":
+        return None
+    text = (result.get("reply") or "").strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            text = parts[1]
+        if text.startswith("json"):
+            text = text[4:]
+    try:
+        data = json.loads(text.strip())
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        return None
+    return None
+
 def daily_analysis_task():
     default_targets = [
         StockTarget("2330.TW", "台積電", "台股", 1000, 1000),
@@ -286,7 +320,11 @@ def chat(req: ChatRequest):
     # 舊版前端的 AI 關聯選股 prompt 走本地引擎，避免外部模型逾時
     payload = _extract_screener_prompt_payload(req.message)
     if payload:
-        data = analyze_related_stocks(payload["targets"], payload["filters"])
+        data = analyze_related_stocks(
+            payload["targets"],
+            payload["filters"],
+            ai_enricher=_ai_enrich_relation_profile if mai_client.enabled else None
+        )
         legacy_data = _to_legacy_screener_shape(data)
         return {
             "status": "success",
@@ -505,7 +543,11 @@ def screener_analyze(req: ScreenerAnalyzeRequest):
     if not targets:
         return {"status": "error", "message": "沒有可分析的標的，請先輸入代號或匯入持股"}
 
-    data = analyze_related_stocks(targets, filters)
+    data = analyze_related_stocks(
+        targets,
+        filters,
+        ai_enricher=_ai_enrich_relation_profile if mai_client.enabled else None
+    )
     return {
         "status": "success",
         "source": req.source,
