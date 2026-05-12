@@ -196,6 +196,49 @@ def _extract_screener_prompt_payload(message: str):
         return None
     return {"targets": targets, "filters": filters}
 
+
+def _to_legacy_screener_shape(items: list):
+    """
+    舊版前端 runScreener() 期待格式：
+    - target: 字串
+    - supply_chain: 陣列（可直接 join）
+    - filtered_stocks: [{name, reason}]
+    """
+    out = []
+    for item in items:
+        target = item.get("target", {})
+        supply = item.get("supply_chain", {})
+        supply_lines = [
+            f"上游: {'、'.join(supply.get('upstream', [])) or '無'}",
+            f"中游: {'、'.join(supply.get('midstream', [])) or '無'}",
+            f"下游: {'、'.join(supply.get('downstream', [])) or '無'}",
+        ]
+        matched = []
+        for s in item.get("matched_stocks", []):
+            reasons = s.get("reasons", [])
+            main_force = s.get("main_force", {})
+            mf_text = ""
+            if main_force:
+                mf_text = (
+                    f"｜主力:{main_force.get('bias', '無法判斷')}"
+                    f"({main_force.get('score', 0)}/100)"
+                )
+            matched.append({
+                "name": f"{s.get('ticker', '')} {s.get('name', '')}".strip(),
+                "reason": (
+                    f"近5日漲跌 {s.get('pct_5d', 0)}%，現價 {s.get('price', 0)}；"
+                    f"條件：{'、'.join(reasons) if reasons else '無'}{mf_text}"
+                )
+            })
+        out.append({
+            "target": f"{target.get('ticker', '')} {target.get('name', '')}".strip(),
+            "group": item.get("group", "未分類"),
+            "concepts": item.get("concepts", []),
+            "supply_chain": supply_lines,
+            "filtered_stocks": matched
+        })
+    return out
+
 def daily_analysis_task():
     default_targets = [
         StockTarget("2330.TW", "台積電", "台股", 1000, 1000),
@@ -244,9 +287,10 @@ def chat(req: ChatRequest):
     payload = _extract_screener_prompt_payload(req.message)
     if payload:
         data = analyze_related_stocks(payload["targets"], payload["filters"])
+        legacy_data = _to_legacy_screener_shape(data)
         return {
             "status": "success",
-            "reply": json.dumps(data, ensure_ascii=False),
+            "reply": json.dumps(legacy_data, ensure_ascii=False),
             "conversation_id": "local-screener"
         }
 
