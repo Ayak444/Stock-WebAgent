@@ -82,18 +82,22 @@ def _load_market_profiles():
         return TWSE_PROFILE_CACHE["listed"], TWSE_PROFILE_CACHE["otc"]
 
     listed, otc = [], []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
     try:
-        r1 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", timeout=12)
+        r1 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers=headers, timeout=12)
         if r1.ok:
             listed = r1.json()
     except Exception:
-        listed = []
+        pass
     try:
-        r2 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", timeout=12)
+        r2 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", headers=headers, timeout=12)
         if r2.ok:
             otc = r2.json()
     except Exception:
-        otc = []
+        pass
 
     TWSE_PROFILE_CACHE["ts"] = now
     TWSE_PROFILE_CACHE["listed"] = listed if isinstance(listed, list) else []
@@ -195,6 +199,7 @@ def ensure_relation_profile(ticker: str, ai_enricher=None):
         try:
             ai_data = ai_enricher(p_ticker, name, industry)
             if isinstance(ai_data, dict):
+                relation["name"] = ai_data.get("name") or relation["name"]
                 relation["group"] = ai_data.get("group") or relation["group"]
                 c = ai_data.get("concepts")
                 if isinstance(c, list) and c:
@@ -240,7 +245,11 @@ def _pick_relation(ticker: str) -> Dict:
     }
 
 def _get_ticker_with_name(ticker: str) -> str:
-    name = _pick_relation(ticker).get("name", ticker.split('.')[0])
+    if ticker in RELATION_DB:
+        name = RELATION_DB[ticker].get("name", ticker.split('.')[0])
+    else:
+        profile = _find_company_profile(ticker)
+        name = profile.get("name", ticker.split('.')[0])
     return f"{ticker} {name}"
 
 def _get_history_safely(ticker: str):
@@ -422,9 +431,14 @@ def analyze_related_stocks(target_inputs: List[str], filters: List[str], ai_enri
             elif main_force["score"] <= 30:
                 tags.append("主力賣超")
 
+            if r_ticker in RELATION_DB:
+                r_name = RELATION_DB[r_ticker].get("name", r_ticker.split('.')[0])
+            else:
+                r_name = _find_company_profile(r_ticker).get("name", r_ticker.split('.')[0])
+
             evaluated.append({
                 "ticker": r_ticker,
-                "name": _pick_relation(r_ticker).get("name", r_ticker.split('.')[0]),
+                "name": r_name,
                 "price": metrics["price"],
                 "pct_5d": metrics["pct_5d"],
                 "tags": tags,

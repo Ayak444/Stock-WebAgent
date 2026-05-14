@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-# 修正：移除了會導致錯誤的 ScreenerAnalyzeRequest
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
     BacktestRequest, NewsSourceRequest, StockTarget
@@ -235,11 +234,11 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
         "你是專業台股產業分析師。請根據目標股票，深度挖掘其真實的所屬族群、概念股分類以及上下游供應鏈。\n"
         "【嚴格規定】\n"
         "1. 只能輸出合法 JSON 格式，不可包含其他文字。\n"
-        '2. 格式：{"group":"明確的產業族群名稱","concepts":["概念1","概念2","概念3"],"related":["2330.TW"],"supply_chain":{"upstream":["2303.TW"],"midstream":["xxxx.TW"],"downstream":["xxxx.TW"]}}\n'
-        "3. group 與 concepts 絕對不可留空或填未分類，請務必精準給出最合適的產業與相關題材。\n"
+        '2. 格式：{"name":"股票的正確中文簡稱","group":"明確的產業族群名稱","concepts":["概念1","概念2"],"related":["2330.TW"],"supply_chain":{"upstream":["2303.TW"],"midstream":["xxxx.TW"],"downstream":["xxxx.TW"]}}\n'
+        "3. name、group 與 concepts 絕對不可留空或填未分類，請務必精準給出最合適的產業與相關題材。\n"
         "4. related 與 supply_chain 內只能填寫真實存在的台股代號 (4碼+.TW 或 .TWO，如 2330.TW)。\n"
         f"目標股票代號: {ticker}\n"
-        f"目標股票名稱: {name}\n"
+        f"目標股票目前的名稱(若為代碼數字，請務必幫我轉成正確的中文公司名稱): {name}\n"
         f"系統初步判定產業: {industry}"
     )
     result = mai_client.chat(prompt)
@@ -513,7 +512,6 @@ def save_stress_test_final(req: dict):
     )
     return {"status": "success"}
 
-# 修正：將 ScreenerAnalyzeRequest 改為直接接收 dict，避免模型遺失的錯誤
 @app.post("/screener/analyze")
 def screener_analyze(req: dict):
     targets = req.get("targets", [])
