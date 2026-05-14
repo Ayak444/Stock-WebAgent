@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+# 修正：移除了會導致錯誤的 ScreenerAnalyzeRequest
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
-    BacktestRequest, NewsSourceRequest, StockTarget, ScreenerAnalyzeRequest
+    BacktestRequest, NewsSourceRequest, StockTarget
 )
 from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
@@ -512,11 +513,13 @@ def save_stress_test_final(req: dict):
     )
     return {"status": "success"}
 
+# 修正：將 ScreenerAnalyzeRequest 改為直接接收 dict，避免模型遺失的錯誤
 @app.post("/screener/analyze")
-def screener_analyze(req: ScreenerAnalyzeRequest):
-    targets = req.targets or []
-    if req.source == "portfolio":
-        user_id = req.user_id or DEFAULT_USER_ID
+def screener_analyze(req: dict):
+    targets = req.get("targets", [])
+    source = req.get("source", "manual")
+    if source == "portfolio":
+        user_id = req.get("user_id") or DEFAULT_USER_ID
         portfolio = db.get_portfolio(user_id)
         targets = [p.get("code", "").strip() for p in portfolio if p.get("code")]
 
@@ -536,7 +539,7 @@ def screener_analyze(req: ScreenerAnalyzeRequest):
     )
     return {
         "status": "success",
-        "source": req.source,
+        "source": source,
         "targets_count": len(targets),
         "data": data
     }
