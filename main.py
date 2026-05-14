@@ -170,12 +170,7 @@ def _analyze_targets(targets):
             })
     return results, fx_note
 
-
 def _extract_screener_prompt_payload(message: str):
-    """
-    相容舊版前端：若送進 /chat 的內容是選股雷達 prompt，
-    直接在本地解析 targets / filters，避免外部 AI timeout。
-    """
     if not message:
         return None
     if "深度關聯分析" not in message or "使用者勾選的篩選條件為" not in message:
@@ -196,14 +191,7 @@ def _extract_screener_prompt_payload(message: str):
         return None
     return {"targets": targets, "filters": filters}
 
-
 def _to_legacy_screener_shape(items: list):
-    """
-    舊版前端 runScreener() 期待格式：
-    - target: 字串
-    - supply_chain: 陣列（可直接 join）
-    - filtered_stocks: [{name, reason}]
-    """
     out = []
     for item in items:
         target = item.get("target", {})
@@ -214,8 +202,8 @@ def _to_legacy_screener_shape(items: list):
             f"下游: {'、'.join(supply.get('downstream', [])) or '無'}",
         ]
         matched = []
-        for s in item.get("matched_stocks", []):
-            reasons = s.get("reasons", [])
+        for s in item.get("evaluated_stocks", []):
+            reasons = s.get("tags", [])
             main_force = s.get("main_force", {})
             mf_text = ""
             if main_force:
@@ -227,7 +215,7 @@ def _to_legacy_screener_shape(items: list):
                 "name": f"{s.get('ticker', '')} {s.get('name', '')}".strip(),
                 "reason": (
                     f"近5日漲跌 {s.get('pct_5d', 0)}%，現價 {s.get('price', 0)}；"
-                    f"條件：{'、'.join(reasons) if reasons else '無'}{mf_text}"
+                    f"條件：{'、'.join(reasons) if reasons else '無特殊標籤'}{mf_text}"
                 )
             })
         out.append({
@@ -238,6 +226,39 @@ def _to_legacy_screener_shape(items: list):
             "filtered_stocks": matched
         })
     return out
+
+def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
+    if not mai_client.enabled:
+        return None
+    prompt = (
+        "你是台股產業分析助手。請根據股票資訊回覆 JSON，且只能輸出 JSON。\n"
+        '格式：{"group":"所屬族群","concepts":["概念1","概念2"],'
+        '"related":["2330.TW"],"supply_chain":{"upstream":["2303.TW"],"midstream":["xxxx.TW"],"downstream":["xxxx.TW"]}}\n'
+        "規則：\n"
+        "- related 與 supply_chain 只放台股代號，格式必須是 4 碼 + .TW 或 .TWO\n"
+        "- 每個陣列最多 6 個\n"
+        "- 若不確定可留空陣列\n"
+        f"股票代號: {ticker}\n"
+        f"股票名稱: {name}\n"
+        f"已知產業: {industry}"
+    )
+    result = mai_client.chat(prompt)
+    if result.get("status") != "success":
+        return None
+    text = (result.get("reply") or "").strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            text = parts[1]
+        if text.startswith("json"):
+            text = text[4:]
+    try:
+        data = json.loads(text.strip())
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        return None
+    return None
 
 def daily_analysis_task():
     default_targets = [
@@ -283,10 +304,13 @@ def analyze(req: AnalyzeRequest):
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    # 舊版前端的 AI 關聯選股 prompt 走本地引擎，避免外部模型逾時
     payload = _extract_screener_prompt_payload(req.message)
     if payload:
-        data = analyze_related_stocks(payload["targets"], payload["filters"])
+        data = analyze_related_stocks(
+            payload["targets"],
+            payload["filters"],
+            ai_enricher=_ai_enrich_relation_profile if mai_client.enabled else None
+        )
         legacy_data = _to_legacy_screener_shape(data)
         return {
             "status": "success",
@@ -491,10 +515,6 @@ def save_stress_test_final(req: dict):
 
 @app.post("/screener/analyze")
 def screener_analyze(req: ScreenerAnalyzeRequest):
-    filters = req.filters or []
-    if not filters:
-        return {"status": "error", "message": "請至少勾選一個篩選條件"}
-
     targets = req.targets or []
     if req.source == "portfolio":
         user_id = req.user_id or DEFAULT_USER_ID
@@ -505,7 +525,16 @@ def screener_analyze(req: ScreenerAnalyzeRequest):
     if not targets:
         return {"status": "error", "message": "沒有可分析的標的，請先輸入代號或匯入持股"}
 
-    data = analyze_related_stocks(targets, filters)
+    default_conditions = [
+        "近5日跌幅超過10%", "近5日漲幅超過10%", "外資或投信近期連續買超",
+        "預估殖利率大於5%", "本益比低於同業平均", "營收連續三個月年月雙增"
+    ]
+
+    data = analyze_related_stocks(
+        targets,
+        default_conditions,
+        ai_enricher=_ai_enrich_relation_profile if mai_client.enabled else None
+    )
     return {
         "status": "success",
         "source": req.source,

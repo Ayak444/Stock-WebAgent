@@ -102,19 +102,6 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 10px; }
-
-.scr-filter {
-  accent-color: var(--orange-500);
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-.screener-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
 </style>
 </head>
 <body>
@@ -241,40 +228,24 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
       <div class="page" id="page-screener">
         <div class="page-header">
-          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股，並套用自訂篩選條件</p></div>
+          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股，並自動標註特殊亮點</p></div>
         </div>
         
-        <div class="grid grid-2" style="margin-bottom:16px;">
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-header">1. 設定目標核心標的</div>
-            <div class="card-body">
-              <div style="display:flex; gap:8px; margin-bottom:16px;">
-                <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
-                <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0;">加入</button>
-                <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0; color:var(--blue-400); border-color:var(--blue-500);">從部位匯入</button>
-              </div>
-              <div id="screener-target-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:30px;">
-                 <span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>
-              </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header">設定目標核心標的</div>
+          <div class="card-body">
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+              <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
+              <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0;">加入</button>
+              <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0; color:var(--blue-400); border-color:var(--blue-500);">從部位匯入</button>
             </div>
-          </div>
-
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-header">2. 勾選關聯股篩選條件</div>
-            <div class="card-body">
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:14px; color:var(--slate-200);">
-                <label class="screener-label"><input type="checkbox" value="近5日跌幅超過10%" class="scr-filter"> 近 5 日跌逾 10% (錯殺)</label>
-                <label class="screener-label"><input type="checkbox" value="近5日漲幅超過10%" class="scr-filter"> 近 5 日漲逾 10% (強勢)</label>
-                <label class="screener-label"><input type="checkbox" value="外資或投信近期連續買超" class="scr-filter"> 法人近期連續買超</label>
-                <label class="screener-label"><input type="checkbox" value="預估殖利率大於5%" class="scr-filter"> 預估殖利率 > 5%</label>
-                <label class="screener-label"><input type="checkbox" value="本益比低於同業平均" class="scr-filter"> 本益比低於同業平均</label>
-                <label class="screener-label"><input type="checkbox" value="營收連續三個月年月雙增" class="scr-filter"> 營收連續三月雙增</label>
-              </div>
+            <div id="screener-target-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:30px;">
+               <span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>
             </div>
           </div>
         </div>
 
-        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%; justify-content:center; margin-bottom:20px; padding:14px; font-size:16px; letter-spacing:2px;">⚡ 開始深度展開與篩選</button>
+        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%; justify-content:center; margin-bottom:20px; padding:14px; font-size:16px; letter-spacing:2px;">⚡ 全面展開關聯股與亮點標籤</button>
         
         <div id="screener-result"></div>
       </div>
@@ -868,52 +839,32 @@ async function runScreener() {
       alert('請在上方設定至少一檔目標標的。');
       return;
   }
-  
-  const filters = Array.from(document.querySelectorAll('.scr-filter:checked')).map(cb => cb.value);
-  if(filters.length === 0) {
-      alert('請至少勾選一項篩選條件。');
-      return;
-  }
 
   const btn = document.getElementById('btn-screener');
   const resBox = document.getElementById('screener-result');
   btn.disabled = true;
-  resBox.innerHTML = '<div class="loading"><div class="spinner purple"></div><p class="loading-text" style="margin-top:12px;">MaiAgent 正在向下展開供應鏈並套用條件篩選，請稍候...</p></div>';
+  resBox.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text" style="margin-top:12px;">正在展開所有關聯供應鏈並運算標籤亮點...</p></div>';
 
-  const prompt = `作為專業台股分析師，請對以下目標股票進行深度關聯分析：${screenerTargets.join(', ')}。
-請務必以 JSON 陣列格式回覆，陣列中每個物件代表一檔目標股票，格式如下：
-[
-  {
-    "target": "股票代號與名稱",
-    "group": "所屬族群",
-    "concepts": ["概念股1", "概念股2"],
-    "supply_chain": ["上游: XXX", "中游: XXX", "下游: XXX"],
-    "filtered_stocks": [
-      {
-        "name": "關聯股票名稱",
-        "reason": "符合的條件說明(需對應使用者勾選的條件)"
-      }
-    ]
-  }
-]
-使用者勾選的篩選條件為：${filters.join(', ')}。
-請嚴格輸出 JSON 格式，不要包含其他說明文字，以利前端系統解析。`;
-
-  const res = await apiCall('/chat', 'POST', { message: prompt });
+  const usePortfolio = screenerTargets.length === 0;
+  const res = await apiCall('/screener/analyze', 'POST', {
+      source: usePortfolio ? 'portfolio' : 'manual',
+      user_id: currentUser ? currentUser.id : null,
+      targets: usePortfolio ? [] : screenerTargets,
+      filters: [] 
+  });
   
   if(res.status === 'success') {
-      try {
-          let text = res.reply.trim();
-          if(text.startsWith('\`\`\`')) {
-              const match = text.match(/\`\`\`(?:json)?\n([\s\S]*?)\`\`\`/);
-              if(match) text = match[1];
+          const data = res.data || [];
+          if(data.length === 0) {
+              resBox.innerHTML = '<div class="card"><div class="card-body" style="color:var(--slate-400);">目前沒有可分析資料，請先新增標的或匯入部位。</div></div>';
+              btn.disabled = false;
+              return;
           }
-          const data = JSON.parse(text);
-          
+
           resBox.innerHTML = data.map(item => `
               <details style="background:var(--slate-800); border:1px solid var(--slate-700); padding:16px; border-radius:12px; margin-bottom:16px; transition:0.3s;" open>
                   <summary style="cursor:pointer; outline:none; display:flex; align-items:center; font-size:18px; font-weight:bold; color:#fff;">
-                      🎯 目標標的：${item.target}
+                      🎯 目標標的：${item.target.ticker} ${item.target.name || ''}
                   </summary>
                   <div style="margin-top:20px; display:grid; gap:12px;">
                       <div style="background:rgba(15,23,42,0.4); padding:12px; border-radius:8px; border-left:4px solid var(--blue-500);">
@@ -929,34 +880,46 @@ async function runScreener() {
                           </div>
                           <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
                               <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">⚙️ 產業供應鏈地圖</div>
-                              <div style="color:var(--slate-200); font-size:14px; line-height:1.8;">${item.supply_chain.join('<br>')}</div>
+                              <div style="color:var(--slate-200); font-size:14px; line-height:1.8;">
+                                  上游：${(item.supply_chain.upstream || []).join('、') || '無'}<br>
+                                  中游：${(item.supply_chain.midstream || []).join('、') || '無'}<br>
+                                  下游：${(item.supply_chain.downstream || []).join('、') || '無'}
+                              </div>
                           </div>
                       </div>
                       <div style="background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.3); padding:16px; border-radius:8px; margin-top:4px;">
                           <div style="color:var(--orange-400); font-size:15px; font-weight:bold; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-                             <span>🔍</span> 符合自訂篩選條件的關聯個股
+                             <span>📋</span> 供應鏈全面檢視與標註
                           </div>
-                          ${item.filtered_stocks.length > 0 ? 
-                              item.filtered_stocks.map(fs => `
-                                  <div style="margin-bottom:10px; border-bottom:1px dashed var(--slate-700); padding-bottom:10px; display:flex; flex-direction:column; gap:4px;">
-                                      <span style="color:#fff; font-weight:600; font-size:15px;">${fs.name}</span>
-                                      <span style="color:var(--slate-400); font-size:13px; line-height:1.5;">原因：${fs.reason}</span>
+                          ${(item.evaluated_stocks || []).length > 0 ? 
+                              item.evaluated_stocks.map(fs => `
+                                  <div style="margin-bottom:10px; border-bottom:1px dashed var(--slate-700); padding-bottom:10px; display:flex; flex-direction:column; gap:6px;">
+                                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                                          <span style="color:#fff; font-weight:600; font-size:15px;">${fs.ticker} ${fs.name || ''}</span>
+                                          <span style="color:var(--slate-400); font-size:13px;">現價：${fs.price} | 近5日：<span style="color:${fs.pct_5d >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${fs.pct_5d > 0 ? '+' : ''}${fs.pct_5d}%</span></span>
+                                      </div>
+                                      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                          ${(fs.tags || []).length > 0 ? fs.tags.map(t => `<span class="badge badge-orange">${t}</span>`).join('') : '<span style="color:var(--slate-600); border-color:var(--slate-700); font-size:12px; padding:2px 8px; border-radius:4px; border:1px solid;">無特殊標籤</span>'}
+                                      </div>
+                                      ${fs.main_force ? `
+                                      <div style="margin-top:6px; background:rgba(15,23,42,0.55); border:1px solid var(--slate-700); border-radius:8px; padding:10px;">
+                                          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                                              <span style="font-size:13px; color:var(--slate-300);">🧠 主力偵測：${fs.main_force.bias || '無法判斷'}</span>
+                                              <span style="font-size:12px; color:var(--orange-400);">分數 ${fs.main_force.score ?? 0}/100</span>
+                                          </div>
+                                          <div style="font-size:12px; color:var(--slate-500); line-height:1.5; margin-bottom:6px;">${fs.main_force.summary || '無資料'}</div>
+                                          <div style="font-size:12px; color:var(--slate-300); line-height:1.6;">
+                                              ${(fs.main_force.patterns || []).map(p => `• ${p}`).join('<br>')}
+                                          </div>
+                                      </div>` : ''}
                                   </div>
                               `).join('') 
-                              : '<div style="color:var(--slate-500); font-size:14px; padding:10px 0;">目前無符合您勾選條件的關聯股。</div>'
+                              : '<div style="color:var(--slate-500); font-size:14px; padding:10px 0;">目前無關聯股資料。</div>'
                           }
                       </div>
                   </div>
               </details>
           `).join('');
-      } catch(e) {
-          resBox.innerHTML = `
-              <div class="card"><div class="card-body">
-                  <p style="color:var(--orange-400); margin-bottom:12px; font-weight:600;">AI 分析完成，但格式轉換失敗。以下為原始推論內容：</p>
-                  <div style="white-space:pre-wrap; color:var(--slate-300); font-size:14px; line-height:1.8; background:var(--slate-900); padding:16px; border-radius:8px;">${res.reply}</div>
-              </div></div>
-          `;
-      }
   } else {
       resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
   }
