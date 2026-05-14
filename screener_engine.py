@@ -340,7 +340,7 @@ def _detect_main_force(metrics: Dict) -> Dict:
 
     score = max(0, min(100, int(round(score))))
     if score >= 70:
-        bias = "主力偏多"
+        bias = "主力買超"
     elif score >= 55:
         bias = "主力中性偏多"
     elif score >= 45:
@@ -348,7 +348,7 @@ def _detect_main_force(metrics: Dict) -> Dict:
     elif score >= 30:
         bias = "主力中性偏空"
     else:
-        bias = "主力偏空"
+        bias = "主力賣超"
 
     if not patterns:
         patterns.append("區間整理：目前未見明顯主力表態")
@@ -416,6 +416,11 @@ def analyze_related_stocks(target_inputs: List[str], filters: List[str], ai_enri
                 ok, tag_name = _evaluate_filter(fk, metrics)
                 if ok:
                     tags.append(tag_name)
+
+            if main_force["score"] >= 70:
+                tags.append("主力買超")
+            elif main_force["score"] <= 30:
+                tags.append("主力賣超")
 
             evaluated.append({
                 "ticker": r_ticker,
