@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from agent import get_sentiment_analysis
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
-    BacktestRequest, NewsSourceRequest, StockTarget
+    BacktestRequest, NewsSourceRequest, StockTarget, SentimentResponse
 )
 from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
