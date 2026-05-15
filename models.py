@@ -49,3 +49,14 @@ class ScreenerAnalyzeRequest(BaseModel):
     source: str = "manual"  # manual | portfolio
     targets: Optional[List[str]] = None
     filters: List[str]
+    
+class Recommendation(BaseModel):
+    name: str
+    code: str
+    reason: str
+
+class SentimentResponse(BaseModel):
+    score: int
+    label: str
+    definition: str
+    recommendations: List[Recommendation]

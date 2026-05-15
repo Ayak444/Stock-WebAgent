@@ -5,6 +5,68 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>股金往來 - 台股 AI 分析儀表板</title>
 <style>
+  .sentiment-card {
+  background: var(--slate-800);
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  border: 1px solid var(--slate-700);
+  margin-bottom: 20px;
+}
+
+.score-circle {
+  font-size: 80px;
+  font-weight: bold;
+  color: #f1b912;
+  text-shadow: 0 0 20px rgba(241, 185, 18, 0.4);
+  margin-bottom: 12px;
+}
+
+.recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.stock-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-left: 4px solid #f1b912;
+  padding: 20px;
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.stock-card:hover {
+  transform: translateY(-2px);
+}
+
+.stock-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stock-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tag {
+  background: #238636;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.stock-card-reason {
+  font-size: 14px;
+  color: var(--slate-300);
+  line-height: 1.6;
+}
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
   --slate-950:#020617; --slate-900:#0f172a; --slate-800:#1e293b;
@@ -223,18 +285,23 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
           <div><h2>市場情緒雷達</h2><p class="sub">籌碼面與近期利空/利多比例綜合評估</p></div>
           <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 計算大盤情緒</button>
         </div>
-        <div class="grid grid-2">
-            <div class="card">
-                <div class="card-header">📊 新聞情緒儀表板</div>
-                <div class="card-body" id="sentiment-gauge-container" style="display:flex; justify-content:center; padding:60px 0;">
-                    <span style="color:var(--slate-500)">點擊計算以啟動分析...</span>
-                </div>
+      <div class="page" id="page-sentiment">
+        <div class="page-header">
+          <div><h2>市場情緒雷達</h2><p class="sub">籌碼面與近期利空/利多比例綜合評估</p></div>
+          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 計算大盤情緒</button>
+        </div>
+        
+        <div id="sentiment-content">
+            <div class="sentiment-card">
+                <h2 style="margin-bottom: 16px; color: var(--slate-300); font-size: 16px;">新聞情緒儀表板</h2>
+                <div class="score-circle" id="sentiment-score">-</div>
+                <div style="font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px;" id="sentiment-label">等待載入</div>
+                <p style="color: var(--slate-400); font-size: 15px;" id="sentiment-def">點擊上方按鈕啟動分析</p>
             </div>
-            <div class="card">
-                <div class="card-header">🤖 AI 市場洞察 (熱門焦點)</div>
-                <div class="card-body" id="sentiment-insight" style="max-height:500px; overflow-y:auto;">
-                   <span style="color:var(--slate-500)">等待數據載入...</span>
-                </div>
+            
+            <h3 style="margin-bottom: 16px; font-size: 18px; color: #fff;">Agent 推薦清單</h3>
+            <div class="recommendation-grid" id="recommendation-list">
+                <span style="color:var(--slate-500)">等待數據載入...</span>
             </div>
         </div>
       </div>
@@ -805,45 +872,51 @@ async function fetchNewsAnalysis() {
 
 async function fetchSentiment() {
    const btn = document.getElementById('btn-sentiment');
-   const gaugeBox = document.getElementById('sentiment-gauge-container');
-   const insightBox = document.getElementById('sentiment-insight');
+   const scoreEl = document.getElementById('sentiment-score');
+   const labelEl = document.getElementById('sentiment-label');
+   const defEl = document.getElementById('sentiment-def');
+   const listEl = document.getElementById('recommendation-list');
+   
    btn.disabled = true;
+   scoreEl.innerHTML = '<div class="spinner" style="width:50px; height:50px; margin:0 auto; border-width:6px;"></div>';
+   labelEl.innerText = '分析中...';
+   defEl.innerText = '正在擷取最新新聞並由 MaiAgent 推論中';
+   listEl.innerHTML = '<div class="loading" style="grid-column: 1 / -1;"><div class="spinner"></div></div>';
+
+   const res = await apiCall('/api/sentiment', 'GET');
    
-   gaugeBox.innerHTML = '<div class="spinner"></div>';
-   insightBox.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
-   const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['cnyes', 'investing'], limit: 10 });
-   
-   if(res.status === 'success') {
-       const pos = res.stats['利多'] || 0;
-       const neg = res.stats['利空'] || 0;
-       const total = pos + neg;
-       let score = 50; 
-       if (total > 0) score = Math.round((pos / total) * 100);
+   if (res && res.score !== undefined) {
+       let color = "#ef4444";
+       if (res.score >= 60) color = "#22c55e";
+       else if (res.score >= 40) color = "#f1b912";
        
-       const getColor = (v) => v>=60?"#22c55e":v>=40?"#eab308":"#ef4444";
-       const color = getColor(score);
-       const label = score >= 70 ? "極度貪婪" : score >= 55 ? "偏多" : score >= 45 ? "中立" : score >= 30 ? "偏空" : "極度恐慌";
+       scoreEl.style.color = color;
+       scoreEl.style.textShadow = `0 0 20px ${color}40`;
+       scoreEl.innerText = res.score;
        
-       gaugeBox.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center;">
-            <div style="font-size:72px; font-weight:900; color:${color}; margin-bottom:16px; text-shadow: 0 0 20px ${color}40;">${score}</div>
-            <div style="font-size:24px; font-weight:700; color:#fff; letter-spacing:2px;">${label}</div>
-            <div style="font-size:14px; color:var(--slate-500); margin-top:16px; padding:6px 12px; border:1px solid var(--slate-700); border-radius:20px;">基於近期 ${res.count} 則新聞分析計算</div>
-        </div>
-       `;
+       labelEl.innerText = res.label;
+       defEl.innerText = res.definition;
 
-       insightBox.innerHTML = res.data.slice(0,8).map(n => `
-          <div style="padding:16px; background:rgba(15,23,42,0.6); border-radius:10px; margin-bottom:12px; border-left:6px solid ${n.sentiment==='利多'?'var(--green-400)':n.sentiment==='利空'?'var(--red-400)':'var(--slate-500)'}; transition:0.2s;">
-            <div style="font-size:16px; color:#fff; font-weight:600; margin-bottom:8px; line-height:1.4;">${n.title}</div>
-            <div style="font-size:14px; color:var(--slate-400); line-height:1.6;">${n.ai_reason || n.summary}</div>
-          </div>
-       `).join('');
-
+       if (res.recommendations && res.recommendations.length > 0) {
+           listEl.innerHTML = res.recommendations.map(s => `
+              <div class="stock-card" style="border-left-color: ${color}">
+                 <div class="stock-card-header">
+                    <span class="stock-card-title">${s.name}</span>
+                    <span class="tag">${s.code}</span>
+                 </div>
+                 <div class="stock-card-reason">${s.reason}</div>
+              </div>
+           `).join('');
+       } else {
+           listEl.innerHTML = '<div style="color:var(--slate-500); grid-column: 1 / -1;">目前無推薦標的</div>';
+       }
    } else {
-       gaugeBox.innerHTML = '<span style="color:var(--red-400);">分析失敗</span>';
-       insightBox.innerHTML = `<span style="color:var(--red-400); padding:20px; display:block;">${res.message}</span>`;
+       scoreEl.innerText = "!";
+       labelEl.innerText = "分析失敗";
+       defEl.innerText = res.message || "發生未知錯誤";
+       listEl.innerHTML = "";
    }
+   
    btn.disabled = false;
 }
 

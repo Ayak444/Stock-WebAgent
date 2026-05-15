@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-
+from agent import get_sentiment_analysis
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
     BacktestRequest, NewsSourceRequest, StockTarget
@@ -124,7 +124,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="台股智能分析 API", version="3.0", lifespan=lifespan)
 
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 db = Database()
@@ -580,6 +583,16 @@ def login(req: dict):
     if user:
         return {"status": "success", "user": user}
     raise HTTPException(status_code=401, detail="信箱或密碼錯誤")
+
+@app.get("/api/sentiment", response_model=SentimentResponse)
+async def get_sentiment():
+    news_list = NewsCrawler.fetch_all(limit_per_source=2)[:5]
+    if not news_list:
+        return get_sentiment_analysis("無近期新聞資料")
+    
+    combined_news = "\n".join([f"標題: {n['title']}\n摘要: {n['summary']}" for n in news_list])
+    result = get_sentiment_analysis(combined_news)
+    return result
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
