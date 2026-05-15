@@ -80,7 +80,7 @@ OPENAPI_CACHE = {
 
 def _init_openapi_cache():
     session = requests.Session()
-    retry = Retry(
+    retry = retry(
         total=5,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504]
