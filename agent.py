@@ -9,9 +9,10 @@ load_dotenv()
 def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
-    base_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
-    if "maiagent.ai" in base_url:
-        base_url = "https://api.maiagent.ai/api"
+    
+    raw_url = os.getenv("MAIAGENT_BASE_URL", "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)")
+    url_match = re.search(r'(https?://[^\s\)\]]+)', raw_url)
+    base_url = url_match.group(1) if url_match else "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)"
     
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
 
@@ -47,15 +48,14 @@ def get_sentiment_analysis(news_content: str):
         else:
             ai_content = str(res_data)
 
-        # 雙重去殼法：清除 Markdown 與多餘文字
+        # 👉 防呆二：雙重去殼法，徹底清除 Markdown 與多餘文字
         ai_content = str(ai_content).strip()
         ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
         ai_content = re.sub(r'```\s*', '', ai_content)
         
-        start_idx = ai_content.find('{')
-        end_idx = ai_content.rfind('}')
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            clean_json = ai_content[start_idx:end_idx+1]
+        match = re.search(r'\{.*\}', ai_content, re.DOTALL)
+        if match:
+            clean_json = match.group(0)
         else:
             clean_json = ai_content
 

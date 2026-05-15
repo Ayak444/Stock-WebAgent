@@ -234,7 +234,7 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
     if not mai_client.enabled:
         return None
 
-    # 1. 攔截器：瞬間從 Yahoo Finance 抓取該標的的最新 5 則新聞
+    # 1. 攔截器：瞬間從 Yahoo Finance 抓取該標的最新新聞
     recent_news = []
     try:
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={ticker}&newsCount=5"
@@ -248,7 +248,7 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
 
     news_text = "\n".join([f"- {title}" for title in recent_news]) if recent_news else "近期無重大新聞"
 
-    # 2. 建構包含「即時新聞」與「思考鏈」的超強 Prompt
+    # 2. 組合新聞與思考鏈的 Prompt
     prompt = (
         "你是一位資深的台股產業研究員，擅長挖掘隱藏供應鏈與最新市場題材。\n"
         f"請針對標的「{ticker} {name}」進行深度分析，並參考以下最新新聞動態來定義其最新概念標籤：\n"
@@ -271,14 +271,13 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
         
     text = (result.get("reply") or "").strip()
     
-    # 3. 雙重去殼法：徹底清除 Markdown 標記並鎖定 JSON
+    # 3. 雙重去殼法：強制剝離 Markdown 標記
     text = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'```\s*', '', text)
     
-    start_idx = text.find('{')
-    end_idx = text.rfind('}')
-    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-        clean_json = text[start_idx:end_idx+1]
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        clean_json = match.group(0)
     else:
         clean_json = text
         
