@@ -43,7 +43,11 @@ def get_sentiment_analysis(news_content: str):
         res_data = response.json()
         
         ai_content = ""
-        if "choices" in res_data and isinstance(res_data["choices"], list) and len(res_data["choices"]) > 0:
+        
+        # 👉 終極修復點：精準對接 MaiAgent 的真實回傳欄位 "content"
+        if "content" in res_data and isinstance(res_data["content"], str):
+            ai_content = res_data["content"]
+        elif "choices" in res_data and isinstance(res_data["choices"], list) and len(res_data["choices"]) > 0:
             ai_content = res_data["choices"][0].get("message", {}).get("content", "")
         elif "message" in res_data and isinstance(res_data["message"], dict):
             ai_content = res_data["message"].get("content", "")
