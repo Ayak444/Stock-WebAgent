@@ -9,7 +9,7 @@ load_dotenv()
 def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
-    base_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
+    base_url = os.getenv("MAIAGENT_BASE_URL", "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)")
     
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
 
@@ -22,7 +22,7 @@ def get_sentiment_analysis(news_content: str):
         "message": {
             "content": (
                 "你是一位資深台股宏觀分析師。請分析提供的新聞，並回傳嚴格的 JSON 格式。\n"
-                "【絕對要求】：除了 JSON 本身之外，絕對不要輸出任何 Markdown 標記 (如 ```json)、問候語或其他文字。\n"
+                "【絕對要求】：不要輸出任何 Markdown 標記 (如 ```json)、問候語或其他文字。只能輸出大括號包起來的 JSON 本身。\n"
                 "要求：\n"
                 "1. score: 0-100 的情緒分數。\n"
                 "2. reasoning: 詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）。\n"
@@ -45,10 +45,15 @@ def get_sentiment_analysis(news_content: str):
         else:
             ai_content = str(res_data)
 
+        # 雙重去殼法：清除 Markdown 與多餘文字
         ai_content = str(ai_content).strip()
-        match = re.search(r'\{.*\}', ai_content, re.DOTALL)
-        if match:
-            clean_json = match.group(0)
+        ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
+        ai_content = re.sub(r'```\s*', '', ai_content)
+        
+        start_idx = ai_content.find('{')
+        end_idx = ai_content.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            clean_json = ai_content[start_idx:end_idx+1]
         else:
             clean_json = ai_content
 

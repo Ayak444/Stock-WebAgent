@@ -234,22 +234,21 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
     if not mai_client.enabled:
         return None
 
-    # 第一步：輕量級即時新聞攔截 (透過 Yahoo Finance API)
+    # 1. 攔截器：瞬間從 Yahoo Finance 抓取該標的的最新 5 則新聞
     recent_news = []
     try:
-        # 搜尋該特定標的的最新新聞
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={ticker}&newsCount=5"
         headers = {"User-Agent": "Mozilla/5.0"}
         r = http_requests.get(url, headers=headers, timeout=5)
-        news_items = r.json().get("news", [])
-        recent_news = [item.get("title", "") for item in news_items if item.get("title")]
+        data = r.json()
+        if "news" in data:
+            recent_news = [item.get("title", "") for item in data["news"] if item.get("title")]
     except Exception as e:
         print(f"Fetch Ticker News Error: {e}")
 
-    # 組合新聞文字
     news_text = "\n".join([f"- {title}" for title in recent_news]) if recent_news else "近期無重大新聞"
 
-    # 第二步：建構「思考鏈 (CoT)」與「動態新聞」融合的 Prompt
+    # 2. 建構包含「即時新聞」與「思考鏈」的超強 Prompt
     prompt = (
         "你是一位資深的台股產業研究員，擅長挖掘隱藏供應鏈與最新市場題材。\n"
         f"請針對標的「{ticker} {name}」進行深度分析，並參考以下最新新聞動態來定義其最新概念標籤：\n"
@@ -260,34 +259,36 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
         "3. 找出與該公司業務高度連動的真實台股標的。\n"
         "4. 根據近期新聞與科技趨勢，標記其所屬概念。\n\n"
         "【嚴格規定】\n"
-        "1. 只能輸出合法 JSON 格式，不可包含其他文字。\n"
-        '2. 格式：{"name":"公司中文簡稱","group":"精確的產業族群","concepts":["概念1","概念2"],"related":["2330.TW"],"supply_chain":{"upstream":["2303.TW"],"midstream":["xxxx.TW"],"downstream":["xxxx.TW"]}}\n'
+        "1. 只能輸出合法 JSON 格式，絕對不可包含任何 Markdown 標記 (如 ```json) 或其他廢話。\n"
+        '2. 格式：{"name":"公司中文簡稱","group":"精確產業族群","concepts":["概念1","概念2"],"related":["2330.TW"],"supply_chain":{"upstream":["2303.TW"],"midstream":["xxxx.TW"],"downstream":["xxxx.TW"]}}\n'
         "3. name、group 與 concepts 絕對不可留空或填未分類。若缺乏資訊請根據常理推斷。\n"
         "4. related 與 supply_chain 內只能填寫真實存在的台股代號 (4碼+.TW 或 .TWO，如 2330.TW)。\n"
     )
     
-    # 第三步：呼叫 MaiAgent 進行推論
     result = mai_client.chat(prompt)
     if result.get("status") != "success":
         return None
         
     text = (result.get("reply") or "").strip()
     
-    # 第四步：最強防呆機制，暴力萃取 JSON 區塊 (避免 AI 廢話導致解析失敗)
-    match = re.search(r'\{.*\}', text, re.DOTALL)
-    if match:
-        clean_json = match.group(0)
+    # 3. 雙重去殼法：徹底清除 Markdown 標記並鎖定 JSON
+    text = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'```\s*', '', text)
+    
+    start_idx = text.find('{')
+    end_idx = text.rfind('}')
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        clean_json = text[start_idx:end_idx+1]
     else:
         clean_json = text
         
     try:
         data = json.loads(clean_json, strict=False)
-        if isinstance(data, dict):
+        if isinstance(data, dict) and "name" in data:
             return data
     except Exception as e:
         print(f"AI Enricher JSON Parse Error: {e}\nRaw Content: {clean_json}")
-        return None
-        
+    
     return None
 
 def daily_analysis_task():
