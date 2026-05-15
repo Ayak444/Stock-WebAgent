@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -20,7 +21,8 @@ def get_sentiment_analysis(news_content: str):
     payload = {
         "message": {
             "content": (
-                "你是一位資深台股宏觀分析師。請分析提供的新聞（約五則），並回傳嚴格的 JSON 格式。\n"
+                "你是一位資深台股宏觀分析師。請分析提供的新聞，並回傳嚴格的 JSON 格式。\n"
+                "【絕對要求】：除了 JSON 本身之外，絕對不要輸出任何 Markdown 標記 (如 ```json)、問候語或其他文字。\n"
                 "要求：\n"
                 "1. score: 0-100 的情緒分數。\n"
                 "2. reasoning: 詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）。\n"
@@ -33,7 +35,7 @@ def get_sentiment_analysis(news_content: str):
     }
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=45)
         res_data = response.json()
         
         if "message" in res_data and isinstance(res_data["message"], dict):
@@ -43,16 +45,19 @@ def get_sentiment_analysis(news_content: str):
         else:
             ai_content = str(res_data)
 
-        if ai_content.startswith("```"):
-            parts = ai_content.split("```")
-            if len(parts) >= 2:
-                ai_content = parts[1]
-            if ai_content.startswith("json"):
-                ai_content = ai_content[4:]
+        # --- 最強力的 JSON 萃取機制 ---
+        ai_content = str(ai_content).strip()
+        # 利用正規表達式抓取第一個 { 到最後一個 } 之間的內容，忽略外圍廢話
+        match = re.search(r'\{.*\}', ai_content, re.DOTALL)
+        if match:
+            clean_json = match.group(0)
+        else:
+            clean_json = ai_content
 
-        return parse_mai_result(ai_content.strip())
+        return parse_mai_result(clean_json)
+        
     except Exception as e:
-        print(e)
+        print(f"Agent Request Error: {e}")
         return {
             "score": 50,
             "label": "中立",
@@ -66,7 +71,9 @@ def parse_mai_result(ai_json_str):
     try:
         data = json.loads(ai_json_str)
         score = data.get("score", 50)
-    except Exception:
+    except Exception as e:
+        # 加上印出錯誤與原始字串，方便未來在後端除錯
+        print(f"JSON Parse Error: {e}\nRaw Content: {ai_json_str}")
         score = 50
         data = {}
     
@@ -83,7 +90,7 @@ def parse_mai_result(ai_json_str):
         "score": score,
         "label": label,
         "definition": defn,
-        "reasoning": data.get("reasoning", "無詳細說明"),
+        "reasoning": data.get("reasoning", "目前無詳細說明"),
         "recommendations": data.get("recommendations", []),
         "news_analysis": data.get("news_analysis", [])
     }
