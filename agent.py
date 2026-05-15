@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import requests
 from dotenv import load_dotenv
 
@@ -8,7 +9,7 @@ load_dotenv()
 def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
-    base_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
+    base_url = os.getenv("MAIAGENT_BASE_URL", "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)")
     
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
 
@@ -17,30 +18,26 @@ def get_sentiment_analysis(news_content: str):
         "Content-Type": "application/json"
     }
 
-    prompt = (
-        "你是一位資深台股宏觀分析師。請分析以下新聞，並嚴格只輸出 JSON 格式。\n"
-        "絕不允許包含 Markdown 標記 (如 ```json)、問候語或其他任何非 JSON 的文字。\n\n"
-        "格式要求：\n"
-        "{\n"
-        '  "score": (0到100的整數),\n'
-        '  "reasoning": "詳細解釋為何給出此分數",\n'
-        '  "news_analysis": [\n'
-        '    { "title": "標題", "sentiment": "多或空或中立", "summary": "摘要" }\n'
-        '  ],\n'
-        '  "recommendations": [\n'
-        '    { "name": "股票名稱", "code": "代碼", "reason": "原因" }\n'
-        '  ]\n'
-        "}\n\n"
-        f"新聞內容：\n{news_content}"
-    )
-
-    payload = {"message": {"content": prompt}}
+    payload = {
+        "message": {
+            "content": (
+                "你是一位資深台股宏觀分析師。請分析提供的新聞，並回傳嚴格的 JSON 格式。\n"
+                "【絕對要求】：除了 JSON 本身之外，絕對不要輸出任何 Markdown 標記 (如 ```json)、問候語或其他文字。\n"
+                "要求：\n"
+                "1. score: 0-100 的情緒分數。\n"
+                "2. reasoning: 詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）。\n"
+                "3. news_analysis: 陣列，包含這五則新聞的 title, sentiment(多/空/中立), summary(摘要)。\n"
+                "4. recommendations: 推薦標的。\n\n"
+                f"JSON 範例：{{\"score\": 65, \"reasoning\": \"原因...\", \"news_analysis\": [{{...}}], \"recommendations\": [{{...}}]}}\n\n"
+                f"新聞內容：{news_content}"
+            )
+        }
+    }
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=45)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
         res_data = response.json()
         
-        ai_content = ""
         if "message" in res_data and isinstance(res_data["message"], dict):
             ai_content = res_data["message"].get("content", "")
         elif "reply" in res_data:
@@ -48,20 +45,26 @@ def get_sentiment_analysis(news_content: str):
         else:
             ai_content = str(res_data)
 
-        # 終極防呆：強制找出第一個 { 與最後一個 } 的內容
-        start_idx = ai_content.find('{')
-        end_idx = ai_content.rfind('}')
-        
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            clean_json = ai_content[start_idx:end_idx+1]
+        # 👉 終極防呆：強制找出 JSON 大括號範圍
+        ai_content = str(ai_content).strip()
+        match = re.search(r'\{.*\}', ai_content, re.DOTALL)
+        if match:
+            clean_json = match.group(0)
         else:
             clean_json = ai_content
 
         return parse_mai_result(clean_json)
-
+        
     except Exception as e:
-        print(f"Agent API Error: {e}")
-        return parse_mai_result("{}")
+        print(f"Agent Request Error: {e}")
+        return {
+            "score": 50,
+            "label": "中立",
+            "definition": "暫時無法取得 AI 分析，維持中立觀點。",
+            "reasoning": "系統連線錯誤或 API 逾時。",
+            "recommendations": [],
+            "news_analysis": []
+        }
 
 def parse_mai_result(ai_json_str):
     try:
@@ -69,7 +72,7 @@ def parse_mai_result(ai_json_str):
         data = json.loads(ai_json_str, strict=False)
         score = data.get("score", 50)
     except Exception as e:
-        print(f"JSON 解析失敗: {e}\n原始字串: {ai_json_str}")
+        print(f"JSON Parse Error: {e}\nRaw Content: {ai_json_str}")
         score = 50
         data = {}
     

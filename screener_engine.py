@@ -178,23 +178,16 @@ def _industry_concepts(industry: str) -> List[str]:
     return [industry or "未分類", "待補充"]
 
 def _build_industry_peers(target_ticker: str, industry: str, limit: int = 9) -> List[str]:
-    listed, otc = _load_market_profiles()
     peers = []
     target_code = target_ticker.split(".")[0]
-    for row in listed:
-        c = _pick_field(row, ["公司代號", "代號", "Code"])
-        ind = _pick_field(row, ["產業別", "Industry"])
-        if c and c != target_code and ind == industry:
-            peers.append(f"{c}.TW")
+    
+    # 改為直接從我們建好的記憶體快取中尋找同產業的股票
+    for code, profile in OPENAPI_CACHE["profiles"].items():
+        if code != target_code and profile["industry"] == industry:
+            peers.append(profile["ticker"])
             if len(peers) >= limit:
-                return peers
-    for row in otc:
-        c = _pick_field(row, ["公司代號", "代號", "Code"])
-        ind = _pick_field(row, ["產業別", "Industry"])
-        if c and c != target_code and ind == industry:
-            peers.append(f"{c}.TWO")
-            if len(peers) >= limit:
-                return peers
+                break
+                
     return peers
 
 def ensure_relation_profile(ticker: str, ai_enricher=None):
