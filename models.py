@@ -60,3 +60,16 @@ class SentimentResponse(BaseModel):
     label: str
     definition: str
     recommendations: List[Recommendation]
+    
+class NewsDigest(BaseModel):
+    title: str
+    sentiment: str  # 多 / 空 / 中立
+    summary: str    # 30字內摘要
+
+class SentimentResponse(BaseModel):
+    score: int
+    label: str
+    definition: str
+    reasoning: str  # 新增：情緒成因解釋
+    recommendations: List[Recommendation]
+    news_analysis: List[NewsDigest]  # 新增：五則新聞分析

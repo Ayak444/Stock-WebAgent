@@ -586,11 +586,14 @@ def login(req: dict):
 
 @app.get("/api/sentiment", response_model=SentimentResponse)
 async def get_sentiment():
-    news_list = NewsCrawler.fetch_all(limit_per_source=2)[:5]
+    news_list = NewsCrawler.fetch_all(limit_per_source=3)[:5]
     if not news_list:
-        return get_sentiment_analysis("無近期新聞資料")
+        return {
+            "score": 50, "label": "中立", "definition": "無數據", 
+            "reasoning": "目前無新聞", "recommendations": [], "news_analysis": []
+        }
     
-    combined_news = "\n".join([f"標題: {n['title']}\n摘要: {n['summary']}" for n in news_list])
+    combined_news = "\n".join([f"新聞{i+1}: {n['title']} - {n['summary']}" for i, n in enumerate(news_list)])
     result = get_sentiment_analysis(combined_news)
     return result
 

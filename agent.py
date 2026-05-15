@@ -19,7 +19,16 @@ def get_sentiment_analysis(news_content: str):
 
     payload = {
         "message": {
-            "content": f"你是一位專業的台股分析師。請分析提供的新聞，回傳 JSON 格式：{{\"score\": 分數, \"recommendations\": [{{\"name\": \"股票名稱\", \"code\": \"代碼\", \"reason\": \"原因\"}}]}}\n\n新聞內容：{news_content}"
+            "content": (
+                "你是一位資深台股宏觀分析師。請分析提供的新聞（約五則），並回傳嚴格的 JSON 格式。\n"
+                "要求：\n"
+                "1. score: 0-100 的情緒分數。\n"
+                "2. reasoning: 詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）。\n"
+                "3. news_analysis: 陣列，包含這五則新聞的 title, sentiment(多/空/中立), summary(摘要)。\n"
+                "4. recommendations: 推薦標的。\n\n"
+                f"JSON 範例：{{\"score\": 65, \"reasoning\": \"原因...\", \"news_analysis\": [{{...}}], \"recommendations\": [{{...}}]}}\n\n"
+                f"新聞內容：{news_content}"
+            )
         }
     }
 

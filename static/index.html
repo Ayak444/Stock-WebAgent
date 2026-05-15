@@ -5,6 +5,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>股金往來 - 台股 AI 分析儀表板</title>
 <style>
+.index-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 10px;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.index-table th, .index-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--slate-700);
+}
+.index-table tr:last-child td { border-bottom: none; }
+
+.reasoning-box {
+    background: rgba(37, 99, 235, 0.1);
+    border: 1px solid var(--blue-500);
+    padding: 15px;
+    border-radius: 8px;
+    color: var(--slate-200);
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+.news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+.news-tile {
+    background: var(--slate-800);
+    border: 1px solid var(--slate-700);
+    padding: 12px;
+    border-radius: 8px;
+}
+.sentiment-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: inline-block;
+}
   .sentiment-card {
   background: var(--slate-800);
   border-radius: 12px;
@@ -281,25 +327,50 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
       </div>
 
       <div class="page" id="page-sentiment">
-        <div class="page-header">
-          <div><h2>市場情緒雷達</h2><p class="sub">籌碼面與近期利空/利多比例綜合評估</p></div>
-          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 計算大盤情緒</button>
-        </div>
-        
-        <div id="sentiment-content">
+    <div class="page-header">
+        <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 ⚡ 即時新聞情感分析</p></div>
+        <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 啟動雷達分析</button>
+    </div>
+
+    <div class="grid grid-2">
+        <div>
             <div class="sentiment-card">
-                <h2 style="margin-bottom: 16px; color: var(--slate-300); font-size: 16px;">新聞情緒儀表板</h2>
                 <div class="score-circle" id="sentiment-score">-</div>
-                <div style="font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px;" id="sentiment-label">等待載入</div>
-                <p style="color: var(--slate-400); font-size: 15px;" id="sentiment-def">點擊上方按鈕啟動分析</p>
+                <div id="sentiment-label" style="font-size: 20px; font-weight: bold;">等待掃描</div>
             </div>
             
-            <h3 style="margin-bottom: 16px; font-size: 18px; color: #fff;">Agent 推薦清單</h3>
-            <div class="recommendation-grid" id="recommendation-list">
-                <span style="color:var(--slate-500)">等待數據載入...</span>
+            <div class="card">
+                <div class="card-header">📊 貪婪指數等級參考表</div>
+                <div class="card-body">
+                    <table class="index-table">
+                        <thead><tr><th>區間</th><th>狀態</th><th>市場意義</th></tr></thead>
+                        <tbody>
+                            <tr style="color:var(--red-400)"><td>0-25</td><td>極度恐懼</td><td>超跌區，反彈機率高</td></tr>
+                            <tr style="color:#fbbf24"><td>26-45</td><td>恐懼</td><td>市場保守，量能縮減</td></tr>
+                            <tr style="color:var(--slate-400)"><td>46-55</td><td>中立</td><td>多空拉鋸，等待表態</td></tr>
+                            <tr style="color:var(--green-400)"><td>56-75</td><td>樂觀</td><td>買盤轉強，注意追高</td></tr>
+                            <tr style="color:#22c55e"><td>76-100</td><td>極度貪婪</td><td>過熱訊號，宜減碼獲利</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-      </div>
+
+        <div class="card">
+            <div class="card-header">🤖 AI 情緒判斷成因</div>
+            <div class="card-body">
+                <div id="sentiment-reasoning" class="reasoning-box">
+                    尚未進行分析，請點擊上方按鈕。AI 將根據最新的五則財經新聞進行加權判斷。
+                </div>
+                <div id="sentiment-recommend" style="margin-top:15px"></div>
+            </div>
+        </div>
+    </div>
+
+    <h3 style="margin: 20px 0 10px; font-size: 16px; color:#fff;">📰 近五則新聞情緒摘要</h3>
+    <div class="news-grid" id="sentiment-news-grid">
+        </div>
+</div>
 
       <div class="page" id="page-screener">
         <div class="page-header">
@@ -866,53 +937,45 @@ async function fetchNewsAnalysis() {
 }
 
 async function fetchSentiment() {
-   const btn = document.getElementById('btn-sentiment');
-   const scoreEl = document.getElementById('sentiment-score');
-   const labelEl = document.getElementById('sentiment-label');
-   const defEl = document.getElementById('sentiment-def');
-   const listEl = document.getElementById('recommendation-list');
-   
-   btn.disabled = true;
-   scoreEl.innerHTML = '<div class="spinner" style="width:50px; height:50px; margin:0 auto; border-width:6px;"></div>';
-   labelEl.innerText = '分析中...';
-   defEl.innerText = '正在擷取最新新聞並由 MaiAgent 推論中';
-   listEl.innerHTML = '<div class="loading" style="grid-column: 1 / -1;"><div class="spinner"></div></div>';
+    const btn = document.getElementById('btn-sentiment');
+    const scoreEl = document.getElementById('sentiment-score');
+    const labelEl = document.getElementById('sentiment-label');
+    const reasonEl = document.getElementById('sentiment-reasoning');
+    const newsGrid = document.getElementById('sentiment-news-grid');
+    
+    btn.disabled = true;
+    scoreEl.innerText = "⏳";
+    reasonEl.innerText = "分析中，請稍候...";
+    newsGrid.innerHTML = "";
 
-   const res = await apiCall('/api/sentiment', 'GET');
-   
-   if (res && res.score !== undefined) {
-       let color = "#ef4444";
-       if (res.score >= 60) color = "#22c55e";
-       else if (res.score >= 40) color = "#f1b912";
-       
-       scoreEl.style.color = color;
-       scoreEl.style.textShadow = `0 0 20px ${color}40`;
-       scoreEl.innerText = res.score;
-       
-       labelEl.innerText = res.label;
-       defEl.innerText = res.definition;
+    const res = await apiCall('/api/sentiment', 'GET');
+    
+    if (res && res.score !== undefined) {
+        // 設定分數顏色與文字
+        let color = "#94a3b8"; // 中立
+        if (res.score >= 56) color = "#22c55e"; // 樂觀
+        if (res.score <= 45) color = "#ef4444"; // 恐懼
+        
+        scoreEl.style.color = color;
+        scoreEl.innerText = res.score;
+        labelEl.innerText = res.label;
+        reasonEl.innerText = res.reasoning || "分析完成。";
 
-       if (res.recommendations && res.recommendations.length > 0) {
-           listEl.innerHTML = res.recommendations.map(s => `
-              <div class="stock-card" style="border-left-color: ${color}">
-                 <div class="stock-card-header">
-                    <span class="stock-card-title">${s.name}</span>
-                    <span class="tag">${s.code}</span>
-                 </div>
-                 <div class="stock-card-reason">${s.reason}</div>
-              </div>
-           `).join('');
-       } else {
-           listEl.innerHTML = '<div style="color:var(--slate-500); grid-column: 1 / -1;">目前無推薦標的</div>';
-       }
-   } else {
-       scoreEl.innerText = "!";
-       labelEl.innerText = "分析失敗";
-       defEl.innerText = res.message || "發生未知錯誤";
-       listEl.innerHTML = "";
-   }
-   
-   btn.disabled = false;
+        // 渲染五則新聞摘要
+        if (res.news_analysis) {
+            newsGrid.innerHTML = res.news_analysis.map(n => {
+                let tagColor = n.sentiment === '多' ? 'var(--green-500)' : (n.sentiment === '空' ? 'var(--red-500)' : 'var(--slate-500)');
+                return `
+                    <div class="news-tile">
+                        <span class="sentiment-tag" style="background:${tagColor}">${n.sentiment}</span>
+                        <div style="font-size:13px; font-weight:bold; color:#fff; margin-bottom:5px;">${n.title}</div>
+                        <div style="font-size:12px; color:var(--slate-400);">${n.summary}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+    btn.disabled = false;
 }
 
 function renderStockListHTML(title, emoji, stocks) {
