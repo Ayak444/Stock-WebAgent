@@ -10,12 +10,10 @@ def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
     
-    # 清洗環境變數
     raw_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
     url_match = re.search(r'(https?://[^\s\)\]]+)', raw_url)
     base_url = url_match.group(1) if url_match else "https://api.maiagent.ai/api"
     
-    # 👉 終極修復：在 completions 後面加上斜線 '/'，阻止伺服器重導向
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions/"
 
     headers = {
@@ -28,12 +26,14 @@ def get_sentiment_analysis(news_content: str):
             "content": (
                 "你是一位資深台股宏觀分析師。請分析提供的新聞，並回傳嚴格的 JSON 格式。\n"
                 "【絕對要求】：不要輸出任何 Markdown 標記 (如 ```json)、問候語或其他文字。只能輸出大括號包起來的 JSON 本身。\n"
-                "要求：\n"
-                "1. score: 0-100 的情緒分數。\n"
-                "2. reasoning: 詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）。\n"
-                "3. news_analysis: 陣列，包含這五則新聞的 title, sentiment(多/空/中立), summary(摘要)。\n"
-                "4. recommendations: 推薦標的。\n\n"
-                f"新聞內容：{news_content}"
+                "要求格式：\n"
+                "{\n"
+                '  "score": (0-100的整數),\n'
+                '  "reasoning": "詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）",\n'
+                '  "news_analysis": [{ "title": "新聞標題", "sentiment": "多/空/中立", "summary": "摘要" }],\n'
+                '  "recommendations": [{ "name": "股票名稱", "code": "代碼", "reason": "推薦原因" }]\n'
+                "}\n\n"
+                f"新聞內容：\n{news_content}"
             )
         }
     }
@@ -44,7 +44,6 @@ def get_sentiment_analysis(news_content: str):
         
         ai_content = ""
         
-        # 👉 終極修復點：精準對接 MaiAgent 的真實回傳欄位 "content"
         if "content" in res_data and isinstance(res_data["content"], str):
             ai_content = res_data["content"]
         elif "choices" in res_data and isinstance(res_data["choices"], list) and len(res_data["choices"]) > 0:
@@ -56,7 +55,6 @@ def get_sentiment_analysis(news_content: str):
         else:
             ai_content = str(res_data)
 
-        # 清除 Markdown 與多餘文字
         ai_content = str(ai_content).strip()
         ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
         ai_content = re.sub(r'```\s*', '', ai_content)
@@ -75,7 +73,7 @@ def get_sentiment_analysis(news_content: str):
         return {
             "score": 50,
             "label": "中立",
-            "definition": "暫時無法取得 AI 分析，維持中立觀點。",
+            "definition": "暫時無法取得 AI 分析",
             "reasoning": f"系統連線錯誤或 API 逾時: {str(e)}",
             "recommendations": [],
             "news_analysis": []
@@ -99,11 +97,29 @@ def parse_mai_result(ai_json_str):
     else:
         label, defn = "恐懼", "市場低迷，可尋找低估標的。"
 
+    valid_recs = []
+    for r in data.get("recommendations", []):
+        if isinstance(r, dict):
+            valid_recs.append({
+                "name": str(r.get("name", "未知標的")),
+                "code": str(r.get("code", r.get("ticker", "無代碼"))), 
+                "reason": str(r.get("reason", "無說明"))
+            })
+
+    valid_news = []
+    for n in data.get("news_analysis", []):
+        if isinstance(n, dict):
+            valid_news.append({
+                "title": str(n.get("title", "未知新聞標題")),
+                "sentiment": str(n.get("sentiment", "中立")),
+                "summary": str(n.get("summary", "無摘要"))
+            })
+
     return {
         "score": score,
         "label": label,
         "definition": defn,
         "reasoning": data.get("reasoning", "目前無詳細說明"),
-        "recommendations": data.get("recommendations", []),
-        "news_analysis": data.get("news_analysis", [])
+        "recommendations": valid_recs,
+        "news_analysis": valid_news
     }

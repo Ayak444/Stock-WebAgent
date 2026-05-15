@@ -301,16 +301,19 @@ def daily_analysis_task():
     notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", html)
 
 @app.get("/")
+@app.head("/")
 def root():
     if os.path.exists("static/index.html"):
         return FileResponse("static/index.html")
     return {"status": "alive", "message": "API 運作中", "docs": "/docs"}
 
 @app.get("/ping")
+@app.head("/ping")
 def ping():
     return {"status": "alive", "time": datetime.now().isoformat()}
 
 @app.get("/health")
+@app.head("/health")
 def health():
     return {
         "status": "ok",
