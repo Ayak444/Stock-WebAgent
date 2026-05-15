@@ -9,7 +9,9 @@ load_dotenv()
 def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
-    base_url = os.getenv("MAIAGENT_BASE_URL", "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)")
+    base_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
+    if "maiagent.ai" in base_url:
+        base_url = "https://api.maiagent.ai/api"
     
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
 
