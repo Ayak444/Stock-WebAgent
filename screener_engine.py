@@ -132,11 +132,23 @@ def _init_openapi_cache():
 
 _init_openapi_cache()
 
+FALLBACK_NAMES = {
+    "8046": "南電",
+    "2330": "台積電",
+    "2317": "鴻海",
+    "2454": "聯發科",
+    "2382": "廣達",
+    "2603": "長榮"
+}
+
 def _find_company_profile(ticker: str) -> Dict:
     code = ticker.split(".")[0]
     if code in OPENAPI_CACHE["profiles"]:
         return OPENAPI_CACHE["profiles"][code]
-    return {"ticker": ticker, "name": code, "industry": "未分類", "market": "unknown"}
+        
+    # 雙重保險：如果 OpenAPI 失敗且剛好是這些熱門股，直接給名字
+    fallback_name = FALLBACK_NAMES.get(code, code)
+    return {"ticker": ticker, "name": fallback_name, "industry": "未分類", "market": "unknown"}
 
 def _pick_field(row: dict, names: List[str]) -> str:
     for n in names:
@@ -256,12 +268,11 @@ def _pick_relation(ticker: str) -> Dict:
 
 def _get_ticker_with_name(ticker: str) -> str:
     code = ticker.split('.')[0]
+    
     if ticker in RELATION_DB:
         name = RELATION_DB[ticker].get("name", code)
-    elif code in OPENAPI_CACHE["mapping"]:
-        name = OPENAPI_CACHE["mapping"][code]
     else:
-        name = code
+        name = _find_company_profile(ticker).get("name", code)
     
     if name == code:
         return ticker
@@ -451,6 +462,10 @@ def analyze_related_stocks(target_inputs: List[str], filters: List[str], ai_enri
             else:
                 r_name = _find_company_profile(r_ticker).get("name", r_ticker.split('.')[0])
 
+            # 👉 修復一：如果卡片的名稱跟代碼一樣，清空名稱
+            if r_name == r_ticker.split('.')[0] or r_name == r_ticker:
+                r_name = ""
+
             evaluated.append({
                 "ticker": r_ticker,
                 "name": r_name,
@@ -465,10 +480,15 @@ def analyze_related_stocks(target_inputs: List[str], filters: List[str], ai_enri
         out_midstream = [_get_ticker_with_name(x) for x in supply_chain.get("midstream", [])]
         out_downstream = [_get_ticker_with_name(x) for x in supply_chain.get("downstream", [])]
 
+        # 👉 修復二：如果大標題的名稱跟代碼一樣，清空名稱
+        target_name = relation.get("name", ticker.split(".")[0])
+        if target_name == ticker.split(".")[0] or target_name == ticker:
+            target_name = ""
+
         out.append({
             "target": {
                 "ticker": ticker,
-                "name": relation.get("name", ticker)
+                "name": target_name
             },
             "group": relation.get("group", "未分類"),
             "concepts": relation.get("concepts", []),
