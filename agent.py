@@ -15,7 +15,8 @@ def get_sentiment_analysis(news_content: str):
     url_match = re.search(r'(https?://[^\s\)\]]+)', raw_url)
     base_url = url_match.group(1) if url_match else "https://api.maiagent.ai/api"
     
-    api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
+    # 👉 終極修復：在 completions 後面加上斜線 '/'，阻止伺服器重導向
+    api_url = f"{base_url}/chatbots/{chatbot_id}/completions/"
 
     headers = {
         "Authorization": f"Api-Key {api_key}",
@@ -42,7 +43,6 @@ def get_sentiment_analysis(news_content: str):
         res_data = response.json()
         
         ai_content = ""
-        # 👉 真正的修復點：正確對接 OpenAI / MaiAgent 的 API 回傳層級
         if "choices" in res_data and isinstance(res_data["choices"], list) and len(res_data["choices"]) > 0:
             ai_content = res_data["choices"][0].get("message", {}).get("content", "")
         elif "message" in res_data and isinstance(res_data["message"], dict):
@@ -57,7 +57,6 @@ def get_sentiment_analysis(news_content: str):
         ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
         ai_content = re.sub(r'```\s*', '', ai_content)
         
-        # 👉 鎖定絕對的最外層括號，拋棄所有正則表達式不可控的因素
         start_idx = ai_content.find('{')
         end_idx = ai_content.rfind('}')
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
@@ -83,7 +82,6 @@ def parse_mai_result(ai_json_str):
         data = json.loads(ai_json_str, strict=False)
         score = data.get("score", 50)
     except Exception as e:
-        # 印出實際的錯誤到終端機，以後如果再壞掉我們一眼就能看出原因
         print(f"JSON Parse Error: {e}\nRaw Content: {ai_json_str}")
         score = 50
         data = {"reasoning": "AI 回傳格式異常，無法解析。請查看後端 Log。"}
