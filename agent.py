@@ -57,7 +57,9 @@ def get_sentiment_analysis(news_content: str):
             "score": 50,
             "label": "中立",
             "definition": "暫時無法取得 AI 分析，維持中立觀點。",
-            "recommendations": []
+            "reasoning": "系統連線錯誤或 API 逾時。",
+            "recommendations": [],
+            "news_analysis": []
         }
 
 def parse_mai_result(ai_json_str):
@@ -81,5 +83,7 @@ def parse_mai_result(ai_json_str):
         "score": score,
         "label": label,
         "definition": defn,
-        "recommendations": data.get("recommendations", [])
+        "reasoning": data.get("reasoning", "無詳細說明"),
+        "recommendations": data.get("recommendations", []),
+        "news_analysis": data.get("news_analysis", [])
     }

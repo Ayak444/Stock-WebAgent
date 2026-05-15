@@ -55,21 +55,15 @@ class Recommendation(BaseModel):
     code: str
     reason: str
 
-class SentimentResponse(BaseModel):
-    score: int
-    label: str
-    definition: str
-    recommendations: List[Recommendation]
-    
 class NewsDigest(BaseModel):
     title: str
-    sentiment: str  # 多 / 空 / 中立
-    summary: str    # 30字內摘要
+    sentiment: str 
+    summary: str 
 
 class SentimentResponse(BaseModel):
     score: int
     label: str
     definition: str
-    reasoning: str  # 新增：情緒成因解釋
+    reasoning: str
     recommendations: List[Recommendation]
-    news_analysis: List[NewsDigest]  # 新增：五則新聞分析
+    news_analysis: List[NewsDigest]
