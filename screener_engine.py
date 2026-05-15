@@ -2,6 +2,8 @@ import re
 import time
 from typing import Dict, List, Tuple
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from data_provider import DataProvider
 
 RELATION_DB: Dict[str, Dict] = {
