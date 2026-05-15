@@ -62,9 +62,6 @@ RELATION_DB: Dict[str, Dict] = {
     }
 }
 
-TWSE_PROFILE_CACHE = {"ts": 0, "listed": [], "otc": []}
-TWSE_PROFILE_TTL = 43200
-
 FILTER_KEYS = {
     "近5日跌幅超過10%": "drop_5d_10",
     "近5日漲幅超過10%": "rise_5d_10",
@@ -76,63 +73,76 @@ FILTER_KEYS = {
     "近5日平均量放大30%": "vol_up_30"
 }
 
-def _load_market_profiles():
-    now = time.time()
-    if TWSE_PROFILE_CACHE["listed"] and now - TWSE_PROFILE_CACHE["ts"] < TWSE_PROFILE_TTL:
-        return TWSE_PROFILE_CACHE["listed"], TWSE_PROFILE_CACHE["otc"]
+OPENAPI_CACHE = {
+    "mapping": {},
+    "profiles": {}
+}
 
-    listed, otc = [], []
+def _init_openapi_cache():
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json"
     }
-    try:
-        r1 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers=headers, timeout=12)
-        if r1.ok:
-            listed = r1.json()
-    except Exception:
-        pass
-    try:
-        r2 = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", headers=headers, timeout=12)
-        if r2.ok:
-            otc = r2.json()
-    except Exception:
-        pass
 
-    TWSE_PROFILE_CACHE["ts"] = now
-    TWSE_PROFILE_CACHE["listed"] = listed if isinstance(listed, list) else []
-    TWSE_PROFILE_CACHE["otc"] = otc if isinstance(otc, list) else []
-    return TWSE_PROFILE_CACHE["listed"], TWSE_PROFILE_CACHE["otc"]
+    try:
+        r1 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers=headers, timeout=20)
+        if r1.ok:
+            for row in r1.json():
+                code = row.get("公司代號", "")
+                name = row.get("公司簡稱", "")
+                industry = row.get("產業別", "未分類")
+                if code:
+                    OPENAPI_CACHE["mapping"][code] = name
+                    OPENAPI_CACHE["profiles"][code] = {
+                        "ticker": f"{code}.TW",
+                        "name": name,
+                        "industry": industry,
+                        "market": "listed"
+                    }
+    except Exception as e:
+        print(f"OpenAPI Listed Fetch Error: {e}")
+
+    try:
+        r2 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", headers=headers, timeout=20)
+        if r2.ok:
+            for row in r2.json():
+                code = row.get("公司代號", "")
+                name = row.get("公司簡稱", "")
+                industry = row.get("產業別", "未分類")
+                if code:
+                    OPENAPI_CACHE["mapping"][code] = name
+                    OPENAPI_CACHE["profiles"][code] = {
+                        "ticker": f"{code}.TWO",
+                        "name": name,
+                        "industry": industry,
+                        "market": "otc"
+                    }
+    except Exception as e:
+        print(f"OpenAPI OTC Fetch Error: {e}")
+
+_init_openapi_cache()
+
+def _find_company_profile(ticker: str) -> Dict:
+    code = ticker.split(".")[0]
+    if code in OPENAPI_CACHE["profiles"]:
+        return OPENAPI_CACHE["profiles"][code]
+    return {"ticker": ticker, "name": code, "industry": "未分類", "market": "unknown"}
 
 def _pick_field(row: dict, names: List[str]) -> str:
     for n in names:
         if n in row and row[n] not in (None, ""):
             return str(row[n]).strip()
     return ""
-
-def _find_company_profile(ticker: str) -> Dict:
-    code = ticker.split(".")[0]
-    listed, otc = _load_market_profiles()
-
-    for row in listed:
-        c = _pick_field(row, ["公司代號", "代號", "Code"])
-        if c == code:
-            return {
-                "ticker": f"{code}.TW",
-                "name": _pick_field(row, ["公司簡稱", "公司名稱", "Name"]) or code,
-                "industry": _pick_field(row, ["產業別", "Industry"]) or "未分類",
-                "market": "listed"
-            }
-    for row in otc:
-        c = _pick_field(row, ["公司代號", "代號", "Code"])
-        if c == code:
-            return {
-                "ticker": f"{code}.TWO",
-                "name": _pick_field(row, ["公司簡稱", "公司名稱", "Name"]) or code,
-                "industry": _pick_field(row, ["產業別", "Industry"]) or "未分類",
-                "market": "otc"
-            }
-    return {"ticker": ticker, "name": code, "industry": "未分類", "market": "unknown"}
 
 def _industry_concepts(industry: str) -> List[str]:
     if "半導體" in industry:
@@ -245,11 +255,16 @@ def _pick_relation(ticker: str) -> Dict:
     }
 
 def _get_ticker_with_name(ticker: str) -> str:
+    code = ticker.split('.')[0]
     if ticker in RELATION_DB:
-        name = RELATION_DB[ticker].get("name", ticker.split('.')[0])
+        name = RELATION_DB[ticker].get("name", code)
+    elif code in OPENAPI_CACHE["mapping"]:
+        name = OPENAPI_CACHE["mapping"][code]
     else:
-        profile = _find_company_profile(ticker)
-        name = profile.get("name", ticker.split('.')[0])
+        name = code
+    
+    if name == code:
+        return ticker
     return f"{ticker} {name}"
 
 def _get_history_safely(ticker: str):
