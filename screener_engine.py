@@ -82,12 +82,16 @@ OPENAPI_CACHE = {
 
 def _init_openapi_cache():
     session = requests.Session()
-    retry = retry(
+    
+    # 變數改名為 retry_strategy，並且使用大寫 R 的 Retry
+    retry_strategy = Retry(
         total=5,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504]
     )
-    adapter = HTTPAdapter(max_retries=retry)
+    # 這裡也要對應改成 retry_strategy
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    
     session.mount('http://', adapter)
     session.mount('https://', adapter)
 
