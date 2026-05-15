@@ -10,9 +10,10 @@ def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
     
-    raw_url = os.getenv("MAIAGENT_BASE_URL", "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)")
+    # 清洗環境變數
+    raw_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
     url_match = re.search(r'(https?://[^\s\)\]]+)', raw_url)
-    base_url = url_match.group(1) if url_match else "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)"
+    base_url = url_match.group(1) if url_match else "https://api.maiagent.ai/api"
     
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
 
@@ -41,21 +42,26 @@ def get_sentiment_analysis(news_content: str):
         res_data = response.json()
         
         ai_content = ""
-        if "message" in res_data and isinstance(res_data["message"], dict):
+        # 👉 真正的修復點：正確對接 OpenAI / MaiAgent 的 API 回傳層級
+        if "choices" in res_data and isinstance(res_data["choices"], list) and len(res_data["choices"]) > 0:
+            ai_content = res_data["choices"][0].get("message", {}).get("content", "")
+        elif "message" in res_data and isinstance(res_data["message"], dict):
             ai_content = res_data["message"].get("content", "")
         elif "reply" in res_data:
             ai_content = res_data["reply"]
         else:
             ai_content = str(res_data)
 
-        # 👉 防呆二：雙重去殼法，徹底清除 Markdown 與多餘文字
+        # 清除 Markdown 與多餘文字
         ai_content = str(ai_content).strip()
         ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
         ai_content = re.sub(r'```\s*', '', ai_content)
         
-        match = re.search(r'\{.*\}', ai_content, re.DOTALL)
-        if match:
-            clean_json = match.group(0)
+        # 👉 鎖定絕對的最外層括號，拋棄所有正則表達式不可控的因素
+        start_idx = ai_content.find('{')
+        end_idx = ai_content.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            clean_json = ai_content[start_idx:end_idx+1]
         else:
             clean_json = ai_content
 
@@ -77,9 +83,10 @@ def parse_mai_result(ai_json_str):
         data = json.loads(ai_json_str, strict=False)
         score = data.get("score", 50)
     except Exception as e:
+        # 印出實際的錯誤到終端機，以後如果再壞掉我們一眼就能看出原因
         print(f"JSON Parse Error: {e}\nRaw Content: {ai_json_str}")
         score = 50
-        data = {"reasoning": "AI 回傳格式異常，無法解析。"}
+        data = {"reasoning": "AI 回傳格式異常，無法解析。請查看後端 Log。"}
     
     if score >= 70:
         label, defn = "極度貪婪", "市場過熱，建議分批獲利。"
