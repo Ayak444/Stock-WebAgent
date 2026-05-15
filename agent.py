@@ -9,7 +9,7 @@ load_dotenv()
 def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
     chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
-    base_url = os.getenv("MAIAGENT_BASE_URL", "[https://api.maiagent.ai/api](https://api.maiagent.ai/api)")
+    base_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
     
     api_url = f"{base_url}/chatbots/{chatbot_id}/completions"
 
@@ -28,16 +28,16 @@ def get_sentiment_analysis(news_content: str):
                 "2. reasoning: 詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）。\n"
                 "3. news_analysis: 陣列，包含這五則新聞的 title, sentiment(多/空/中立), summary(摘要)。\n"
                 "4. recommendations: 推薦標的。\n\n"
-                f"JSON 範例：{{\"score\": 65, \"reasoning\": \"原因...\", \"news_analysis\": [{{...}}], \"recommendations\": [{{...}}]}}\n\n"
                 f"新聞內容：{news_content}"
             )
         }
     }
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=45)
         res_data = response.json()
         
+        ai_content = ""
         if "message" in res_data and isinstance(res_data["message"], dict):
             ai_content = res_data["message"].get("content", "")
         elif "reply" in res_data:
@@ -45,7 +45,6 @@ def get_sentiment_analysis(news_content: str):
         else:
             ai_content = str(res_data)
 
-        # 👉 終極防呆：強制找出 JSON 大括號範圍
         ai_content = str(ai_content).strip()
         match = re.search(r'\{.*\}', ai_content, re.DOTALL)
         if match:
@@ -61,20 +60,19 @@ def get_sentiment_analysis(news_content: str):
             "score": 50,
             "label": "中立",
             "definition": "暫時無法取得 AI 分析，維持中立觀點。",
-            "reasoning": "系統連線錯誤或 API 逾時。",
+            "reasoning": f"系統連線錯誤或 API 逾時: {str(e)}",
             "recommendations": [],
             "news_analysis": []
         }
 
 def parse_mai_result(ai_json_str):
     try:
-        # strict=False 允許處理 JSON 內的非法換行符號
         data = json.loads(ai_json_str, strict=False)
         score = data.get("score", 50)
     except Exception as e:
         print(f"JSON Parse Error: {e}\nRaw Content: {ai_json_str}")
         score = 50
-        data = {}
+        data = {"reasoning": "AI 回傳格式異常，無法解析。"}
     
     if score >= 70:
         label, defn = "極度貪婪", "市場過熱，建議分批獲利。"
