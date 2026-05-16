@@ -266,13 +266,13 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
         <div class="grid grid-2">
           <div class="card">
-            <div class="card-header">🤖 MaiAgent 每日大盤摘要</div>
+            <div class="card-header">🤖 每日大盤摘要</div>
             <div class="card-body" id="war-ai-summary">
               <span style="color:var(--slate-500)">點擊上方即時更新以獲取最新 AI 解析...</span>
             </div>
           </div>
           <div class="card">
-            <div class="card-header">📰 各大財經頭條 (近3天)</div>
+            <div class="card-header">📰 各大財經頭條 (最新 5 則)</div>
             <div class="card-body" id="war-news" style="padding:16px;">
                <span style="color:var(--slate-500); display:block;">無最新新聞</span>
             </div>
@@ -322,7 +322,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
         </div>
         <div class="grid grid-3" style="margin-bottom:16px" id="news-stats"></div>
         <div class="card">
-          <div class="card-header">📋 AI 情緒解析列表</div>
+          <div class="card-header">📋 AI 情緒解析列表 (最新 5 則)</div>
           <div id="news-list"></div>
         </div>
       </div>
@@ -907,14 +907,26 @@ async function fetchNewsAnalysis() {
 
   const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['yahoo_finance', 'investing'], limit: 3 });
 
-  if(res.status === 'success') {
+  if(res.status === 'success' && res.data) {
+      const displayedNews = res.data.slice(0, 5);
+      
+      const localStats = { '利多': 0, '利空': 0, '中立': 0 };
+      displayedNews.forEach(n => {
+          const s = n.sentiment || '中立';
+          if (localStats[s] !== undefined) {
+              localStats[s]++;
+          } else {
+              localStats['中立']++;
+          }
+      });
+
       statsBox.innerHTML = `
-        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🟢</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利多</p><p style="font-size:22px;font-weight:700;color:var(--green-400);margin-top:4px">${res.stats['利多']} 則</p></div></div>
-        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">⚪</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定中立</p><p style="font-size:22px;font-weight:700;color:var(--slate-300);margin-top:4px">${res.stats['中立']} 則</p></div></div>
-        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🔴</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利空</p><p style="font-size:22px;font-weight:700;color:var(--red-400);margin-top:4px">${res.stats['利空']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🟢</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利多</p><p style="font-size:22px;font-weight:700;color:var(--green-400);margin-top:4px">${localStats['利多']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">⚪</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定中立</p><p style="font-size:22px;font-weight:700;color:var(--slate-300);margin-top:4px">${localStats['中立']} 則</p></div></div>
+        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🔴</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利空</p><p style="font-size:22px;font-weight:700;color:var(--red-400);margin-top:4px">${localStats['利空']} 則</p></div></div>
       `;
 
-      list.innerHTML = res.data.map(n => {
+      list.innerHTML = displayedNews.map(n => {
           const sBadge = n.sentiment==='利多'?'badge-green':(n.sentiment==='利空'?'badge-red':'badge-slate');
           const iBadge = n.impact==='高'?'badge-orange':(n.impact==='中'?'badge-yellow':'badge-slate');
           return `
@@ -932,7 +944,7 @@ async function fetchNewsAnalysis() {
           `;
       }).join('');
   } else {
-      list.innerHTML = `<p style="padding:20px; color:var(--red-400); font-size:16px;">分析失敗：${res.message}</p>`;
+      list.innerHTML = `<p style="padding:20px; color:var(--red-400); font-size:16px;">分析失敗：${res.message || '無資料'}</p>`;
   }
   btn.disabled = false;
 }
