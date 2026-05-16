@@ -905,7 +905,7 @@ async function fetchNewsAnalysis() {
   statsBox.innerHTML = '';
   list.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">爬蟲擷取並交由 MaiAgent 批次判讀中...</p></div>';
 
-  const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['cnyes', 'investing'], limit: 3 });
+  const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['yahoo_finance', 'investing'], limit: 3 });
 
   if(res.status === 'success') {
       statsBox.innerHTML = `
