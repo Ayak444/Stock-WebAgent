@@ -353,8 +353,23 @@ def chat(req: ChatRequest):
 
     if not mai_client.enabled:
         return {"status": "error", "message": "MaiAgent 未設定，請檢查環境變數"}
+        
     conversation_id = getattr(req, 'conversation_id', None)
-    result = mai_client.chat(req.message, conversation_id)
+    user_msg = req.message
+    
+    rag_keywords = ["財報", "法說會", "資本支出", "營收", "毛利率", "淨利", "展望", "報告", "支出"]
+    if any(kw in user_msg for kw in rag_keywords):
+        context_chunks = db.search_corporate_reports(user_msg)
+        if context_chunks:
+            context_str = "\n".join(context_chunks)
+            user_msg = (
+                f"請根據以下企業官方財報與法說會文獻內容，深入且精確地回答使用者的問題。"
+                f"如果文獻內容與問題無關，請結合您的金融知識回答。\n\n"
+                f"【官方文獻背景資料】:\n{context_str}\n\n"
+                f"【使用者問題】:\n{user_msg}"
+            )
+
+    result = mai_client.chat(user_msg, conversation_id)
     return result
 
 @app.post("/analyze_news")

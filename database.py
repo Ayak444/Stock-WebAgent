@@ -1,134 +1,112 @@
-import sqlite3
 import os
 import json
 from datetime import datetime
 import pandas as pd
 from supabase import create_client, Client
 
-DB_PATH = os.environ.get("DB_PATH", "history.db")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 class Database:
     def __init__(self):
-        self._init_local_db()
         self.supabase: Client = None
         if SUPABASE_URL and SUPABASE_KEY:
             self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-    def _init_local_db(self):
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS analysis_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                ticker TEXT NOT NULL,
-                name TEXT,
-                price REAL,
-                score INTEGER,
-                advice TEXT,
-                pl_percent REAL,
-                signals TEXT
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS news_analysis (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                source TEXT,
-                title TEXT,
-                sentiment TEXT,
-                summary TEXT,
-                link TEXT
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS daily_kline (
-                ticker TEXT NOT NULL,
-                date TEXT NOT NULL,
-                open REAL,
-                high REAL,
-                low REAL,
-                close REAL,
-                volume INTEGER,
-                PRIMARY KEY (ticker, date)
-            )
-        """)
-        conn.commit()
-        conn.close()
+        else:
+            print("警告：未設定 SUPABASE_URL 或 SUPABASE_KEY")
 
     def save_analysis(self, results: list):
-        conn = sqlite3.connect(DB_PATH)
-        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if not self.supabase: return
+        records = []
         for r in results:
-            conn.execute("""
-                INSERT INTO analysis_history
-                (timestamp, ticker, name, price, score, advice, pl_percent, signals)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                ts, r.get('ticker', ''), r.get('name', ''),
-                r.get('price', 0), r.get('score', 0),
-                r.get('advice', ''), r.get('pl', 0),
-                json.dumps(r.get('signals', []), ensure_ascii=False)
-            ))
-        conn.commit()
-        conn.close()
+            records.append({
+                "ticker": r.get('ticker', ''),
+                "name": r.get('name', ''),
+                "price": float(r.get('price', 0)),
+                "score": int(r.get('score', 0)),
+                "advice": r.get('advice', ''),
+                "pl_percent": float(r.get('pl', 0)),
+                "signals": r.get('signals', [])
+            })
+        if records:
+            try:
+                self.supabase.table("analysis_history").insert(records).execute()
+            except Exception as e:
+                print(f"Save analysis error: {e}")
 
     def get_history(self, ticker=None, limit=100):
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        if ticker:
-            cursor = conn.execute("SELECT * FROM analysis_history WHERE ticker=? ORDER BY id DESC LIMIT ?", (ticker, limit))
-        else:
-            cursor = conn.execute("SELECT * FROM analysis_history ORDER BY id DESC LIMIT ?", (limit,))
-        rows = [dict(r) for r in cursor.fetchall()]
-        conn.close()
-        return rows
+        if not self.supabase: return []
+        try:
+            query = self.supabase.table("analysis_history").select("*").order("id", desc=True)
+            if ticker:
+                query = query.eq("ticker", ticker)
+            res = query.limit(limit).execute()
+            return res.data
+        except Exception as e:
+            print(f"Get history error: {e}")
+            return []
 
     def get_all_tickers(self):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.execute("SELECT DISTINCT ticker, name FROM analysis_history")
-        result = [{"ticker": r[0], "name": r[1]} for r in cursor.fetchall()]
-        conn.close()
-        return result
+        if not self.supabase: return []
+        try:
+            res = self.supabase.table("analysis_history").select("ticker, name").execute()
+            seen = set()
+            result = []
+            for r in res.data:
+                if r['ticker'] not in seen:
+                    seen.add(r['ticker'])
+                    result.append({"ticker": r['ticker'], "name": r['name']})
+            return result
+        except Exception as e:
+            print(f"Get tickers error: {e}")
+            return []
 
     def save_news_analysis(self, item: dict):
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("""
-            INSERT INTO news_analysis (timestamp, source, title, sentiment, summary, link)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            item.get('source', ''), item.get('title', ''),
-            item.get('sentiment', ''), item.get('summary', ''),
-            item.get('link', '')
-        ))
-        conn.commit()
-        conn.close()
+        if not self.supabase: return
+        try:
+            record = {
+                "source": item.get('source', ''),
+                "title": item.get('title', ''),
+                "sentiment": item.get('sentiment', ''),
+                "summary": item.get('summary', ''),
+                "link": item.get('link', '')
+            }
+            self.supabase.table("news_analysis").insert(record).execute()
+        except Exception as e:
+            print(f"Save news error: {e}")
 
     def save_kline_batch(self, df: pd.DataFrame, ticker: str):
-        if df.empty: return
-        conn = sqlite3.connect(DB_PATH)
-        df_save = df.copy()
-        df_save['ticker'] = ticker
-        df_save['date'] = df_save.index.strftime('%Y-%m-%d')
-        df_save = df_save[['ticker', 'date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-        df_save.columns = ['ticker', 'date', 'open', 'high', 'low', 'close', 'volume']
-        df_save.to_sql('daily_kline', conn, if_exists='append', index=False)
-        conn.execute("DELETE FROM daily_kline WHERE rowid NOT IN (SELECT MIN(rowid) FROM daily_kline GROUP BY ticker, date)")
-        conn.commit()
-        conn.close()
+        if not self.supabase or df.empty: return
+        try:
+            records = []
+            for date, row in df.iterrows():
+                records.append({
+                    "ticker": ticker,
+                    "date": date.strftime('%Y-%m-%d'),
+                    "open": float(row['Open']),
+                    "high": float(row['High']),
+                    "low": float(row['Low']),
+                    "close": float(row['Close']),
+                    "volume": int(row['Volume'])
+                })
+            self.supabase.table("daily_kline").upsert(records).execute()
+        except Exception as e:
+            print(f"Save kline error: {e}")
 
     def get_kline(self, ticker: str, days: int) -> pd.DataFrame:
-        conn = sqlite3.connect(DB_PATH)
-        query = "SELECT date, open, high, low, close, volume FROM daily_kline WHERE ticker = ? ORDER BY date DESC LIMIT ?"
-        df = pd.read_sql_query(query, conn, params=(ticker, days))
-        conn.close()
-        if df.empty: return pd.DataFrame()
-        df['date'] = pd.to_datetime(df['date'])
-        df = df.sort_values('date').set_index('date')
-        df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-        return df
+        if not self.supabase: return pd.DataFrame()
+        try:
+            res = self.supabase.table("daily_kline").select("*").eq("ticker", ticker).order("date", desc=True).limit(days).execute()
+            if not res.data: return pd.DataFrame()
+            df = pd.DataFrame(res.data)
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date').set_index('date')
+            df = df[['open', 'high', 'low', 'close', 'volume']]
+            df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            return df
+        except Exception as e:
+            print(f"Get kline error: {e}")
+            return pd.DataFrame()
 
     def save_portfolio(self, user_id: str, portfolio_list: list):
         if not self.supabase: return
@@ -229,9 +207,7 @@ class Database:
                 raise Exception("寫入成功但未回傳資料，請檢查 Supabase RLS 設定")
             return res.data[0]
         except Exception as e:
-            # 把錯誤印在終端機，方便你看
-            print(f"\n[⚠️ 註冊錯誤] {str(e)}\n")
-            # 把錯誤往上拋給 main.py
+            print(f"\\n[⚠️ 註冊錯誤] {str(e)}\\n")
             raise Exception(f"資料庫錯誤: {str(e)}")
 
     def verify_user(self, email, password):
@@ -242,3 +218,14 @@ class Database:
             if user['password_hash'] == password:
                 return user
         return None
+
+    def search_corporate_reports(self, query: str, limit: int = 3):
+        if not self.supabase:
+            return []
+        try:
+            res = self.supabase.table("corporate_reports").select("content").text_search("content", query).limit(limit).execute()
+            if res.data:
+                return [r["content"] for r in res.data]
+        except Exception as e:
+            print(f"RAG Search Error: {e}")
+        return []

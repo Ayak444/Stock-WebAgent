@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>股金往來 - 台股 AI 分析儀表板</title>
 <style>
@@ -1043,6 +1044,8 @@ async function runScreener() {
               const strongStocks = ev.filter(s => s.pct_5d >= 10 || (s.main_force && s.main_force.score >= 70));
               const weakStocks = ev.filter(s => s.pct_5d <= -10 || (s.main_force && s.main_force.score <= 30));
               const otherStocks = ev.filter(s => !strongStocks.includes(s) && !weakStocks.includes(s));
+              // 建立符合 HTML 規範的唯一 ID
+              const graphId = "graph-" + item.target.ticker.replace(/\./g, "-");
 
               return `
               <details style="background:var(--slate-800); border:1px solid var(--slate-700); padding:16px; border-radius:12px; margin-bottom:16px; transition:0.3s;" open>
@@ -1050,6 +1053,9 @@ async function runScreener() {
                       🎯 目標標的：${item.target.ticker} ${item.target.name || ''}
                   </summary>
                   <div style="margin-top:20px; display:grid; gap:12px;">
+                      
+                      <div id="${graphId}" style="width:100%; height:450px; background:rgba(15,23,42,0.4); border:1px solid var(--slate-700); border-radius:8px; margin-bottom:12px;"></div>
+
                       <div style="background:rgba(15,23,42,0.4); padding:12px; border-radius:8px; border-left:4px solid var(--blue-500);">
                           <div style="color:var(--slate-400); font-size:13px; margin-bottom:4px;">所屬產業族群</div>
                           <div style="color:var(--blue-400); font-size:15px; font-weight:600;">${item.group}</div>
@@ -1078,6 +1084,78 @@ async function runScreener() {
                   </div>
               </details>
           `}).join('');
+
+          // 延遲繪製以確保 DOM 元素已載入
+          setTimeout(() => {
+              data.forEach(item => {
+                  const graphId = "graph-" + item.target.ticker.replace(/\./g, "-");
+                  const chartDom = document.getElementById(graphId);
+                  if(!chartDom) return;
+                  
+                  const myChart = echarts.init(chartDom, 'dark');
+                  const nodes = [];
+                  const links = [];
+                  const seenNodes = new Set();
+
+                  const centerName = item.target.ticker + " " + (item.target.name || "");
+                  nodes.push({ name: centerName, symbolSize: 65, itemStyle: { color: "#f97316" } });
+                  seenNodes.add(centerName);
+
+                  if(item.supply_chain) {
+                      (item.supply_chain.upstream || []).forEach(x => {
+                          if(!seenNodes.has(x)) {
+                              nodes.push({ name: x, symbolSize: 48, itemStyle: { color: "#22c55e" } });
+                              seenNodes.add(x);
+                          }
+                          links.push({ source: x, target: centerName, value: "上游原料" });
+                      });
+                      (item.supply_chain.midstream || []).forEach(x => {
+                          if(!seenNodes.has(x)) {
+                              nodes.push({ name: x, symbolSize: 48, itemStyle: { color: "#3b82f6" } });
+                              seenNodes.add(x);
+                          }
+                          if(x !== centerName) {
+                              links.push({ source: x, target: centerName, value: "同業中游" });
+                          }
+                      });
+                      (item.supply_chain.downstream || []).forEach(x => {
+                          if(!seenNodes.has(x)) {
+                              nodes.push({ name: x, symbolSize: 48, itemStyle: { color: "#a855f7" } });
+                              seenNodes.add(x);
+                          }
+                          links.push({ source: centerName, target: x, value: "下游客戶" });
+                      });
+                  }
+
+                  (item.evaluated_stocks || []).forEach(s => {
+                      const sName = s.ticker + " " + (s.name || "");
+                      if(!seenNodes.has(sName)) {
+                          nodes.push({ name: sName, symbolSize: 35, itemStyle: { color: "#64748b" } });
+                          seenNodes.add(sName);
+                          links.push({ source: centerName, target: sName, value: "產業關聯" });
+                      }
+                  });
+
+                  const option = {
+                      backgroundColor: 'transparent',
+                      tooltip: { trigger: 'item', formatter: '{b}' },
+                      series: [{
+                          type: 'graph',
+                          layout: 'force',
+                          roam: true,
+                          draggable: true,
+                          edgeSymbol: ['none', 'arrow'],
+                          edgeSymbolSize: [4, 7],
+                          label: { show: true, position: 'right', color: '#fff', fontSize: 11 },
+                          force: { repulsion: 500, edgeLength: 130, gravity: 0.1 },
+                          data: nodes,
+                          links: links,
+                          lineStyle: { color: 'rgba(255,255,255,0.15)', width: 1.5, curveness: 0.1 }
+                      }]
+                  };
+                  myChart.setOption(option);
+              });
+          }, 100);
   } else {
       resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
   }
