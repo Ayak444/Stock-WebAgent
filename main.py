@@ -43,9 +43,8 @@ class MaiAgentClient:
 
     def send_message(self, content: str, conversation_id: str = None) -> str:
         url = "https://api.groq.com/openai/v1/chat/completions"
-        
         payload = {
-            "model": "llama3-70b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "user", "content": content}
             ],
@@ -74,8 +73,11 @@ class MaiAgentClient:
             return {"status": "error", "message": f"API 錯誤 ({status_code}): {str(e)[:200]}"}
         except http_requests.exceptions.Timeout:
             return {"status": "error", "message": "AI 回覆逾時，請稍後再試"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)[:200]}
+        except http_requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response is not None else 0
+            error_details = e.response.text if e.response is not None else str(e)
+            
+            return {"status": "error", "message": f"API 錯誤 ({status_code}): {error_details}"}
 
 mai_client = MaiAgentClient(MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID)
 
