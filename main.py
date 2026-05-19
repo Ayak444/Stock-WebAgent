@@ -69,15 +69,13 @@ class MaiAgentClient:
                 "conversation_id": conversation_id
             }
         except http_requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code if e.response else 0
-            return {"status": "error", "message": f"API 錯誤 ({status_code}): {str(e)[:200]}"}
-        except http_requests.exceptions.Timeout:
-            return {"status": "error", "message": "AI 回覆逾時，請稍後再試"}
-        except http_requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if e.response is not None else 0
             error_details = e.response.text if e.response is not None else str(e)
-            
             return {"status": "error", "message": f"API 錯誤 ({status_code}): {error_details}"}
+        except http_requests.exceptions.Timeout:
+            return {"status": "error", "message": "AI 回覆逾時，請稍後再試"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)[:200]}
 
 mai_client = MaiAgentClient(MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID)
 
