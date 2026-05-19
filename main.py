@@ -31,52 +31,32 @@ MAIAGENT_BASE_URL = "https://api.maiagent.ai/api"
 class MaiAgentClient:
     def __init__(self, api_key: str, chatbot_id: str, webchat_id: str):
         self.api_key = api_key
-        self.chatbot_id = chatbot_id
-        self.webchat_id = webchat_id
-        self.base_url = MAIAGENT_BASE_URL
+        self.base_url = "https://api.groq.com/openai/v1"
         self.headers = {
-            "Authorization": f"Api-Key {self.api_key}",
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
-        self.enabled = bool(api_key and chatbot_id and webchat_id)
+        self.enabled = bool(api_key)
 
     def create_conversation(self) -> str:
-        url = f"{self.base_url}/conversations/"
-        payload = {"webChat": self.webchat_id}
-        response = http_requests.post(url, headers=self.headers, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("id", "")
+        return "groq-session"
 
     def send_message(self, content: str, conversation_id: str = None) -> str:
-        url = f"{self.base_url}/chatbots/{self.chatbot_id}/completions/"
+        url = f"{self.base_url}/chat/completions"
         payload = {
-            "message": {
-                "content": content
-            }
+            "model": "llama3-70b-8192",
+            "messages": [
+                {"role": "user", "content": content}
+            ],
+            "temperature": 0.2
         }
-        if conversation_id:
-            payload["conversation"] = conversation_id
+        
         response = http_requests.post(
             url, headers=self.headers, json=payload, timeout=120
         )
         response.raise_for_status()
         data = response.json()
-        if isinstance(data, dict):
-            if "message" in data and isinstance(data["message"], dict):
-                return data["message"].get("content", str(data))
-            elif "reply" in data:
-                return data["reply"]
-            elif "content" in data:
-                return data["content"]
-            elif "choices" in data:
-                choices = data["choices"]
-                if choices and isinstance(choices[0], dict):
-                    msg = choices[0].get("message", {})
-                    return msg.get("content", str(data))
-            else:
-                return str(data)
-        return str(data)
+        return data["choices"][0]["message"]["content"]
 
     def chat(self, user_message: str, conversation_id: str = None) -> dict:
         try:
@@ -90,14 +70,7 @@ class MaiAgentClient:
             }
         except http_requests.exceptions.HTTPError as e:
             status_code = e.response.status_code if e.response else 0
-            if status_code == 429:
-                return {"status": "error", "message": "AI 請求過於頻繁，請稍等再試"}
-            elif status_code == 401:
-                return {"status": "error", "message": "API 金鑰無效，請檢查 MAIAGENT_API_KEY"}
-            elif status_code == 404:
-                return {"status": "error", "message": "找不到 Chatbot，請檢查 MAIAGENT_CHATBOT_ID"}
-            else:
-                return {"status": "error", "message": f"API 錯誤 ({status_code}): {str(e)[:200]}"}
+            return {"status": "error", "message": f"API 錯誤 ({status_code}): {str(e)[:200]}"}
         except http_requests.exceptions.Timeout:
             return {"status": "error", "message": "AI 回覆逾時，請稍後再試"}
         except Exception as e:

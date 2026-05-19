@@ -8,54 +8,40 @@ load_dotenv()
 
 def get_sentiment_analysis(news_content: str):
     api_key = os.getenv("MAIAGENT_API_KEY")
-    chatbot_id = os.getenv("MAIAGENT_CHATBOT_ID")
-    
-    raw_url = os.getenv("MAIAGENT_BASE_URL", "https://api.maiagent.ai/api")
-    url_match = re.search(r'(https?://[^\s\)\]]+)', raw_url)
-    base_url = url_match.group(1) if url_match else "https://api.maiagent.ai/api"
-    
-    api_url = f"{base_url}/chatbots/{chatbot_id}/completions/"
+    api_url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
-        "Authorization": f"Api-Key {api_key}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "message": {
-            "content": (
-                "你是一位資深台股宏觀分析師。請分析提供的新聞，並回傳嚴格的 JSON 格式。\n"
-                "【絕對要求】：不要輸出任何 Markdown 標記 (如 ```json)、問候語或其他文字。只能輸出大括號包起來的 JSON 本身。\n"
-                "要求格式：\n"
-                "{\n"
-                '  "score": (0-100的整數),\n'
-                '  "reasoning": "詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）",\n'
-                '  "news_analysis": [{ "title": "新聞標題", "sentiment": "多/空/中立", "summary": "摘要" }],\n'
-                '  "recommendations": [{ "name": "股票名稱", "code": "代碼", "reason": "推薦原因" }]\n'
-                "}\n\n"
-                f"新聞內容：\n{news_content}"
-            )
-        }
+        "model": "llama3-70b-8192",
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "你是一位資深台股宏觀分析師。請分析提供的新聞，並回傳嚴格的 JSON 格式。\n"
+                    "要求格式：\n"
+                    "{\n"
+                    '  "score": (0-100的整數),\n'
+                    '  "reasoning": "詳細解釋為何給出此分數（包含市場心理、利多利空抵銷邏輯）",\n'
+                    '  "news_analysis": [{ "title": "新聞標題", "sentiment": "多/空/中立", "summary": "摘要" }],\n'
+                    '  "recommendations": [{ "name": "股票名稱", "code": "代碼", "reason": "推薦原因" }]\n'
+                    "}\n\n"
+                    f"新聞內容：\n{news_content}"
+                )
+            }
+        ],
+        "temperature": 0.1
     }
 
     try:
         response = requests.post(api_url, headers=headers, json=payload, timeout=45)
         res_data = response.json()
         
-        ai_content = ""
+        ai_content = res_data["choices"][0]["message"]["content"].strip()
         
-        if "content" in res_data and isinstance(res_data["content"], str):
-            ai_content = res_data["content"]
-        elif "choices" in res_data and isinstance(res_data["choices"], list) and len(res_data["choices"]) > 0:
-            ai_content = res_data["choices"][0].get("message", {}).get("content", "")
-        elif "message" in res_data and isinstance(res_data["message"], dict):
-            ai_content = res_data["message"].get("content", "")
-        elif "reply" in res_data:
-            ai_content = res_data["reply"]
-        else:
-            ai_content = str(res_data)
-
-        ai_content = str(ai_content).strip()
         ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
         ai_content = re.sub(r'```\s*', '', ai_content)
         
