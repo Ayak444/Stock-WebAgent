@@ -42,7 +42,8 @@ class MaiAgentClient:
         return "groq-session"
 
     def send_message(self, content: str, conversation_id: str = None) -> str:
-        url = f"{self.base_url}/chat/completions"
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        
         payload = {
             "model": "llama3-70b-8192",
             "messages": [
