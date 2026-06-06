@@ -592,14 +592,7 @@ const fmt = (num, d = 2) => Number(num).toLocaleString('en-US', { minimumFractio
 // STOCK UTILS
 // ============================
 const stockNames = {
-  "2330.TW": "台積電", "2317.TW": "鴻海", "2454.TW": "聯發科", "2382.TW": "廣達", "2603.TW": "長榮",
-  "0050.TW": "元大台灣50", "0056.TW": "元大高股息", "2881.TW": "富邦金", "2882.TW": "國泰金", "2891.TW": "中信金",
-  "3231.TW": "緯創", "2308.TW": "台達電", "2303.TW": "聯電", "3711.TW": "日月光", "2886.TW": "兆豐金",
-  "2884.TW": "玉山金", "1301.TW": "台塑", "1303.TW": "南亞", "2002.TW": "中鋼", "2885.TW": "元大金",
-  "1216.TW": "統一", "2880.TW": "華南金", "2892.TW": "第一金", "2883.TW": "開發金", "5880.TW": "合庫金",
-  "2887.TW": "台新金", "2890.TW": "永豐金", "2357.TW": "華碩", "2395.TW": "研華", "3008.TW": "大立光",
-  "2379.TW": "瑞昱", "3045.TW": "台灣大", "4904.TW": "遠傳", "2412.TW": "中華電", "2207.TW": "和泰車",
-  "2912.TW": "統一超", "2609.TW": "陽明", "2615.TW": "萬海", "2327.TW": "國巨", "2301.TW": "光寶科"
+  "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2382": "廣達", "2603": "長榮"
 };
 
 function normalizeTicker(val) {
@@ -609,8 +602,18 @@ function normalizeTicker(val) {
 }
 
 function displayTicker(ticker) {
-  const name = stockNames[ticker];
+  const code = ticker.split('.')[0];
+  const name = stockNames[code] || stockNames[ticker];
   return name ? `${ticker} ${name}` : ticker;
+}
+
+async function fetchStockNames() {
+  try {
+    const res = await apiCall('/api/stock_names');
+    if (res.status === 'success' && res.data) {
+      Object.assign(stockNames, res.data);
+    }
+  } catch(e) {}
 }
 
 // ============================
@@ -1637,6 +1640,7 @@ document.addEventListener('keydown', (e) => {
 // INIT
 // ============================
 function init() {
+  fetchStockNames();
   checkHealth();
   updateAuthUI();
   loadPositionsFromServer();

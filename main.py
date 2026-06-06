@@ -622,6 +622,11 @@ def market_status():
     is_open = DataProvider.is_market_open()
     return {"status": "success", "is_open": is_open, "time": datetime.now().isoformat()}
 
+@app.get("/api/stock_names")
+def get_stock_names():
+    from screener_engine import OPENAPI_CACHE
+    return {"status": "success", "data": OPENAPI_CACHE.get("mapping", {})}
+
 @app.get("/trades")
 def get_trades(user_id: str):
     data = db.get_trade_history(user_id)
