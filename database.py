@@ -152,6 +152,16 @@ class Database:
             print(e)
             return []
     
+    def get_trade_history(self, user_id: str, limit: int = 50):
+        """讀取交易歷史"""
+        if not self.supabase: return []
+        try:
+            res = self.supabase.table("trades").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+            return res.data
+        except Exception as e:
+            print(f"Get trade history error: {e}")
+            return []
+
     def get_or_create_user(self, email: str, name: str):
         if not self.supabase: return None
         try:

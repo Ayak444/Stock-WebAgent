@@ -2,242 +2,280 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="股金往來 — 台股 AI 智能分析儀表板，提供即時行情、K線技術分析、策略回測、新聞情緒分析與 AI 關聯選股">
 <title>股金往來 - 台股 AI 分析儀表板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <style>
-.index-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    margin-top: 10px;
-    background: rgba(15, 23, 42, 0.4);
-    border-radius: 8px;
-    overflow: hidden;
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --slate-950:#020617;--slate-900:#0f172a;--slate-800:#1e293b;
+  --slate-700:#334155;--slate-600:#475569;--slate-500:#64748b;
+  --slate-400:#94a3b8;--slate-300:#cbd5e1;--slate-200:#e2e8f0;
+  --blue-600:#2563eb;--blue-500:#3b82f6;--blue-400:#60a5fa;
+  --green-500:#22c55e;--green-400:#4ade80;
+  --red-500:#ef4444;--red-400:#f87171;
+  --orange-500:#f97316;--orange-400:#fb923c;
+  --purple-600:#9333ea;--purple-500:#a855f7;
+  --yellow-500:#eab308;--yellow-400:#facc15;
+  --cyan-400:#22d3ee;--cyan-500:#06b6d4;
+  --glass-bg:rgba(15,23,42,0.65);
+  --glass-border:rgba(148,163,184,0.12);
+  --glass-blur:16px;
+  --shadow-card:0 4px 24px rgba(0,0,0,0.25);
+  --shadow-glow-blue:0 0 30px rgba(59,130,246,0.1);
+  --shadow-glow-orange:0 0 30px rgba(249,115,22,0.12);
+  --transition-fast:150ms cubic-bezier(.4,0,.2,1);
+  --transition-normal:250ms cubic-bezier(.4,0,.2,1);
+  --transition-slow:400ms cubic-bezier(.4,0,.2,1);
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:20px;--radius-full:9999px;
 }
-.index-table th, .index-table td {
-    padding: 8px;
-    text-align: left;
-    border-bottom: 1px solid var(--slate-700);
-}
-.index-table tr:last-child td { border-bottom: none; }
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--slate-950);color:var(--slate-300);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+.app{display:flex;height:100vh}
 
-.reasoning-box {
-    background: rgba(37, 99, 235, 0.1);
-    border: 1px solid var(--blue-500);
-    padding: 15px;
-    border-radius: 8px;
-    color: var(--slate-200);
-    line-height: 1.6;
-    font-size: 14px;
-}
+/* ===== Sidebar ===== */
+.sidebar{width:240px;background:linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98));border-right:1px solid var(--glass-border);display:flex;flex-direction:column;flex-shrink:0;backdrop-filter:blur(var(--glass-blur));transition:transform var(--transition-slow);z-index:1000}
+.sidebar-header{padding:20px 24px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:10px}
+.sidebar-header .logo{font-size:22px;filter:drop-shadow(0 0 8px rgba(249,115,22,0.4))}
+.sidebar-header .title{color:#fff;font-weight:800;font-size:15px;letter-spacing:0.5px}
+.sidebar-header .ver{color:var(--slate-500);font-size:11px;margin-left:auto;background:var(--slate-800);padding:2px 8px;border-radius:var(--radius-full);font-weight:500}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-section{font-size:10px;color:var(--slate-600);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:16px 12px 6px;margin-top:4px}
+.nav-btn{width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius-md);border:none;background:transparent;color:var(--slate-400);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--transition-normal);text-align:left;font-family:inherit;position:relative;overflow:hidden}
+.nav-btn:hover{background:rgba(51,65,85,0.5);color:var(--slate-200);transform:translateX(4px)}
+.nav-btn.active{background:linear-gradient(135deg,var(--blue-600),#4f46e5);color:#fff;box-shadow:0 4px 15px rgba(37,99,235,0.3);font-weight:600}
+.nav-btn .icon{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+.sidebar-footer{padding:12px;border-top:1px solid var(--glass-border)}
+.mobile-toggle{display:none;position:fixed;top:12px;left:12px;z-index:1001;width:40px;height:40px;border-radius:var(--radius-md);background:var(--slate-800);border:1px solid var(--slate-700);color:#fff;font-size:18px;cursor:pointer;align-items:center;justify-content:center;transition:all var(--transition-fast)}
+.sidebar-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:999;opacity:0;transition:opacity var(--transition-normal)}
+.sidebar-overlay.visible{opacity:1}
 
-.news-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-top: 20px;
-}
-.news-tile {
-    background: var(--slate-800);
-    border: 1px solid var(--slate-700);
-    padding: 12px;
-    border-radius: 8px;
-}
-.sentiment-tag {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: bold;
-    margin-bottom: 8px;
-    display: inline-block;
-}
-  .sentiment-card {
-  background: var(--slate-800);
-  border-radius: 12px;
-  padding: 30px;
-  text-align: center;
-  border: 1px solid var(--slate-700);
-  margin-bottom: 20px;
-}
+/* ===== Main Area ===== */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.top-bar{display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:10px 24px;border-bottom:1px solid var(--glass-border);background:var(--glass-bg);backdrop-filter:blur(var(--glass-blur))}
+.top-bar-left{display:flex;align-items:center;gap:16px;margin-right:auto}
+.clock{font-family:'Inter',monospace;font-size:13px;color:var(--slate-400);font-weight:600;letter-spacing:0.5px}
+.market-badge{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 12px;border-radius:var(--radius-full);border:1px solid}
+.market-badge.open{color:var(--green-400);border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)}
+.market-badge.closed{color:var(--slate-400);border-color:var(--slate-700);background:rgba(71,85,105,0.2)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green-400);animation:pulse 2s infinite}
+.status-dot.err{background:var(--red-400);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--slate-500);font-weight:500}
+.content{flex:1;overflow-y:auto;scroll-behavior:smooth}
+.content::-webkit-scrollbar{width:5px}
+.content::-webkit-scrollbar-track{background:transparent}
+.content::-webkit-scrollbar-thumb{background:var(--slate-700);border-radius:10px}
 
-.score-circle {
-  font-size: 80px;
-  font-weight: bold;
-  color: #f1b912;
-  text-shadow: 0 0 20px rgba(241, 185, 18, 0.4);
-  margin-bottom: 12px;
-}
+/* ===== Pages ===== */
+.page{display:none;padding:28px;animation:pageIn .35s ease}
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.page.active{display:block}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-header h2{font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px}
+.page-header .sub{font-size:12px;color:var(--slate-500);margin-top:3px;font-weight:500}
 
-.recommendation-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-}
+/* ===== Buttons ===== */
+.btn-analyze{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--orange-500),#ea580c);color:#fff;border:none;padding:10px 20px;border-radius:var(--radius-md);font-size:13px;font-weight:700;cursor:pointer;transition:all var(--transition-normal);box-shadow:0 4px 15px rgba(249,115,22,0.25);font-family:inherit;letter-spacing:0.3px}
+.btn-analyze:hover{box-shadow:0 8px 25px rgba(249,115,22,0.4);transform:translateY(-2px);filter:brightness(1.1)}
+.btn-analyze:active{transform:translateY(0);box-shadow:0 2px 10px rgba(249,115,22,0.3)}
+.btn-analyze:disabled{opacity:0.5;cursor:not-allowed;transform:none!important;box-shadow:none!important;filter:none!important}
+.btn-outline{display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--slate-600);color:var(--slate-200);padding:10px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition-normal);font-family:inherit}
+.btn-outline:hover{background:var(--slate-800);border-color:var(--slate-500);transform:translateY(-1px)}
+.btn-ghost{background:none;border:none;color:var(--slate-400);cursor:pointer;padding:6px 10px;border-radius:var(--radius-sm);transition:all var(--transition-fast);font-family:inherit}
+.btn-ghost:hover{color:#fff;background:var(--slate-800)}
 
-.stock-card {
-  background: rgba(15, 23, 42, 0.6);
-  border-left: 4px solid #f1b912;
-  padding: 20px;
-  border-radius: 8px;
-  transition: transform 0.2s;
-}
+/* ===== Cards ===== */
+.card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;backdrop-filter:blur(8px);transition:all var(--transition-normal);box-shadow:var(--shadow-card)}
+.card:hover{border-color:rgba(148,163,184,0.18);box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+.card-header{padding:14px 20px;border-bottom:1px solid var(--glass-border);font-size:13px;font-weight:700;color:#fff;display:flex;justify-content:space-between;align-items:center;letter-spacing:0.2px}
+.card-body{padding:18px 20px}
+.stat-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:20px;backdrop-filter:blur(8px);transition:all var(--transition-normal);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.stat-card.up::before{background:linear-gradient(90deg,var(--green-500),var(--green-400))}
+.stat-card.down::before{background:linear-gradient(90deg,var(--red-500),var(--red-400))}
+.stat-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
 
-.stock-card:hover {
-  transform: translateY(-2px);
-}
+/* ===== Grids ===== */
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
 
-.stock-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
+/* ===== Badges ===== */
+.badge{display:inline-flex;align-items:center;font-size:11px;padding:3px 10px;border-radius:var(--radius-full);border:1px solid;font-weight:600;letter-spacing:0.2px}
+.badge-green{background:rgba(34,197,94,.12);color:var(--green-400);border-color:rgba(34,197,94,.25)}
+.badge-red{background:rgba(239,68,68,.12);color:var(--red-400);border-color:rgba(239,68,68,.25)}
+.badge-blue{background:rgba(59,130,246,.12);color:var(--blue-400);border-color:rgba(59,130,246,.25)}
+.badge-orange{background:rgba(249,115,22,.12);color:var(--orange-400);border-color:rgba(249,115,22,.25)}
+.badge-purple{background:rgba(168,85,247,.12);color:var(--purple-500);border-color:rgba(168,85,247,.25)}
+.badge-slate{background:rgba(71,85,105,.3);color:var(--slate-300);border-color:var(--slate-600)}
 
-.stock-card-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #fff;
-}
+/* ===== Data Table ===== */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table thead th{text-align:left;padding:10px 16px;font-size:11px;color:var(--slate-500);font-weight:600;border-bottom:1px solid var(--glass-border);letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;transition:color var(--transition-fast);user-select:none}
+.data-table thead th:hover{color:var(--slate-300)}
+.data-table tbody tr{border-bottom:1px solid rgba(51,65,85,.3);transition:background var(--transition-fast)}
+.data-table tbody tr:hover{background:rgba(51,65,85,.3)}
+.data-table tbody tr:last-child{border-bottom:none}
+.data-table tbody td{padding:12px 16px}
 
-.tag {
-  background: #238636;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #fff;
-  font-weight: 600;
-}
+/* ===== Inputs ===== */
+.input{background:var(--slate-900);border:1px solid var(--slate-600);color:#fff;font-size:13px;border-radius:var(--radius-md);padding:10px 14px;outline:none;transition:all var(--transition-normal);width:100%;font-family:inherit}
+.input:focus{border-color:var(--blue-500);box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+.input::placeholder{color:var(--slate-600)}
+.input-group{display:flex;gap:8px;align-items:center}
 
-.stock-card-reason {
-  font-size: 14px;
-  color: var(--slate-300);
-  line-height: 1.6;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-:root {
-  --slate-950:#020617; --slate-900:#0f172a; --slate-800:#1e293b;
-  --slate-700:#334155; --slate-600:#475569; --slate-500:#64748b;
-  --slate-400:#94a3b8; --slate-300:#cbd5e1; --slate-200:#e2e8f0;
-  --blue-600:#2563eb; --blue-500:#3b82f6; --blue-400:#60a5fa;
-  --green-500:#22c55e; --green-400:#4ade80;
-  --red-500:#ef4444; --red-400:#f87171;
-  --orange-500:#f97316; --orange-400:#ea580c;
-  --purple-600:#9333ea; --purple-500:#a855f7;
-}
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--slate-950); color:var(--slate-300); height:100vh; overflow:hidden; }
-.app { display:flex; height:100vh; }
-.sidebar { width:220px; background:var(--slate-900); border-right:1px solid var(--slate-800); display:flex; flex-direction:column; flex-shrink:0; }
-.sidebar-header { padding:16px 20px; border-bottom:1px solid var(--slate-800); display:flex; align-items:center; gap:8px; }
-.sidebar-header .logo { font-size:18px; }
-.sidebar-header .title { color:#fff; font-weight:700; font-size:14px; }
-.sidebar-header .ver { color:var(--slate-500); font-size:12px; margin-left:4px; }
-.sidebar-nav { flex:1; padding:16px 12px; display:flex; flex-direction:column; gap:4px; }
-.nav-btn { width:100%; display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px; border:none; background:transparent; color:var(--slate-400); font-size:13px; font-weight:500; cursor:pointer; transition:all .2s; text-align:left; }
-.nav-btn:hover { background:var(--slate-800); color:var(--slate-200); }
-.nav-btn.active { background:var(--blue-600); color:#fff; }
-.nav-btn .icon { font-size:16px; width:20px; text-align:center; }
-.sidebar-footer { padding:12px; border-top:1px solid var(--slate-800); }
-.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-.top-bar { display:flex; align-items:center; justify-content:flex-end; gap:16px; padding:12px 24px; border-bottom:1px solid var(--slate-800); background:rgba(15,23,42,.5); }
-.status-dot { width:8px; height:8px; border-radius:50%; background:var(--green-400); animation:pulse 2s infinite; }
-.status-dot.err { background:var(--red-400); animation:none; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-.status-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--slate-400); }
-.content { flex:1; overflow-y:auto; scroll-behavior: smooth; }
-.page { display:none; padding:24px; animation: fadeIn 0.3s ease;}
-@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-.page.active { display:block; }
-.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-.page-header h2 { font-size:20px; font-weight:700; color:#fff; }
-.page-header .sub { font-size:12px; color:var(--slate-400); margin-top:2px; }
-.btn-analyze { display:flex; align-items:center; gap:8px; background:linear-gradient(135deg, var(--orange-500), var(--orange-400)); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; box-shadow: 0 4px 15px rgba(249,115,22,0.3); transform: translateY(0); }
-.btn-analyze:hover { box-shadow: 0 6px 20px rgba(249,115,22,0.5); transform: translateY(-2px); }
-.btn-analyze:disabled { opacity:0.6; cursor:not-allowed; transform: translateY(0); box-shadow: none;}
-.btn-outline { display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--slate-600); color:#fff; padding:10px 18px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
-.btn-outline:hover { background:var(--slate-800); }
-.card { background:var(--slate-800); border:1px solid var(--slate-700); border-radius:12px; overflow:hidden; margin-bottom:16px;}
-.card-header { padding:12px 20px; border-bottom:1px solid var(--slate-700); font-size:13px; font-weight:600; color:#fff; display: flex; justify-content: space-between; align-items: center;}
-.card-body { padding:16px 20px; }
-.grid { display:grid; gap:16px; }
-.grid-2 { grid-template-columns:repeat(2,1fr); }
-.grid-3 { grid-template-columns:repeat(3,1fr); }
-.grid-4 { grid-template-columns:repeat(4,1fr); }
-.badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid; }
-.badge-green { background:rgba(34,197,94,.15); color:var(--green-400); border-color:rgba(34,197,94,.3); }
-.badge-red { background:rgba(239,68,68,.15); color:var(--red-400); border-color:rgba(239,68,68,.3); }
-.badge-blue { background:rgba(59,130,246,.15); color:var(--blue-400); border-color:rgba(59,130,246,.3); }
-.badge-orange { background:rgba(249,115,22,.15); color:var(--orange-400); border-color:rgba(249,115,22,.3); }
-.badge-slate { background:rgba(71,85,105,.4); color:var(--slate-300); border-color:var(--slate-600); }
-.data-table { width:100%; border-collapse:collapse; font-size:13px; }
-.data-table thead th { text-align:left; padding:8px 16px; font-size:11px; color:var(--slate-500); font-weight:500; border-bottom:1px solid var(--slate-700); }
-.data-table tbody tr { border-bottom:1px solid rgba(51,65,85,.5); cursor:pointer; transition:background .2s; }
-.data-table tbody tr:hover { background:rgba(51,65,85,.4); }
-.data-table tbody td { padding:12px 16px; }
-.input { background:var(--slate-900); border:1px solid var(--slate-600); color:#fff; font-size:13px; border-radius:8px; padding:10px 14px; outline:none; transition:border-color .2s; width:100%; }
-.input:focus { border-color:var(--blue-500); }
-.position-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr auto; gap:12px; align-items:center; }
-.btn-remove { background:none; border:none; color:var(--slate-500); font-size:18px; cursor:pointer; transition:color .2s; }
-.btn-remove:hover { color:var(--red-400); }
-.btn-add { width:100%; border:1px dashed var(--slate-600); background:transparent; color:var(--slate-400); padding:10px; border-radius:8px; cursor:pointer; font-size:13px; transition:all .2s; }
-.btn-add:hover { border-color:var(--purple-500); color:var(--purple-400); }
-.advice-box { padding:16px; border-radius:8px; margin-bottom:12px; }
-.advice-box .title { font-size:14px; font-weight:600; margin-bottom:8px; }
-.advice-box .desc { font-size:15px; color:var(--slate-200); line-height:1.7; white-space: pre-wrap;}
-.advice-blue { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.3); }
-.advice-blue .title { color:var(--blue-400); }
-.loading { display:flex; flex-direction:column; align-items:center; padding:40px; gap:12px; }
-.spinner { width:40px; height:40px; border:4px solid var(--slate-600); border-top-color:var(--orange-500); border-radius:50%; animation:spin 1s linear infinite; }
-@keyframes spin { to{transform:rotate(360deg)} }
-.loading-text { font-size:13px; color:var(--slate-400); }
-.score-bar { display:flex; align-items:center; gap:8px; }
-.score-bar-track { width:56px; height:6px; background:var(--slate-600); border-radius:3px; overflow:hidden; }
-.score-bar-fill { height:100%; border-radius:3px; }
-.score-bar-fill.high { background:var(--green-500); }
-.score-bar-fill.mid { background:var(--yellow-500); }
-.score-bar-fill.low { background:var(--red-500); }
-.chat-fab { position:fixed; bottom:24px; right:24px; width:48px; height:48px; background:var(--blue-600); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; box-shadow:0 4px 20px rgba(37,99,235,.4); transition:all .2s; z-index:100; }
-.chat-fab:hover { background:var(--blue-500); transform:scale(1.1); }
-.chat-panel { position:fixed; bottom:80px; right:24px; width:380px; max-height:500px; height:60vh; background:var(--slate-900); border:1px solid var(--slate-700); border-radius:16px; display:none; flex-direction:column; z-index:100; box-shadow:0 20px 60px rgba(0,0,0,.5); }
-.chat-panel.open { display:flex; }
-.chat-header { padding:14px 20px; border-bottom:1px solid var(--slate-700); display:flex; align-items:center; justify-content:space-between; }
-.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-.chat-msg { max-width:85%; padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; white-space: pre-wrap;}
-.chat-msg.user { align-self:flex-end; background:var(--blue-600); color:#fff; border-bottom-right-radius:4px; }
-.chat-msg.bot { align-self:flex-start; background:var(--slate-800); color:var(--slate-200); border-bottom-left-radius:4px; border:1px solid var(--slate-700);}
-.chat-input-wrap { padding:12px 16px; border-top:1px solid var(--slate-700); display:flex; gap:8px; }
-.chat-input { flex:1; background:var(--slate-800); border:1px solid var(--slate-600); color:#fff; font-size:13px; padding:10px 14px; border-radius:8px; outline:none; }
-.chat-send { background:var(--blue-600); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 10px; }
+/* ===== Position Grid ===== */
+.position-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr auto;gap:12px;align-items:center}
+.btn-remove{background:none;border:none;color:var(--slate-500);font-size:18px;cursor:pointer;transition:all var(--transition-fast);padding:4px 8px;border-radius:var(--radius-sm)}
+.btn-remove:hover{color:var(--red-400);background:rgba(239,68,68,0.1)}
+.btn-add{width:100%;border:1px dashed var(--slate-600);background:transparent;color:var(--slate-400);padding:12px;border-radius:var(--radius-md);cursor:pointer;font-size:13px;transition:all var(--transition-normal);font-family:inherit}
+.btn-add:hover{border-color:var(--blue-500);color:var(--blue-400);background:rgba(59,130,246,0.05)}
 
-.scr-filter {
-  accent-color: var(--orange-500);
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
+/* ===== Advice Boxes ===== */
+.advice-box{padding:18px;border-radius:var(--radius-md);margin-bottom:12px}
+.advice-box .title{font-size:14px;font-weight:700;margin-bottom:8px}
+.advice-box .desc{font-size:14px;color:var(--slate-200);line-height:1.8;white-space:pre-wrap}
+.advice-blue{background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2)}
+.advice-blue .title{color:var(--blue-400)}
+
+/* ===== Loading ===== */
+.loading{display:flex;flex-direction:column;align-items:center;padding:40px;gap:14px}
+.spinner{width:36px;height:36px;border:3px solid var(--slate-700);border-top-color:var(--orange-500);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--slate-500);font-weight:500}
+.skeleton{background:linear-gradient(90deg,var(--slate-800) 25%,var(--slate-700) 50%,var(--slate-800) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius-sm);height:16px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ===== Score Bar ===== */
+.score-bar{display:flex;align-items:center;gap:8px}
+.score-bar-track{width:56px;height:6px;background:var(--slate-700);border-radius:3px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:3px;transition:width var(--transition-slow)}
+.score-bar-fill.high{background:linear-gradient(90deg,#22c55e,#4ade80)}
+.score-bar-fill.mid{background:linear-gradient(90deg,#eab308,#facc15)}
+.score-bar-fill.low{background:linear-gradient(90deg,#ef4444,#f87171)}
+
+/* ===== Sentiment ===== */
+.sentiment-card{background:var(--glass-bg);border-radius:var(--radius-xl);padding:36px;text-align:center;border:1px solid var(--glass-border);margin-bottom:20px;backdrop-filter:blur(8px)}
+.score-circle{font-size:80px;font-weight:800;color:var(--yellow-500);text-shadow:0 0 40px rgba(234,179,8,0.3);margin-bottom:12px;letter-spacing:-2px}
+.index-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;background:rgba(15,23,42,0.3);border-radius:var(--radius-md);overflow:hidden}
+.index-table th,.index-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--glass-border)}
+.index-table tr:last-child td{border-bottom:none}
+.reasoning-box{background:rgba(37,99,235,0.06);border:1px solid rgba(59,130,246,0.2);padding:18px;border-radius:var(--radius-md);color:var(--slate-200);line-height:1.7;font-size:14px}
+.news-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-top:20px}
+.news-tile{background:var(--slate-800);border:1px solid var(--glass-border);padding:14px;border-radius:var(--radius-md);transition:all var(--transition-normal)}
+.news-tile:hover{transform:translateY(-2px);border-color:var(--slate-600)}
+.sentiment-tag{font-size:10px;padding:3px 8px;border-radius:var(--radius-sm);font-weight:700;margin-bottom:8px;display:inline-block}
+.recommendation-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.stock-card{background:rgba(15,23,42,0.5);border-left:4px solid var(--yellow-500);padding:20px;border-radius:var(--radius-md);transition:all var(--transition-normal)}
+.stock-card:hover{transform:translateY(-3px);box-shadow:0 8px 25px rgba(0,0,0,0.3)}
+
+/* ===== Screener ===== */
+.scr-filter{accent-color:var(--orange-500);width:16px;height:16px;cursor:pointer}
+.screener-label{display:flex;align-items:center;gap:8px;cursor:pointer}
+
+/* ===== Chat ===== */
+.chat-fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;background:linear-gradient(135deg,var(--blue-600),#4f46e5);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;box-shadow:0 6px 25px rgba(37,99,235,0.35);transition:all var(--transition-normal);z-index:100}
+.chat-fab:hover{transform:scale(1.1) translateY(-2px);box-shadow:0 10px 35px rgba(37,99,235,0.45)}
+.chat-panel{position:fixed;bottom:84px;right:24px;width:400px;max-height:520px;height:62vh;background:var(--slate-900);border:1px solid var(--glass-border);border-radius:var(--radius-xl);display:none;flex-direction:column;z-index:100;box-shadow:0 25px 70px rgba(0,0,0,0.5);backdrop-filter:blur(var(--glass-blur))}
+.chat-panel.open{display:flex;animation:chatIn .3s ease}
+@keyframes chatIn{from{opacity:0;transform:translateY(10px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.chat-header{padding:16px 20px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between}
+.chat-header .title{font-weight:700;color:#fff;font-size:14px}
+.chat-header-actions{display:flex;gap:4px}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.chat-msg{max-width:85%;padding:12px 16px;border-radius:var(--radius-lg);font-size:13px;line-height:1.6;white-space:pre-wrap;animation:msgIn .25s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--blue-600),#4f46e5);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.bot{align-self:flex-start;background:var(--slate-800);color:var(--slate-200);border-bottom-left-radius:4px;border:1px solid var(--glass-border)}
+.chat-msg.bot strong{color:#fff}
+.chat-msg.bot code{background:var(--slate-700);padding:1px 5px;border-radius:3px;font-size:12px}
+.chat-input-wrap{padding:12px 16px;border-top:1px solid var(--glass-border);display:flex;gap:8px}
+.chat-input{flex:1;background:var(--slate-800);border:1px solid var(--slate-700);color:#fff;font-size:13px;padding:10px 14px;border-radius:var(--radius-md);outline:none;font-family:inherit;transition:border-color var(--transition-fast)}
+.chat-input:focus{border-color:var(--blue-500)}
+.chat-send{background:linear-gradient(135deg,var(--blue-600),#4f46e5);color:#fff;border:none;padding:10px 16px;border-radius:var(--radius-md);cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;transition:all var(--transition-fast)}
+.chat-send:hover{filter:brightness(1.15)}
+
+/* ===== K-Line Page ===== */
+.kline-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.kline-toolbar .range-btn{padding:6px 16px;border-radius:var(--radius-full);border:1px solid var(--slate-600);background:transparent;color:var(--slate-400);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all var(--transition-fast)}
+.kline-toolbar .range-btn:hover,.kline-toolbar .range-btn.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600)}
+
+/* ===== Backtest ===== */
+.backtest-stat{text-align:center;padding:24px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);backdrop-filter:blur(8px)}
+.backtest-stat .label{font-size:12px;color:var(--slate-500);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.backtest-stat .value{font-size:32px;font-weight:800;letter-spacing:-1px}
+
+/* ===== Toast ===== */
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:5000;display:flex;flex-direction:column-reverse;gap:10px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;padding:14px 20px;border-radius:var(--radius-md);color:#fff;font-size:13px;font-weight:500;pointer-events:auto;animation:toastIn .35s ease;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-width:380px;backdrop-filter:blur(12px);font-family:inherit;border:1px solid}
+.toast.success{background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3);color:var(--green-400)}
+.toast.error{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3);color:var(--red-400)}
+.toast.warning{background:rgba(249,115,22,0.15);border-color:rgba(249,115,22,0.3);color:var(--orange-400)}
+.toast.info{background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:var(--blue-400)}
+.toast .toast-close{background:none;border:none;color:inherit;cursor:pointer;opacity:0.6;font-size:16px;padding:0 0 0 8px;transition:opacity var(--transition-fast)}
+.toast .toast-close:hover{opacity:1}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(30px)}}
+
+/* ===== Quick Search ===== */
+.quick-search{position:relative}
+.quick-search .input{padding-left:36px}
+.quick-search .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--slate-500);font-size:14px;pointer-events:none}
+
+/* ===== Modals ===== */
+.modal-backdrop{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-backdrop.open{display:flex}
+
+/* ===== Kbd ===== */
+kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radius:3px;background:var(--slate-800);color:var(--slate-400);font-family:inherit;font-weight:600}
+
+/* ===== Responsive ===== */
+@media(max-width:1024px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){
+  .sidebar{position:fixed;left:0;top:0;height:100%;transform:translateX(-100%);box-shadow:none}
+  .sidebar.open{transform:translateX(0);box-shadow:20px 0 60px rgba(0,0,0,0.5)}
+  .mobile-toggle{display:flex}
+  .top-bar{padding:10px 16px;padding-left:56px}
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+  .page{padding:16px}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .position-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .chat-panel{width:calc(100% - 16px);right:8px;bottom:8px;height:80vh;max-height:none;border-radius:var(--radius-lg)}
+  .chat-fab{bottom:16px;right:16px;width:48px;height:48px}
+  .kline-toolbar{flex-direction:column;align-items:stretch}
+  .kline-toolbar .input-group{width:100%}
 }
-.screener-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
+@media(max-width:480px){
+  .page-header h2{font-size:18px}
+  .stat-card{padding:14px}
 }
 </style>
 </head>
 <body>
+
+<button class="mobile-toggle" id="mobile-toggle" onclick="toggleSidebar()">☰</button>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
 <div class="app">
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <span class="logo">🚀</span>
       <span class="title">股金往來</span>
-      <span class="ver">台股 AI 分析儀表板</span>
+      <span class="ver">v3.0</span>
     </div>
     <nav class="sidebar-nav" id="nav">
+      <div class="nav-section">總覽</div>
       <button class="nav-btn active" data-page="war"><span class="icon">🏠</span>首頁</button>
       <button class="nav-btn" data-page="stress"><span class="icon">🧪</span>資產壓力測試</button>
+      <div class="nav-section">分析工具</div>
       <button class="nav-btn" data-page="tech"><span class="icon">📐</span>異質技術分析</button>
+      <button class="nav-btn" data-page="kline"><span class="icon">📈</span>個股 K 線圖</button>
+      <button class="nav-btn" data-page="backtest"><span class="icon">🔄</span>策略回測</button>
+      <div class="nav-section">資訊</div>
       <button class="nav-btn" data-page="news"><span class="icon">📰</span>新聞知識圖譜</button>
       <button class="nav-btn" data-page="sentiment"><span class="icon">📡</span>市場情緒雷達</button>
       <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 關聯選股</button>
@@ -249,20 +287,31 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
   <div class="main">
     <header class="top-bar">
-      <div id="auth-section" style="display:flex; align-items:center; gap:12px; margin-right: auto;">
+      <div class="top-bar-left" id="auth-section"></div>
+      <div class="clock" id="clock"></div>
+      <div class="market-badge closed" id="market-badge">
+        <span id="market-dot" style="width:6px;height:6px;border-radius:50%;background:var(--slate-500);display:inline-block"></span>
+        <span id="market-text">載入中</span>
       </div>
-      <span class="status-item"><span class="status-dot" id="dot-api"></span>核心 API</span>
-      <span class="status-item"><span class="status-dot" id="dot-ai"></span>MaiAgent 推論</span>
+      <span class="status-item"><span class="status-dot" id="dot-api"></span>API</span>
+      <span class="status-item"><span class="status-dot" id="dot-ai"></span>AI</span>
     </header>
+
     <div class="content">
 
+      <!-- ========== PAGE: Home ========== -->
       <div class="page active" id="page-war">
         <div class="page-header">
           <div><h2>首頁</h2><p class="sub">AI 盤前摘要 × 即時新聞動態</p></div>
+          <div class="quick-search">
+            <span class="search-icon">🔍</span>
+            <input class="input" id="quick-search-input" placeholder="快速查詢股票 (如 2330.TW)  按 Enter" style="width:280px;padding-left:36px" onkeydown="if(event.key==='Enter')quickSearch()">
+          </div>
         </div>
-        <div id="macro-bar" class="grid grid-4" style="margin-bottom:24px;"></div>
-        
-        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width: 100%; margin-bottom: 24px; padding: 14px; font-size: 16px; justify-content: center; letter-spacing: 2px;">⚡ 即時更新</button>
+
+        <div id="macro-bar" class="grid grid-4" style="margin-bottom:24px"></div>
+
+        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px">⚡ 即時更新</button>
 
         <div class="grid grid-2">
           <div class="card">
@@ -272,18 +321,19 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
             </div>
           </div>
           <div class="card">
-            <div class="card-header">📰 各大財經頭條 (最新 5 則)</div>
-            <div class="card-body" id="war-news" style="padding:16px;">
-               <span style="color:var(--slate-500); display:block;">無最新新聞</span>
+            <div class="card-header">📰 各大財經頭條 (最新 10 則)</div>
+            <div class="card-body" id="war-news" style="padding:16px;max-height:500px;overflow-y:auto">
+              <span style="color:var(--slate-500);display:block">無最新新聞</span>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- ========== PAGE: Stress Test ========== -->
       <div class="page" id="page-stress">
         <div class="page-header">
           <div><h2>資產壓力測試</h2><p class="sub">投資組合風險分析 × 停損點試算</p></div>
-          <div style="display:flex; gap:12px;">
+          <div style="display:flex;gap:12px">
             <button class="btn-outline" onclick="fetchStressHistory()">📜 歷史紀錄</button>
             <button class="btn-analyze" id="btn-stress" onclick="runStressTest()">⚡ 執行深度分析</button>
           </div>
@@ -291,7 +341,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
         <div class="card">
           <div class="card-header">投資組合設定</div>
           <div class="card-body">
-            <div class="position-grid" style="margin-bottom:8px;font-size:11px;color:var(--slate-500);">
+            <div class="position-grid" style="margin-bottom:8px;font-size:11px;color:var(--slate-500);font-weight:600">
               <span>標的代號 (.TW)</span><span>資產類型</span><span>平均成本</span><span>持有股數</span><span></span>
             </div>
             <div id="positions-list"></div>
@@ -301,20 +351,91 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
         <div id="stress-result" style="margin-top:16px"></div>
       </div>
 
+      <!-- ========== PAGE: Tech Analysis ========== -->
       <div class="page" id="page-tech">
         <div class="page-header">
           <div><h2>異質技術分析</h2><p class="sub">技術指標融合 × K線型態識別</p></div>
           <button class="btn-analyze" id="btn-tech" onclick="fetchTechAnalysis()">⚡ 分析熱門權值股</button>
         </div>
         <div class="card">
-          <div class="card-header">熱門權值股技術分析總覽</div>
-          <table class="data-table">
-            <thead><tr><th>標的</th><th style="text-align:right">收盤價</th><th style="text-align:center">AI 估值狀態</th><th style="text-align:left">技術訊號追蹤</th><th style="text-align:right">綜合評分</th><th style="text-align:right">操作建議</th></tr></thead>
+          <div class="card-header">熱門權值股技術分析總覽 <span style="font-weight:400;font-size:11px;color:var(--slate-500)">點擊欄位可排序</span></div>
+          <table class="data-table" id="tech-data-table">
+            <thead><tr>
+              <th onclick="sortTechTable(0)">標的</th>
+              <th style="text-align:right" onclick="sortTechTable(1)">收盤價</th>
+              <th style="text-align:center" onclick="sortTechTable(2)">AI 估值</th>
+              <th style="text-align:left">技術訊號</th>
+              <th style="text-align:right" onclick="sortTechTable(4)">評分</th>
+              <th style="text-align:right" onclick="sortTechTable(5)">建議</th>
+            </tr></thead>
             <tbody id="tech-table"></tbody>
           </table>
         </div>
       </div>
 
+      <!-- ========== PAGE: K-Line Chart ========== -->
+      <div class="page" id="page-kline">
+        <div class="page-header">
+          <div><h2>個股 K 線圖</h2><p class="sub">互動式技術分析圖表 × 多週期切換</p></div>
+        </div>
+        <div class="kline-toolbar">
+          <div class="input-group" style="flex:1;max-width:400px">
+            <input class="input" id="kline-ticker" placeholder="輸入股票代號 (如 2330.TW)" onkeydown="if(event.key==='Enter')fetchKline()">
+            <button class="btn-analyze" onclick="fetchKline()" style="flex-shrink:0">📊 載入圖表</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button class="range-btn" data-days="30" onclick="setKlineDays(30)">1M</button>
+            <button class="range-btn" data-days="90" onclick="setKlineDays(90)">3M</button>
+            <button class="range-btn active" data-days="180" onclick="setKlineDays(180)">6M</button>
+            <button class="range-btn" data-days="365" onclick="setKlineDays(365)">1Y</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header" id="kline-chart-title">📈 請輸入股票代號以載入圖表</div>
+          <div id="kline-chart" style="width:100%;height:500px;background:rgba(15,23,42,0.3)"></div>
+        </div>
+        <div id="kline-signals" style="margin-top:16px"></div>
+      </div>
+
+      <!-- ========== PAGE: Backtest ========== -->
+      <div class="page" id="page-backtest">
+        <div class="page-header">
+          <div><h2>策略回測</h2><p class="sub">MA20 交叉策略 × RSI 過濾 × 回測模擬</p></div>
+        </div>
+        <div class="card">
+          <div class="card-header">回測參數設定</div>
+          <div class="card-body">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:200px">
+                <label style="font-size:11px;color:var(--slate-500);display:block;margin-bottom:6px;font-weight:600">股票代號</label>
+                <input class="input" id="backtest-ticker" placeholder="如 2330.TW" value="2330.TW">
+              </div>
+              <div style="width:160px">
+                <label style="font-size:11px;color:var(--slate-500);display:block;margin-bottom:6px;font-weight:600">回測天數</label>
+                <select class="input" id="backtest-days">
+                  <option value="30">30 天</option>
+                  <option value="90">90 天</option>
+                  <option value="180" selected>180 天</option>
+                  <option value="365">365 天</option>
+                </select>
+              </div>
+              <button class="btn-analyze" id="btn-backtest" onclick="runBacktest()">⚡ 執行回測</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="border:1px dashed var(--glass-border);background:rgba(15,23,42,0.3)">
+          <div class="card-header">📋 策略說明</div>
+          <div class="card-body" style="font-size:13px;color:var(--slate-400);line-height:1.8">
+            <strong style="color:#fff">MA20 交叉 + RSI 過濾策略</strong><br>
+            • <span style="color:var(--green-400)">買入條件</span>：收盤價突破 MA20 且 RSI &lt; 70 → 全額進場<br>
+            • <span style="color:var(--red-400)">賣出條件</span>：收盤價跌破 MA20 或 RSI &gt; 75 → 全數出場<br>
+            • 初始資金：¥100,000 | 手續費：未計入
+          </div>
+        </div>
+        <div id="backtest-result"></div>
+      </div>
+
+      <!-- ========== PAGE: News ========== -->
       <div class="page" id="page-news">
         <div class="page-header">
           <div><h2>新聞知識圖譜</h2><p class="sub">MaiAgent 批次新聞情緒分析</p></div>
@@ -327,73 +448,67 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
         </div>
       </div>
 
+      <!-- ========== PAGE: Sentiment ========== -->
       <div class="page" id="page-sentiment">
-    <div class="page-header">
-        <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 ⚡ 即時新聞情感分析</p></div>
-        <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 啟動雷達分析</button>
-    </div>
-
-    <div class="grid grid-2">
-        <div>
-            <div class="sentiment-card">
-                <div class="score-circle" id="sentiment-score">-</div>
-                <div id="sentiment-label" style="font-size: 20px; font-weight: bold;">等待掃描</div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">📊 貪婪指數等級參考表</div>
-                <div class="card-body">
-                    <table class="index-table">
-                        <thead><tr><th>區間</th><th>狀態</th><th>市場意義</th></tr></thead>
-                        <tbody>
-                            <tr style="color:var(--red-400)"><td>0-25</td><td>極度恐懼</td><td>超跌區，反彈機率高</td></tr>
-                            <tr style="color:#fbbf24"><td>26-45</td><td>恐懼</td><td>市場保守，量能縮減</td></tr>
-                            <tr style="color:var(--slate-400)"><td>46-55</td><td>中立</td><td>多空拉鋸，等待表態</td></tr>
-                            <tr style="color:var(--green-400)"><td>56-75</td><td>樂觀</td><td>買盤轉強，注意追高</td></tr>
-                            <tr style="color:#22c55e"><td>76-100</td><td>極度貪婪</td><td>過熱訊號，宜減碼獲利</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="page-header">
+          <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 ⚡ 即時新聞情感分析</p></div>
+          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 啟動雷達分析</button>
         </div>
-
-        <div class="card">
+        <div class="grid grid-2">
+          <div>
+            <div class="sentiment-card">
+              <div class="score-circle" id="sentiment-score">-</div>
+              <div id="sentiment-label" style="font-size:20px;font-weight:800;letter-spacing:1px">等待掃描</div>
+            </div>
+            <div class="card">
+              <div class="card-header">📊 貪婪指數等級參考表</div>
+              <div class="card-body">
+                <table class="index-table">
+                  <thead><tr><th>區間</th><th>狀態</th><th>市場意義</th></tr></thead>
+                  <tbody>
+                    <tr style="color:var(--red-400)"><td>0-25</td><td>極度恐懼</td><td>超跌區，反彈機率高</td></tr>
+                    <tr style="color:#fbbf24"><td>26-45</td><td>恐懼</td><td>市場保守，量能縮減</td></tr>
+                    <tr style="color:var(--slate-400)"><td>46-55</td><td>中立</td><td>多空拉鋸，等待表態</td></tr>
+                    <tr style="color:var(--green-400)"><td>56-75</td><td>樂觀</td><td>買盤轉強，注意追高</td></tr>
+                    <tr style="color:#22c55e"><td>76-100</td><td>極度貪婪</td><td>過熱訊號，宜減碼獲利</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="card">
             <div class="card-header">🤖 AI 情緒判斷成因</div>
             <div class="card-body">
-                <div id="sentiment-reasoning" class="reasoning-box">
-                    尚未進行分析，請點擊上方按鈕。AI 將根據最新的五則財經新聞進行加權判斷。
-                </div>
-                <div id="sentiment-recommend" style="margin-top:15px"></div>
-            </div>
-        </div>
-    </div>
-
-    <h3 style="margin: 20px 0 10px; font-size: 16px; color:#fff;">📰 近五則新聞情緒摘要</h3>
-    <div class="news-grid" id="sentiment-news-grid">
-        </div>
-</div>
-
-      <div class="page" id="page-screener">
-        <div class="page-header">
-          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股，並自動標註特殊亮點</p></div>
-        </div>
-        
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-header">設定目標核心標的</div>
-          <div class="card-body">
-            <div style="display:flex; gap:8px; margin-bottom:16px;">
-              <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
-              <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0;">加入</button>
-              <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0; color:var(--blue-400); border-color:var(--blue-500);">從部位匯入</button>
-            </div>
-            <div id="screener-target-list" style="display:flex; flex-wrap:wrap; gap:8px; min-height:30px;">
-               <span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>
+              <div id="sentiment-reasoning" class="reasoning-box">
+                尚未進行分析，請點擊上方按鈕。AI 將根據最新的五則財經新聞進行加權判斷。
+              </div>
+              <div id="sentiment-recommend" style="margin-top:15px"></div>
             </div>
           </div>
         </div>
+        <h3 style="margin:24px 0 10px;font-size:16px;color:#fff;font-weight:700">📰 近五則新聞情緒摘要</h3>
+        <div class="news-grid" id="sentiment-news-grid"></div>
+      </div>
 
-        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%; justify-content:center; margin-bottom:20px; padding:14px; font-size:16px; letter-spacing:2px;">⚡ 全面展開關聯股與亮點標籤</button>
-        
+      <!-- ========== PAGE: Screener ========== -->
+      <div class="page" id="page-screener">
+        <div class="page-header">
+          <div><h2>AI 關聯選股雷達</h2><p class="sub">從現有持股或自訂標的向下挖掘供應鏈與概念股</p></div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">設定目標核心標的</div>
+          <div class="card-body">
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+              <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
+              <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0">加入</button>
+              <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0;color:var(--blue-400);border-color:rgba(59,130,246,0.4)">從部位匯入</button>
+            </div>
+            <div id="screener-target-list" style="display:flex;flex-wrap:wrap;gap:8px;min-height:30px">
+              <span style="color:var(--slate-500);font-size:13px;line-height:30px">尚未設定目標標的...</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%;justify-content:center;margin-bottom:20px;padding:14px;font-size:15px;letter-spacing:2px">⚡ 全面展開關聯股與亮點標籤</button>
         <div id="screener-result"></div>
       </div>
 
@@ -401,44 +516,49 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
   </div>
 </div>
 
-<div id="stress-history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;">
-   <div class="card" style="width:800px; max-height:80vh; overflow-y:auto; display:flex; flex-direction:column; background:var(--slate-900);">
-       <div class="card-header" style="background:var(--slate-800);">
-           <span style="font-size:16px;">📜 壓力測試歷史紀錄</span>
-           <button onclick="document.getElementById('stress-history-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
-       </div>
-       <div class="card-body" id="stress-history-content"></div>
-   </div>
+<!-- ===== Modals ===== -->
+<div class="modal-backdrop" id="stress-history-modal">
+  <div class="card" style="width:800px;max-width:95vw;max-height:80vh;overflow-y:auto;background:var(--slate-900)">
+    <div class="card-header" style="position:sticky;top:0;background:var(--slate-800);z-index:1">
+      <span style="font-size:16px">📜 壓力測試歷史紀錄</span>
+      <button class="btn-ghost" onclick="closeModal('stress-history-modal')" style="font-size:18px">✕</button>
+    </div>
+    <div class="card-body" id="stress-history-content"></div>
+  </div>
 </div>
 
-<div id="auth-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:3000; align-items:center; justify-content:center;">
-   <div class="card" style="width:400px; background:var(--slate-900);">
-       <div class="card-header" style="background:var(--slate-800); display:flex; justify-content:space-between;">
-           <span id="auth-modal-title" style="font-size:16px;">登入</span>
-           <button onclick="document.getElementById('auth-modal').style.display='none'" style="background:none; border:none; color:var(--slate-400); cursor:pointer; font-size:20px;">✕</button>
-       </div>
-       <div class="card-body">
-           <div id="auth-error" style="color:var(--red-400); font-size:13px; margin-bottom:10px; display:none;"></div>
-           <input id="auth-email" class="input" type="email" placeholder="信箱" style="margin-bottom:12px;">
-           <input id="auth-name" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px; display:none;">
-           <input id="auth-password" class="input" type="password" placeholder="密碼" style="margin-bottom:16px;" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
-           <button id="auth-submit-btn" class="btn-analyze" style="width:100%; justify-content:center;" onclick="handleAuthSubmit()">登入</button>
-           <div style="text-align:center; margin-top:12px; font-size:13px;">
-               <a href="#" id="auth-toggle-link" style="color:var(--blue-400); text-decoration:none;" onclick="toggleAuthMode()">還沒有帳號？點此註冊</a>
-           </div>
-       </div>
-   </div>
+<div class="modal-backdrop" id="auth-modal">
+  <div class="card" style="width:420px;max-width:95vw;background:var(--slate-900)">
+    <div class="card-header" style="background:var(--slate-800)">
+      <span id="auth-modal-title" style="font-size:16px">登入</span>
+      <button class="btn-ghost" onclick="closeModal('auth-modal')" style="font-size:18px">✕</button>
+    </div>
+    <div class="card-body">
+      <div id="auth-error" style="color:var(--red-400);font-size:13px;margin-bottom:12px;display:none;background:rgba(239,68,68,0.08);padding:10px;border-radius:var(--radius-sm)"></div>
+      <input id="auth-email" class="input" type="email" placeholder="信箱" style="margin-bottom:12px">
+      <input id="auth-name" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px;display:none">
+      <input id="auth-password" class="input" type="password" placeholder="密碼" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
+      <button id="auth-submit-btn" class="btn-analyze" style="width:100%;justify-content:center" onclick="handleAuthSubmit()">登入</button>
+      <div style="text-align:center;margin-top:14px;font-size:13px">
+        <a href="#" id="auth-toggle-link" style="color:var(--blue-400);text-decoration:none;font-weight:500" onclick="toggleAuthMode();return false">還沒有帳號？點此註冊</a>
+      </div>
+    </div>
+  </div>
 </div>
 
-<button class="chat-fab" onclick="toggleChat()">🤖</button>
+<!-- ===== Chat ===== -->
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()" title="AI 投資助理 (快捷鍵: C)">🤖</button>
 
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
     <span class="title">🤖 MaiAgent 投資助理</span>
-    <button style="background:none; border:none; color:var(--slate-400); cursor:pointer;" onclick="toggleChat()">✕</button>
+    <div class="chat-header-actions">
+      <button class="btn-ghost" onclick="clearChat()" title="清除對話" style="font-size:13px">🗑️</button>
+      <button class="btn-ghost" onclick="toggleChat()" style="font-size:16px">✕</button>
+    </div>
   </div>
   <div class="chat-messages" id="chat-messages">
-    <div class="chat-msg bot">您好！我是智盤 Pro 內建的 MaiAgent AI 助理，已連線至您的後端。請問有什麼可以幫您的？</div>
+    <div class="chat-msg bot">您好！我是股金往來的 AI 投資助理，已連線至您的後端分析引擎。有什麼可以幫您的？🚀</div>
   </div>
   <div class="chat-input-wrap">
     <input class="chat-input" id="chat-input" placeholder="輸入問題..." onkeydown="if(event.key==='Enter')sendChat()">
@@ -446,257 +566,336 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
   </div>
 </div>
 
+<!-- ===== Toast Container ===== -->
+<div class="toast-container" id="toast-container"></div>
+
 <script>
-const API_BASE = window.location.origin; 
+// ============================
+// GLOBAL STATE
+// ============================
+const API_BASE = window.location.origin;
 let currentChatbotId = null;
 let screenerTargets = [];
+let positions = [];
+let currentUser = JSON.parse(localStorage.getItem('trade_user'));
+let authMode = 'login';
+let klineDays = 180;
+let currentKlineTicker = '';
+let klineChart = null;
+let techTableData = [];
+let techSortCol = -1;
+let techSortAsc = true;
 
-const fmt = (num, decimals = 2) => Number(num).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+const fmt = (num, d = 2) => Number(num).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-async function apiCall(endpoint, method='GET', body=null) {
-  const opts = { method, headers:{'Content-Type':'application/json'} };
+// ============================
+// API HELPER
+// ============================
+async function apiCall(endpoint, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, opts);
     return await res.json();
-  } catch(e) {
-    return { status:'error', message: '無法連線至伺服器' };
+  } catch (e) {
+    return { status: 'error', message: '無法連線至伺服器' };
   }
 }
 
+// ============================
+// TOAST SYSTEM
+// ============================
+function showToast(message, type = 'info', duration = 4000) {
+  const container = document.getElementById('toast-container');
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type] || ''} ${message}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toastOut .3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ============================
+// NAVIGATION
+// ============================
+const pageTitles = {
+  war: '首頁', stress: '資產壓力測試', tech: '異質技術分析',
+  kline: '個股 K 線圖', backtest: '策略回測', news: '新聞知識圖譜',
+  sentiment: '市場情緒雷達', screener: 'AI 關聯選股'
+};
+
+function navigateTo(pageName) {
+  document.querySelectorAll('#nav .nav-btn[data-page]').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === pageName);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + pageName);
+  if (target) target.classList.add('active');
+  document.title = `${pageTitles[pageName] || ''} - 股金往來`;
+  // Close sidebar on mobile
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('visible');
+    document.getElementById('sidebar-overlay').style.display = 'none';
+  }
+}
+
+document.querySelectorAll('#nav .nav-btn[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+});
+
+// ============================
+// MOBILE SIDEBAR
+// ============================
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const isOpen = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open');
+  if (!isOpen) {
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+  } else {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.style.display = 'none', 250);
+  }
+}
+
+// ============================
+// MODAL HELPERS
+// ============================
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.getElementById(id).style.display = 'none';
+}
+function openModal(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'flex';
+  el.classList.add('open');
+}
+
+// ============================
+// CLOCK & MARKET STATUS
+// ============================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('zh-TW', { hour12: false });
+}
+
+async function fetchMarketStatus() {
+  const badge = document.getElementById('market-badge');
+  const dot = document.getElementById('market-dot');
+  const text = document.getElementById('market-text');
+  try {
+    const res = await apiCall('/market_status');
+    if (res.status === 'success') {
+      if (res.is_open) {
+        badge.className = 'market-badge open';
+        dot.style.background = 'var(--green-400)';
+        text.textContent = '盤中交易';
+      } else {
+        badge.className = 'market-badge closed';
+        dot.style.background = 'var(--slate-500)';
+        text.textContent = '已收盤';
+      }
+    }
+  } catch (e) {
+    // Fallback: estimate locally
+    const now = new Date();
+    const day = now.getDay();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const mins = h * 60 + m;
+    const isOpen = day >= 1 && day <= 5 && mins >= 540 && mins <= 810;
+    badge.className = isOpen ? 'market-badge open' : 'market-badge closed';
+    dot.style.background = isOpen ? 'var(--green-400)' : 'var(--slate-500)';
+    text.textContent = isOpen ? '盤中交易' : '已收盤';
+  }
+}
+
+// ============================
+// HEALTH CHECK
+// ============================
 async function checkHealth() {
   const dotApi = document.getElementById('dot-api');
   const dotAi = document.getElementById('dot-ai');
-  dotApi.className = 'status-dot'; dotAi.className = 'status-dot';
+  dotApi.className = 'status-dot';
+  dotAi.className = 'status-dot';
   const res = await apiCall('/health');
-  if(res.status === 'ok') {
-    dotApi.classList.add('ok');
-    if(res.maiagent) {
-        dotAi.classList.add('ok');
-    } else {
-        dotAi.classList.add('err');
-    }
+  if (res.status === 'ok') {
+    dotApi.classList.remove('err');
+    if (!res.maiagent) dotAi.classList.add('err');
+    showToast('系統連線正常', 'success');
   } else {
     dotApi.classList.add('err');
     dotAi.classList.add('err');
+    showToast('系統連線失敗', 'error');
   }
 }
 
-document.querySelectorAll('#nav .nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#nav .nav-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById('page-' + btn.dataset.page).classList.add('active');
-  });
-});
-
+// ============================
+// MACRO DATA
+// ============================
 async function fetchMacroData() {
   const bar = document.getElementById('macro-bar');
-  bar.innerHTML = '<div class="loading" style="grid-column: span 4;"><div class="spinner"></div></div>';
+  bar.innerHTML = '<div style="grid-column:span 4" class="loading"><div class="spinner"></div></div>';
   const res = await apiCall('/macro');
-  if(res.status === 'success' && res.data) {
+  if (res.status === 'success' && res.data) {
     bar.innerHTML = '';
     const nMap = {
-      '加權指數': '加權指數 (TAIEX)',
-      '費城半導體指數': '費城半導體 (^SOX)',
-      '費半指數': '費城半導體 (^SOX)',
-      '油價': '油價 (WTI)',
-      '金價': '金價 (Gold)'
+      '加權指數': '加權指數 (TAIEX)', '費城半導體指數': '費城半導體 (^SOX)',
+      '費半指數': '費城半導體 (^SOX)', '油價': '油價 (WTI)', '金價': '金價 (Gold)'
     };
     Object.entries(res.data).forEach(([key, val]) => {
-      const color = val.change >= 0 ? 'var(--green-400)' : 'var(--red-400)';
-      const sign = val.change >= 0 ? '+' : '';
+      const up = val.change >= 0;
+      const color = up ? 'var(--green-400)' : 'var(--red-400)';
+      const sign = up ? '+' : '';
       const dName = nMap[key] || key;
       bar.innerHTML += `
-        <div class="card" style="margin-bottom:0; padding:16px;">
-          <div style="font-size:14px; color:var(--slate-400); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dName}</div>
-          <div style="font-size:26px; font-weight:bold; color:#fff; margin:6px 0;">${fmt(val.price)}</div>
-          <div style="font-size:14px; color:${color}; font-weight:600;">${sign}${fmt(val.change)} (${sign}${fmt(val.pct_change)}%)</div>
-        </div>
-      `;
+        <div class="stat-card ${up ? 'up' : 'down'}">
+          <div style="font-size:12px;color:var(--slate-500);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dName}</div>
+          <div style="font-size:28px;font-weight:800;color:#fff;margin:8px 0;letter-spacing:-0.5px">${fmt(val.price)}</div>
+          <div style="font-size:14px;color:${color};font-weight:700">${sign}${fmt(val.change)} (${sign}${fmt(val.pct_change)}%)</div>
+        </div>`;
     });
   } else {
     bar.innerHTML = '';
   }
 }
 
-let positions = [];
-let currentUser = JSON.parse(localStorage.getItem('trade_user'));
-let authMode = 'login';
-
-function showAuthModal(mode='login') {
-    authMode = mode;
-    document.getElementById('auth-modal').style.display = 'flex';
-    document.getElementById('auth-error').style.display = 'none';
-    if(mode === 'signup') {
-        document.getElementById('auth-modal-title').innerText = '註冊';
-        document.getElementById('auth-name').style.display = 'block';
-        document.getElementById('auth-submit-btn').innerText = '註冊';
-        document.getElementById('auth-toggle-link').innerText = '已有帳號？點此登入';
-    } else {
-        document.getElementById('auth-modal-title').innerText = '登入';
-        document.getElementById('auth-name').style.display = 'none';
-        document.getElementById('auth-submit-btn').innerText = '登入';
-        document.getElementById('auth-toggle-link').innerText = '還沒有帳號？點此註冊';
-    }
+// ============================
+// AUTH
+// ============================
+function showAuthModal(mode = 'login') {
+  authMode = mode;
+  openModal('auth-modal');
+  document.getElementById('auth-error').style.display = 'none';
+  const isSignup = mode === 'signup';
+  document.getElementById('auth-modal-title').innerText = isSignup ? '註冊' : '登入';
+  document.getElementById('auth-name').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('auth-submit-btn').innerText = isSignup ? '註冊' : '登入';
+  document.getElementById('auth-toggle-link').innerText = isSignup ? '已有帳號？點此登入' : '還沒有帳號？點此註冊';
 }
 
-function toggleAuthMode() {
-    showAuthModal(authMode === 'login' ? 'signup' : 'login');
-}
+function toggleAuthMode() { showAuthModal(authMode === 'login' ? 'signup' : 'login'); }
 
 async function handleAuthSubmit() {
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value.trim();
-    const name = document.getElementById('auth-name').value.trim();
-    const errDiv = document.getElementById('auth-error');
-
-    if(!email || !password) {
-        errDiv.innerText = "請填寫信箱與密碼";
-        errDiv.style.display = 'block';
-        return;
-    }
-
-    if(authMode === 'signup') {
-        const res = await apiCall('/auth/signup', 'POST', { email, password, name });
-        if(res.status === 'success') {
-            alert("註冊成功！請登入");
-            showAuthModal('login');
-        } else {
-            errDiv.innerText = res.detail || res.message || "註冊失敗";
-            errDiv.style.display = 'block';
-        }
-    } else {
-        const res = await apiCall('/auth/login', 'POST', { email, password });
-        if(res.status === 'success') {
-            currentUser = res.user;
-            localStorage.setItem('trade_user', JSON.stringify(res.user));
-            document.getElementById('auth-modal').style.display = 'none';
-            updateAuthUI();
-            loadPositionsFromServer();
-        } else {
-            errDiv.innerText = res.detail || res.message || "登入失敗";
-            errDiv.style.display = 'block';
-        }
-    }
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  const name = document.getElementById('auth-name').value.trim();
+  const errDiv = document.getElementById('auth-error');
+  if (!email || !password) { errDiv.innerText = '請填寫信箱與密碼'; errDiv.style.display = 'block'; return; }
+  if (authMode === 'signup') {
+    const res = await apiCall('/auth/signup', 'POST', { email, password, name });
+    if (res.status === 'success') { showToast('註冊成功！請登入', 'success'); showAuthModal('login'); }
+    else { errDiv.innerText = res.detail || res.message || '註冊失敗'; errDiv.style.display = 'block'; }
+  } else {
+    const res = await apiCall('/auth/login', 'POST', { email, password });
+    if (res.status === 'success') {
+      currentUser = res.user;
+      localStorage.setItem('trade_user', JSON.stringify(res.user));
+      closeModal('auth-modal');
+      updateAuthUI();
+      loadPositionsFromServer();
+      showToast(`歡迎回來，${res.user.name || res.user.email}！`, 'success');
+    } else { errDiv.innerText = res.detail || res.message || '登入失敗'; errDiv.style.display = 'block'; }
+  }
 }
 
 function logout() {
-    currentUser = null;
-    localStorage.removeItem('trade_user');
-    positions = [];
-    renderPositions();
-    updateAuthUI();
+  currentUser = null;
+  localStorage.removeItem('trade_user');
+  positions = [];
+  renderPositions();
+  updateAuthUI();
+  showToast('已成功登出', 'info');
 }
 
 function updateAuthUI() {
-    const authSec = document.getElementById('auth-section');
-    if(currentUser) {
-        authSec.innerHTML = `<span style="color:#fff; font-size:14px; font-weight:600;">👤 ${currentUser.name || currentUser.email}</span>
-                             <button class="btn-outline" style="padding:4px 10px; font-size:12px;" onclick="logout()">登出</button>`;
-    } else {
-        authSec.innerHTML = `<button class="btn-analyze" style="padding:6px 14px; font-size:13px;" onclick="showAuthModal('login')">登入 / 註冊</button>`;
-    }
+  const authSec = document.getElementById('auth-section');
+  if (currentUser) {
+    authSec.innerHTML = `<span style="color:#fff;font-size:13px;font-weight:700">👤 ${currentUser.name || currentUser.email}</span>
+      <button class="btn-ghost" onclick="logout()" style="font-size:12px;color:var(--slate-400)">登出</button>`;
+  } else {
+    authSec.innerHTML = `<button class="btn-analyze" style="padding:6px 14px;font-size:12px" onclick="showAuthModal('login')">登入 / 註冊</button>`;
+  }
 }
 
+// ============================
+// POSITIONS
+// ============================
 async function loadPositionsFromServer() {
-  if(!currentUser) {
-      positions = [];
-      renderPositions();
-      return;
-  }
+  if (!currentUser) { positions = []; renderPositions(); return; }
   const res = await apiCall(`/portfolio?user_id=${currentUser.id}`);
-  if (res.status === 'success' && res.data.length > 0) {
-    positions = res.data;
-  } else {
-    positions = [];
-  }
+  positions = (res.status === 'success' && res.data.length > 0) ? res.data : [];
   renderPositions();
 }
 
 async function syncPositions() {
-  if(!currentUser) return;
-  await apiCall('/portfolio', 'POST', { 
-      user_id: currentUser.id, 
-      portfolio: positions 
-  });
+  if (!currentUser) return;
+  await apiCall('/portfolio', 'POST', { user_id: currentUser.id, portfolio: positions });
 }
 
 function renderPositions() {
-  const types = ["台股","ETF"];
-  document.getElementById('positions-list').innerHTML = positions.map((p,i) => `
+  const types = ['台股', 'ETF'];
+  document.getElementById('positions-list').innerHTML = positions.map((p, i) => `
     <div class="position-grid" style="margin-bottom:8px">
-      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value; syncPositions();" placeholder="例如: 2330.TW">
-      <select class="input" onchange="positions[${i}].type=this.value; syncPositions();">${types.map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select>
-      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value; syncPositions();">
-      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value; syncPositions();">
+      <input class="input" value="${p.code}" onchange="positions[${i}].code=this.value;syncPositions()" placeholder="例如: 2330.TW">
+      <select class="input" onchange="positions[${i}].type=this.value;syncPositions()">${types.map(t => `<option ${t === p.type ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value;syncPositions()">
+      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value;syncPositions()">
       <button class="btn-remove" onclick="removePosition(${i})">×</button>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
-function addPosition() { 
-  if(!currentUser) {
-      showAuthModal('login');
-      return;
-  }
-  positions.push({code:"",type:"台股",cost:"",shares:""}); 
-  renderPositions(); 
+function addPosition() {
+  if (!currentUser) { showAuthModal('login'); return; }
+  positions.push({ code: '', type: '台股', cost: '', shares: '' });
+  renderPositions();
   syncPositions();
 }
 
-function removePosition(i) { 
-  positions.splice(i,1); 
-  renderPositions(); 
-  syncPositions();
-}
+function removePosition(i) { positions.splice(i, 1); renderPositions(); syncPositions(); }
 
+// ============================
+// SCREENER
+// ============================
 function addScreenerTarget() {
-    const input = document.getElementById('screener-target-input');
-    const val = input.value.trim();
-    if(val && !screenerTargets.includes(val)) {
-        screenerTargets.push(val);
-        renderScreenerTargets();
-    }
-    input.value = '';
+  const input = document.getElementById('screener-target-input');
+  const val = input.value.trim();
+  if (val && !screenerTargets.includes(val)) { screenerTargets.push(val); renderScreenerTargets(); }
+  input.value = '';
 }
 
 function importFromPortfolio() {
-    if(positions.length === 0) {
-        alert('投資組合目前是空的！請先在資產壓力測試頁面新增部位。');
-        return;
-    }
-    let added = 0;
-    positions.forEach(p => {
-        if(p.code && !screenerTargets.includes(p.code)) {
-            screenerTargets.push(p.code);
-            added++;
-        }
-    });
-    if(added > 0) renderScreenerTargets();
-    else alert('投資組合內的標的皆已在清單中。');
+  if (positions.length === 0) { showToast('投資組合目前是空的！請先新增部位。', 'warning'); return; }
+  let added = 0;
+  positions.forEach(p => { if (p.code && !screenerTargets.includes(p.code)) { screenerTargets.push(p.code); added++; } });
+  if (added > 0) { renderScreenerTargets(); showToast(`已匯入 ${added} 檔標的`, 'success'); }
+  else showToast('投資組合內的標的皆已在清單中', 'info');
 }
 
-function removeScreenerTarget(idx) {
-    screenerTargets.splice(idx, 1);
-    renderScreenerTargets();
-}
+function removeScreenerTarget(idx) { screenerTargets.splice(idx, 1); renderScreenerTargets(); }
 
 function renderScreenerTargets() {
-    const list = document.getElementById('screener-target-list');
-    if(screenerTargets.length === 0) {
-        list.innerHTML = '<span style="color:var(--slate-500); font-size:13px; line-height:26px;">尚未設定目標標的...</span>';
-        return;
-    }
-    list.innerHTML = screenerTargets.map((t, i) => `
-        <div style="background:var(--slate-700); padding:4px 12px; border-radius:16px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; color:#fff;">
-            ${t} 
-            <button onclick="removeScreenerTarget(${i})" style="background:var(--slate-600); border:none; color:var(--slate-300); width:20px; height:20px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s;" onmouseover="this.style.background='var(--red-500)'; this.style.color='#fff';" onmouseout="this.style.background='var(--slate-600)'; this.style.color='var(--slate-300)';">✕</button>
-        </div>
-    `).join('');
+  const list = document.getElementById('screener-target-list');
+  if (screenerTargets.length === 0) {
+    list.innerHTML = '<span style="color:var(--slate-500);font-size:13px;line-height:30px">尚未設定目標標的...</span>';
+    return;
+  }
+  list.innerHTML = screenerTargets.map((t, i) => `
+    <div style="background:var(--slate-800);padding:5px 14px;border-radius:var(--radius-full);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;color:#fff;border:1px solid var(--slate-700)">
+      ${t}
+      <button onclick="removeScreenerTarget(${i})" style="background:var(--slate-700);border:none;color:var(--slate-400);width:20px;height:20px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.2s" onmouseover="this.style.background='var(--red-500)';this.style.color='#fff'" onmouseout="this.style.background='var(--slate-700)';this.style.color='var(--slate-400)'">✕</button>
+    </div>`).join('');
 }
 
+// ============================
+// HOME / WAR PAGE
+// ============================
 async function fetchWarData() {
   const btn = document.getElementById('btn-war');
   btn.disabled = true;
@@ -705,198 +904,379 @@ async function fetchWarData() {
   fetchMacroData();
 
   const aiRes = await apiCall('/auto_news');
-  if(aiRes.status === 'success') {
-     document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0;"><p class="desc">${aiRes.summary}</p></div>`;
+  if (aiRes.status === 'success') {
+    document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0"><p class="desc">${aiRes.summary}</p></div>`;
   } else {
-     document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
+    document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
   }
 
   const newsRes = await apiCall('/news?limit=10');
-  if(newsRes.status === 'success') {
-      document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
-        <details style="background:rgba(51,65,85,0.4); border:1px solid var(--slate-700); padding:14px; border-radius:8px; margin-bottom:10px; transition:0.3s;">
-          <summary style="cursor:pointer; outline:none; display:flex; gap:10px; align-items:flex-start;">
-            <span style="font-size:12px; color:var(--slate-500); width:110px; flex-shrink:0; font-family:monospace;">${n.published}</span>
-            <span class="badge badge-slate" style="flex-shrink:0;">${n.source}</span>
-            <span style="font-size:15px; color:var(--slate-200); font-weight:600; flex:1; line-height:1.4;">${n.title}</span>
-          </summary>
-          <div style="padding-top:12px; margin-top:12px; border-top:1px dashed var(--slate-600); color:var(--slate-300); font-size:14px; line-height:1.7;">
-            ${n.summary}
-            <div style="margin-top:10px;"><a href="${n.link}" target="_blank" style="color:var(--blue-400); text-decoration:none; font-weight:600;">閱讀全文 ⭧</a></div>
-          </div>
-        </details>
-      `).join('');
+  if (newsRes.status === 'success') {
+    document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
+      <details style="background:rgba(51,65,85,0.25);border:1px solid var(--glass-border);padding:14px;border-radius:var(--radius-md);margin-bottom:8px;transition:.3s">
+        <summary style="cursor:pointer;outline:none;display:flex;gap:10px;align-items:flex-start">
+          <span style="font-size:11px;color:var(--slate-600);width:100px;flex-shrink:0;font-family:monospace;font-weight:500">${n.published}</span>
+          <span class="badge badge-slate" style="flex-shrink:0">${n.source}</span>
+          <span style="font-size:14px;color:var(--slate-200);font-weight:600;flex:1;line-height:1.5">${n.title}</span>
+        </summary>
+        <div style="padding-top:12px;margin-top:12px;border-top:1px dashed var(--slate-700);color:var(--slate-300);font-size:13px;line-height:1.7">
+          ${n.summary}
+          <div style="margin-top:10px"><a href="${n.link}" target="_blank" style="color:var(--blue-400);text-decoration:none;font-weight:600;font-size:13px">閱讀全文 ⭧</a></div>
+        </div>
+      </details>`).join('');
   }
   btn.disabled = false;
 }
 
+// Quick Search
+function quickSearch() {
+  const val = document.getElementById('quick-search-input').value.trim();
+  if (!val) return;
+  document.getElementById('kline-ticker').value = val;
+  navigateTo('kline');
+  setTimeout(() => fetchKline(), 100);
+  document.getElementById('quick-search-input').value = '';
+}
+
+// ============================
+// STRESS TEST
+// ============================
 async function runStressTest() {
   const btn = document.getElementById('btn-stress');
   const resultDiv = document.getElementById('stress-result');
   btn.disabled = true;
   resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">正在回測技術指標與籌碼計算...</p></div>';
 
-  const targets = positions.filter(p=>p.code).map(p=>({id:p.code, name:"", type:p.type, cost:parseFloat(p.cost)||0, shares:parseInt(p.shares)||0}));
+  const targets = positions.filter(p => p.code).map(p => ({ id: p.code, name: '', type: p.type, cost: parseFloat(p.cost) || 0, shares: parseInt(p.shares) || 0 }));
+  if (targets.length === 0) { resultDiv.innerHTML = ''; showToast('請先新增至少一檔持股', 'warning'); btn.disabled = false; return; }
   const res = await apiCall('/analyze', 'POST', { targets });
 
   if (res.status === 'success') {
-      let totalCost = 0;
-      let totalValue = 0;
+    let totalCost = 0, totalValue = 0;
+    const cardsHtml = res.data.map(r => {
+      const t = targets.find(t => t.id === r.ticker);
+      const cost = t.cost * t.shares;
+      const val = r.price * t.shares;
+      totalCost += cost; totalValue += val;
+      const color = r.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+      const adviceColor = r.score >= 60 ? 'badge-green' : (r.score < 40 ? 'badge-red' : 'badge-orange');
+      return `
+        <div class="card" style="margin-bottom:0"><div class="card-body">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+            <span style="font-size:18px;font-weight:800;color:#fff">${r.ticker}</span>
+            <span style="font-weight:800;font-size:16px;color:${color}">${r.pl >= 0 ? '+' : ''}${fmt(r.pl)}%</span>
+          </div>
+          <div style="font-size:13px;color:var(--slate-400);margin-bottom:12px">現價: $${fmt(r.price)} | 估值: ${r.valuation}</div>
+          <div style="margin-bottom:10px"><span class="badge ${adviceColor}" style="font-size:12px;padding:4px 12px">策略: ${r.advice} (分:${r.score})</span></div>
+          <div style="font-size:12px;color:var(--red-400);margin-bottom:14px">⚠ ${r.exit}</div>
+          <div style="background:rgba(15,23,42,0.4);padding:12px;border-radius:var(--radius-sm)">
+            ${r.signals.map(s => `<div style="font-size:12px;color:var(--slate-300);margin-bottom:4px">• ${s}</div>`).join('') || '<span style="font-size:12px;color:var(--slate-500)">無特殊訊號</span>'}
+          </div>
+        </div></div>`;
+    }).join('');
 
-      const cardsHtml = res.data.map(r => {
-          const cost = targets.find(t=>t.id===r.ticker).cost * targets.find(t=>t.id===r.ticker).shares;
-          const val = r.price * targets.find(t=>t.id===r.ticker).shares;
-          totalCost += cost; totalValue += val;
-
-          const color = r.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
-          const adviceColor = r.score >= 60 ? 'badge-green' : (r.score < 40 ? 'badge-red' : 'badge-orange');
-          return `
-            <div class="card" style="margin-bottom:0;"><div class="card-body">
-              <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
-                <span style="font-size:18px; font-weight:bold; color:#fff;">${r.ticker}</span>
-                <span style="font-weight:bold; font-size:16px; color:${color}">${r.pl >= 0 ? '+' : ''}${fmt(r.pl)}%</span>
-              </div>
-              <div style="font-size:14px; color:var(--slate-400); margin-bottom:12px;">現價: $${fmt(r.price)} | 估值: ${r.valuation}</div>
-              <div style="margin-bottom:10px;"><span class="badge ${adviceColor}" style="font-size:13px; padding:4px 10px;">策略: ${r.advice} (分:${r.score})</span></div>
-              <div style="font-size:13px; color:var(--red-400); margin-bottom:16px;">⚠ ${r.exit}</div>
-              <div style="background:rgba(15,23,42,0.5); padding:10px; border-radius:6px;">
-                ${r.signals.map(s => `<div style="font-size:12px; color:var(--slate-300); margin-bottom:4px;">${s}</div>`).join('') || '<span style="font-size:12px; color:var(--slate-500);">無特殊訊號</span>'}
-              </div>
-            </div></div>
-          `;
-      }).join('');
-
-      let totalPL = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
-      
-      resultDiv.innerHTML = `
-        <div class="card">
-          <div class="card-header" style="font-size:16px;">📊 投資組合總結</div>
-          <div class="card-body" style="display:flex; justify-content:space-between; align-items:center;">
-             <div><span style="color:var(--slate-400); font-size:14px;">外匯狀態：</span><span style="color:#fff; font-size:16px;">${res.fx}</span></div>
-             <div style="text-align:right;">
-                <div style="font-size:13px; color:var(--slate-400); margin-bottom:4px;">總未實現損益</div>
-                <div style="font-size:32px; font-weight:bold; color:${totalPL >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${totalPL >= 0 ? '+' : ''}${fmt(totalPL)}%</div>
-             </div>
+    const totalPL = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
+    resultDiv.innerHTML = `
+      <div class="card">
+        <div class="card-header" style="font-size:16px">📊 投資組合總結</div>
+        <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+          <div><span style="color:var(--slate-400);font-size:13px">外匯狀態：</span><span style="color:#fff;font-size:15px;font-weight:600">${res.fx}</span></div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--slate-500);margin-bottom:4px;font-weight:600">總未實現損益</div>
+            <div style="font-size:36px;font-weight:800;color:${totalPL >= 0 ? 'var(--green-400)' : 'var(--red-400)'};letter-spacing:-1px">${totalPL >= 0 ? '+' : ''}${fmt(totalPL)}%</div>
           </div>
         </div>
-        <div class="grid grid-2">${cardsHtml}</div>
-      `;
+      </div>
+      <div class="grid grid-2">${cardsHtml}</div>`;
 
-      const payload = {
-          user_id: currentUser ? currentUser.id : "00000000-0000-0000-0000-000000000000",
-          scenario: "常規壓力測試",
-          result: {
-              total_cost: totalCost,
-              total_value: totalValue,
-              total_pl: totalPL,
-              portfolio: targets.map(t => {
-                 const r = res.data.find(d => d.ticker === t.id);
-                 return {
-                    ticker: t.id,
-                    cost: t.cost,
-                    shares: t.shares,
-                    price: r ? r.price : 0,
-                    pl: r ? r.pl : 0
-                 };
-              })
-          }
-      };
-      apiCall('/stress_test/save', 'POST', payload);
-
+    apiCall('/stress_test/save', 'POST', {
+      user_id: currentUser ? currentUser.id : '00000000-0000-0000-0000-000000000000',
+      scenario: '常規壓力測試',
+      result: { total_cost: totalCost, total_value: totalValue, total_pl: totalPL,
+        portfolio: targets.map(t => { const r = res.data.find(d => d.ticker === t.id); return { ticker: t.id, cost: t.cost, shares: t.shares, price: r ? r.price : 0, pl: r ? r.pl : 0 }; })
+      }
+    });
   } else {
-      resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
+    resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
   }
   btn.disabled = false;
 }
 
 async function fetchStressHistory() {
-   const modal = document.getElementById('stress-history-modal');
-   const content = document.getElementById('stress-history-content');
-   modal.style.display = 'flex';
-   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-   
-   let uid = currentUser ? currentUser.id : "00000000-0000-0000-0000-000000000000";
-   const res = await apiCall(`/stress_test/history?user_id=${uid}`);
-   
-   if (res.status === 'success') {
-       if(res.data.length === 0) {
-           content.innerHTML = '<span style="color:var(--slate-500); padding:20px;">尚無歷史紀錄</span>';
-           return;
-       }
-       content.innerHTML = res.data.map(r => {
-           const resultData = r.result || {};
-           const color = resultData.total_pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
-           const sign = resultData.total_pl >= 0 ? '+' : '';
-           
-           const portHtml = (resultData.portfolio || []).map(p => `
-               <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--slate-300); margin-top:6px; border-bottom:1px dashed var(--slate-700); padding-bottom:6px;">
-                   <span>${p.ticker} (${p.shares}股)</span>
-                   <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
-               </div>
-           `).join('');
-           
-           const ts = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : '';
-           
-           return `
-               <div style="background:var(--slate-800); padding:20px; border-radius:10px; border:1px solid var(--slate-700); margin-bottom:16px;">
-                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                       <span style="color:var(--slate-400); font-family:monospace; font-size:14px;">${ts} | ${r.scenario || '未知情境'}</span>
-                       <span style="font-weight:bold; font-size:20px; color:${color};">${sign}${fmt(resultData.total_pl || 0)}%</span>
-                   </div>
-                   <div style="display:flex; justify-content:space-between; font-size:15px; margin-bottom:16px; color:#fff;">
-                       <span>總投入成本: $${fmt(resultData.total_cost || 0)}</span>
-                       <span>結算總現值: $${fmt(resultData.total_value || 0)}</span>
-                   </div>
-                   <div style="background:rgba(15,23,42,0.5); padding:12px; border-radius:8px;">
-                       <div style="font-size:12px; color:var(--slate-500); margin-bottom:8px;">資產快照</div>
-                       ${portHtml}
-                   </div>
-               </div>
-           `;
-       }).join('');
-   } else {
-       content.innerHTML = `<span style="color:var(--red-400); padding:20px;">${res.message}</span>`;
-   }
+  openModal('stress-history-modal');
+  const content = document.getElementById('stress-history-content');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const uid = currentUser ? currentUser.id : '00000000-0000-0000-0000-000000000000';
+  const res = await apiCall(`/stress_test/history?user_id=${uid}`);
+  if (res.status === 'success') {
+    if (res.data.length === 0) { content.innerHTML = '<p style="color:var(--slate-500);padding:20px;text-align:center">尚無歷史紀錄</p>'; return; }
+    content.innerHTML = res.data.map(r => {
+      const rd = r.result || {};
+      const color = rd.total_pl >= 0 ? 'var(--green-400)' : 'var(--red-400)';
+      const sign = rd.total_pl >= 0 ? '+' : '';
+      const portHtml = (rd.portfolio || []).map(p => `
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--slate-300);margin-top:6px;border-bottom:1px dashed var(--slate-700);padding-bottom:6px">
+          <span>${p.ticker} (${p.shares}股)</span>
+          <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
+        </div>`).join('');
+      const ts = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : '';
+      return `
+        <div style="background:var(--slate-800);padding:20px;border-radius:var(--radius-md);border:1px solid var(--glass-border);margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="color:var(--slate-400);font-family:monospace;font-size:13px">${ts} | ${r.scenario || '未知情境'}</span>
+            <span style="font-weight:800;font-size:20px;color:${color}">${sign}${fmt(rd.total_pl || 0)}%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:14px;color:#fff;font-weight:600">
+            <span>總投入: $${fmt(rd.total_cost || 0)}</span>
+            <span>現值: $${fmt(rd.total_value || 0)}</span>
+          </div>
+          <div style="background:rgba(15,23,42,0.4);padding:12px;border-radius:var(--radius-sm)">
+            <div style="font-size:11px;color:var(--slate-500);margin-bottom:6px;font-weight:600">資產快照</div>
+            ${portHtml}
+          </div>
+        </div>`;
+    }).join('');
+  } else {
+    content.innerHTML = `<p style="color:var(--red-400);padding:20px">${res.message}</p>`;
+  }
 }
 
+// ============================
+// TECH ANALYSIS
+// ============================
 async function fetchTechAnalysis() {
   const btn = document.getElementById('btn-tech');
   const tbody = document.getElementById('tech-table');
   btn.disabled = true;
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:0 auto;"></div></td></tr>';
-
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto"></div></td></tr>';
   const preset = [
-    {id:"2330.TW", name:"台積電", type:"台股", cost:0, shares:0},
-    {id:"2317.TW", name:"鴻海", type:"台股", cost:0, shares:0},
-    {id:"2454.TW", name:"聯發科", type:"台股", cost:0, shares:0},
-    {id:"2382.TW", name:"廣達", type:"台股", cost:0, shares:0},
-    {id:"2603.TW", name:"長榮", type:"台股", cost:0, shares:0}
+    { id: '2330.TW', name: '台積電', type: '台股', cost: 0, shares: 0 },
+    { id: '2317.TW', name: '鴻海', type: '台股', cost: 0, shares: 0 },
+    { id: '2454.TW', name: '聯發科', type: '台股', cost: 0, shares: 0 },
+    { id: '2382.TW', name: '廣達', type: '台股', cost: 0, shares: 0 },
+    { id: '2603.TW', name: '長榮', type: '台股', cost: 0, shares: 0 }
   ];
-
   const res = await apiCall('/analyze', 'POST', { targets: preset });
-  
-  if(res.status === 'success') {
-      tbody.innerHTML = res.data.map(s => {
-          const scoreClass = s.score >= 70 ? "high" : s.score >= 40 ? "mid" : "low";
-          const scoreColor = s.score >= 70 ? "var(--green-400)" : s.score >= 40 ? "var(--yellow-400)" : "var(--red-400)";
-          const adviceBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
-          return `
-          <tr>
-            <td><span style="color:#fff;font-size:15px;font-weight:600">${s.ticker}</span></td>
-            <td style="text-align:right; font-family:monospace; font-size:15px;">$${fmt(s.price)}</td>
-            <td style="text-align:center"><span style="font-size:13px; color:var(--slate-300)">${s.valuation}</span></td>
-            <td><div style="font-size:12px; color:var(--slate-400); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.signals.join(' | ')}</div></td>
-            <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px;"><div class="score-bar-fill ${scoreClass}" style="width:${s.score}%"></div></div><span style="font-weight:700;font-size:14px;color:${scoreColor};width:32px;text-align:right">${s.score}</span></div></td>
-            <td style="text-align:right"><span class="badge ${adviceBadge}" style="font-size:12px;">${s.advice}</span></td>
-          </tr>
-          `;
-      }).join('');
+  if (res.status === 'success') {
+    techTableData = res.data;
+    renderTechTable(res.data);
   } else {
-      tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400); text-align:center;">錯誤: ${res.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400);text-align:center">錯誤: ${res.message}</td></tr>`;
   }
   btn.disabled = false;
 }
 
+function renderTechTable(data) {
+  document.getElementById('tech-table').innerHTML = data.map(s => {
+    const scoreClass = s.score >= 70 ? 'high' : s.score >= 40 ? 'mid' : 'low';
+    const scoreColor = s.score >= 70 ? 'var(--green-400)' : s.score >= 40 ? 'var(--yellow-400)' : 'var(--red-400)';
+    const adviceBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
+    return `
+      <tr style="cursor:pointer" onclick="document.getElementById('kline-ticker').value='${s.ticker}';navigateTo('kline');setTimeout(fetchKline,100)">
+        <td><span style="color:#fff;font-size:14px;font-weight:700">${s.ticker}</span></td>
+        <td style="text-align:right;font-family:monospace;font-size:14px;font-weight:600">$${fmt(s.price)}</td>
+        <td style="text-align:center"><span style="font-size:12px;color:var(--slate-300)">${s.valuation}</span></td>
+        <td><div style="font-size:11px;color:var(--slate-400);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.signals.join(' | ')}</div></td>
+        <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px"><div class="score-bar-fill ${scoreClass}" style="width:${s.score}%"></div></div><span style="font-weight:800;font-size:14px;color:${scoreColor};width:32px;text-align:right">${s.score}</span></div></td>
+        <td style="text-align:right"><span class="badge ${adviceBadge}" style="font-size:11px">${s.advice}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function sortTechTable(colIdx) {
+  if (techTableData.length === 0) return;
+  if (techSortCol === colIdx) techSortAsc = !techSortAsc;
+  else { techSortCol = colIdx; techSortAsc = true; }
+  const keys = ['ticker', 'price', 'valuation', '', 'score', 'advice'];
+  const key = keys[colIdx];
+  if (!key) return;
+  techTableData.sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (typeof va === 'number') return techSortAsc ? va - vb : vb - va;
+    return techSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+  renderTechTable(techTableData);
+}
+
+// ============================
+// K-LINE CHART (NEW)
+// ============================
+function setKlineDays(days) {
+  klineDays = days;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
+  if (currentKlineTicker) fetchKline();
+}
+
+async function fetchKline() {
+  const ticker = document.getElementById('kline-ticker').value.trim();
+  if (!ticker) { showToast('請輸入股票代號', 'warning'); return; }
+  currentKlineTicker = ticker;
+  document.getElementById('kline-chart-title').textContent = `📈 ${ticker} — 載入中...`;
+  document.getElementById('kline-signals').innerHTML = '';
+
+  const res = await apiCall(`/kline/${ticker}?days=${klineDays}`);
+  if (res.status !== 'success') {
+    document.getElementById('kline-chart-title').textContent = `📈 ${ticker} — 載入失敗`;
+    showToast(res.message || '無法載入 K 線資料', 'error');
+    return;
+  }
+
+  document.getElementById('kline-chart-title').textContent = `📈 ${ticker} K線圖 (${klineDays} 日)`;
+
+  const chartDom = document.getElementById('kline-chart');
+  if (klineChart) klineChart.dispose();
+  klineChart = echarts.init(chartDom, 'dark');
+
+  const dates = res.candles.map(c => { const d = new Date(c.time * 1000); return `${d.getMonth()+1}/${d.getDate()}`; });
+  const ohlc = res.candles.map(c => [c.open, c.close, c.low, c.high]);
+  const vols = res.volumes.map(v => ({ value: v.value, itemStyle: { color: v.color === '#26a69a' ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)' } }));
+  const ma5Data = res.ma5.map(m => m.value);
+  const ma20Data = res.ma20.map(m => m.value);
+  const ma60Data = res.ma60.map(m => m.value);
+
+  // Pad MA data to align with dates
+  const padStart = (arr, total) => { const pad = total - arr.length; return [...Array(pad > 0 ? pad : 0).fill(null), ...arr]; };
+
+  const option = {
+    backgroundColor: 'transparent',
+    animation: true,
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#475569' } },
+      backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
+    grid: [
+      { left: '8%', right: '3%', top: '5%', height: '55%' },
+      { left: '8%', right: '3%', top: '68%', height: '22%' }
+    ],
+    xAxis: [
+      { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#334155' } }, axisLabel: { color: '#64748b', fontSize: 10 }, boundaryGap: true },
+      { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#334155' } }, axisLabel: { show: false }, boundaryGap: true }
+    ],
+    yAxis: [
+      { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: 'rgba(51,65,85,0.3)' } }, axisLabel: { color: '#64748b', fontSize: 10 }, axisLine: { lineStyle: { color: '#334155' } } },
+      { scale: true, gridIndex: 1, splitNumber: 2, splitLine: { lineStyle: { color: 'rgba(51,65,85,0.2)' } }, axisLabel: { color: '#64748b', fontSize: 10 }, axisLine: { lineStyle: { color: '#334155' } } }
+    ],
+    dataZoom: [
+      { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
+      { type: 'slider', xAxisIndex: [0, 1], start: 0, end: 100, bottom: '2%', height: 20,
+        borderColor: '#334155', backgroundColor: 'rgba(15,23,42,0.5)', fillerColor: 'rgba(59,130,246,0.15)',
+        handleStyle: { color: '#3b82f6' }, textStyle: { color: '#64748b' } }
+    ],
+    series: [
+      { name: 'K線', type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0,
+        itemStyle: { color: '#ef4444', color0: '#22c55e', borderColor: '#ef4444', borderColor0: '#22c55e' } },
+      { name: 'MA5', type: 'line', data: padStart(ma5Data, dates.length), xAxisIndex: 0, yAxisIndex: 0,
+        smooth: true, lineStyle: { width: 1.5, color: '#facc15' }, symbol: 'none' },
+      { name: 'MA20', type: 'line', data: padStart(ma20Data, dates.length), xAxisIndex: 0, yAxisIndex: 0,
+        smooth: true, lineStyle: { width: 1.5, color: '#3b82f6' }, symbol: 'none' },
+      { name: 'MA60', type: 'line', data: padStart(ma60Data, dates.length), xAxisIndex: 0, yAxisIndex: 0,
+        smooth: true, lineStyle: { width: 1.5, color: '#a855f7' }, symbol: 'none' },
+      { name: '成交量', type: 'bar', data: vols, xAxisIndex: 1, yAxisIndex: 1 }
+    ]
+  };
+  klineChart.setOption(option);
+  window.addEventListener('resize', () => klineChart && klineChart.resize());
+
+  // Load signals
+  const sigRes = await apiCall('/analyze', 'POST', { targets: [{ id: ticker, name: '', type: '台股', cost: 0, shares: 0 }] });
+  if (sigRes.status === 'success' && sigRes.data[0]) {
+    const s = sigRes.data[0];
+    const advBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
+    document.getElementById('kline-signals').innerHTML = `
+      <div class="card">
+        <div class="card-header">🧠 ${ticker} 技術分析摘要</div>
+        <div class="card-body">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+            <span style="font-size:20px;font-weight:800;color:#fff">$${fmt(s.price)}</span>
+            <span class="badge ${advBadge}" style="font-size:13px;padding:5px 14px">${s.advice} (${s.score}分)</span>
+            <span style="font-size:13px;color:var(--slate-400)">估值：${s.valuation}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${s.signals.map(sig => `<span class="badge badge-slate">${sig}</span>`).join('')}
+          </div>
+          ${s.exit && s.exit !== '-' ? `<div style="margin-top:12px;font-size:13px;color:var(--red-400)">⚠ ${s.exit}</div>` : ''}
+        </div>
+      </div>`;
+  }
+}
+
+// ============================
+// BACKTEST (NEW)
+// ============================
+async function runBacktest() {
+  const btn = document.getElementById('btn-backtest');
+  const resultDiv = document.getElementById('backtest-result');
+  const ticker = document.getElementById('backtest-ticker').value.trim();
+  const days = parseInt(document.getElementById('backtest-days').value);
+
+  if (!ticker) { showToast('請輸入股票代號', 'warning'); return; }
+
+  btn.disabled = true;
+  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">策略回測模擬中...</p></div>';
+
+  const res = await apiCall('/backtest', 'POST', { ticker, days });
+
+  if (res.status === 'success') {
+    const sr = res.strategy_return || 0;
+    const bhr = res.buy_hold_return || 0;
+    const outperf = res.outperformance || 0;
+    const trades = res.trades || [];
+    const tradeCount = res.trade_count || 0;
+    const wins = trades.filter(t => t.return_pct > 0).length;
+    const winRate = tradeCount > 0 ? ((wins / tradeCount) * 100) : 0;
+
+    resultDiv.innerHTML = `
+      <div class="grid grid-4" style="margin-bottom:20px">
+        <div class="backtest-stat">
+          <div class="label">策略報酬率</div>
+          <div class="value" style="color:${sr >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${sr >= 0 ? '+' : ''}${fmt(sr)}%</div>
+        </div>
+        <div class="backtest-stat">
+          <div class="label">買入持有報酬率</div>
+          <div class="value" style="color:${bhr >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${bhr >= 0 ? '+' : ''}${fmt(bhr)}%</div>
+        </div>
+        <div class="backtest-stat">
+          <div class="label">超額報酬</div>
+          <div class="value" style="color:${outperf >= 0 ? 'var(--cyan-400)' : 'var(--orange-400)'}">${outperf >= 0 ? '+' : ''}${fmt(outperf)}%</div>
+        </div>
+        <div class="backtest-stat">
+          <div class="label">交易次數 / 勝率</div>
+          <div class="value" style="color:var(--blue-400);font-size:22px">${tradeCount}次 / ${fmt(winRate, 0)}%</div>
+        </div>
+      </div>
+
+      ${trades.length > 0 ? `
+      <div class="card">
+        <div class="card-header">📋 最近交易紀錄 (最近 ${trades.length} 筆)</div>
+        <table class="data-table">
+          <thead><tr>
+            <th>動作</th><th style="text-align:right">日期</th><th style="text-align:right">價格</th>
+            <th style="text-align:right">報酬</th>
+          </tr></thead>
+          <tbody>
+            ${trades.map(t => {
+              const isBuy = t.action === 'BUY' || t.action === '買入';
+              return `<tr>
+                <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">${t.action}</span></td>
+                <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">${t.date || '-'}</td>
+                <td style="text-align:right;font-weight:600;color:#fff">$${fmt(t.price)}</td>
+                <td style="text-align:right;font-weight:700;color:${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${t.return_pct ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="card"><div class="card-body" style="color:var(--slate-500);text-align:center">此期間內無交易訊號</div></div>'}
+    `;
+    showToast(`${ticker} 回測完成`, 'success');
+  } else {
+    resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">回測失敗：${res.message || '未知錯誤'}</p></div></div>`;
+    showToast('回測執行失敗', 'error');
+  }
+  btn.disabled = false;
+}
+
+// ============================
+// NEWS ANALYSIS
+// ============================
 async function fetchNewsAnalysis() {
   const btn = document.getElementById('btn-news');
   const list = document.getElementById('news-list');
@@ -907,273 +1287,246 @@ async function fetchNewsAnalysis() {
 
   const res = await apiCall('/news/analyze_batch', 'POST', { sources: ['yahoo_finance', 'investing'], limit: 3 });
 
-  if(res.status === 'success' && res.data) {
-      const displayedNews = res.data.slice(0, 5);
-      
-      const localStats = { '利多': 0, '利空': 0, '中立': 0 };
-      displayedNews.forEach(n => {
-          const s = n.sentiment || '中立';
-          if (localStats[s] !== undefined) {
-              localStats[s]++;
-          } else {
-              localStats['中立']++;
-          }
-      });
+  if (res.status === 'success' && res.data) {
+    const displayedNews = res.data.slice(0, 5);
+    const localStats = { '利多': 0, '利空': 0, '中立': 0 };
+    displayedNews.forEach(n => {
+      const s = n.sentiment || '中立';
+      if (localStats[s] !== undefined) localStats[s]++; else localStats['中立']++;
+    });
 
-      statsBox.innerHTML = `
-        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🟢</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利多</p><p style="font-size:22px;font-weight:700;color:var(--green-400);margin-top:4px">${localStats['利多']} 則</p></div></div>
-        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">⚪</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定中立</p><p style="font-size:22px;font-weight:700;color:var(--slate-300);margin-top:4px">${localStats['中立']} 則</p></div></div>
-        <div class="card" style="padding:16px;display:flex;align-items:center;gap:16px"><span style="font-size:32px">🔴</span><div><p style="font-size:14px;color:var(--slate-400)">AI 判定利空</p><p style="font-size:22px;font-weight:700;color:var(--red-400);margin-top:4px">${localStats['利空']} 則</p></div></div>
-      `;
+    statsBox.innerHTML = `
+      <div class="stat-card up" style="display:flex;align-items:center;gap:16px;padding:18px"><span style="font-size:28px">🟢</span><div><p style="font-size:12px;color:var(--slate-500);font-weight:600">AI 判定利多</p><p style="font-size:24px;font-weight:800;color:var(--green-400);margin-top:2px">${localStats['利多']} 則</p></div></div>
+      <div class="stat-card" style="display:flex;align-items:center;gap:16px;padding:18px"><span style="font-size:28px">⚪</span><div><p style="font-size:12px;color:var(--slate-500);font-weight:600">AI 判定中立</p><p style="font-size:24px;font-weight:800;color:var(--slate-300);margin-top:2px">${localStats['中立']} 則</p></div></div>
+      <div class="stat-card down" style="display:flex;align-items:center;gap:16px;padding:18px"><span style="font-size:28px">🔴</span><div><p style="font-size:12px;color:var(--slate-500);font-weight:600">AI 判定利空</p><p style="font-size:24px;font-weight:800;color:var(--red-400);margin-top:2px">${localStats['利空']} 則</p></div></div>`;
 
-      list.innerHTML = displayedNews.map(n => {
-          const sBadge = n.sentiment==='利多'?'badge-green':(n.sentiment==='利空'?'badge-red':'badge-slate');
-          const iBadge = n.impact==='高'?'badge-orange':(n.impact==='中'?'badge-yellow':'badge-slate');
-          return `
-            <div style="padding:20px; border-bottom:1px solid rgba(51,65,85,.5);">
-              <div style="display:flex; gap:12px; margin-bottom:12px; align-items:center;">
-                 <span class="badge ${sBadge}" style="font-size:13px; padding:4px 10px;">${n.sentiment}</span>
-                 <span class="badge ${iBadge}" style="font-size:13px; padding:4px 10px;">影響:${n.impact}</span>
-                 <span style="font-size:13px; color:var(--slate-500); font-family:monospace;">${n.source} | ${n.published}</span>
-              </div>
-              <a href="${n.link}" target="_blank" style="display:block; font-size:16px; font-weight:600; color:#fff; text-decoration:none; margin-bottom:12px; line-height:1.5;">${n.title}</a>
-              <div style="font-size:14px; color:var(--blue-400); background:rgba(59,130,246,.08); padding:12px; border-radius:8px; line-height:1.6;">
-                🤖 AI 解析：${n.ai_reason || n.summary || '無特別說明'}
-              </div>
-            </div>
-          `;
-      }).join('');
+    list.innerHTML = displayedNews.map(n => {
+      const sBadge = n.sentiment === '利多' ? 'badge-green' : (n.sentiment === '利空' ? 'badge-red' : 'badge-slate');
+      const iBadge = n.impact === '高' ? 'badge-orange' : (n.impact === '中' ? 'badge-blue' : 'badge-slate');
+      return `
+        <div style="padding:18px 20px;border-bottom:1px solid rgba(51,65,85,.3)">
+          <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+            <span class="badge ${sBadge}" style="font-size:12px;padding:4px 12px">${n.sentiment}</span>
+            <span class="badge ${iBadge}" style="font-size:12px;padding:4px 12px">影響:${n.impact}</span>
+            <span style="font-size:11px;color:var(--slate-600);font-family:monospace">${n.source} | ${n.published}</span>
+          </div>
+          <a href="${n.link}" target="_blank" style="display:block;font-size:15px;font-weight:700;color:#fff;text-decoration:none;margin-bottom:10px;line-height:1.5">${n.title}</a>
+          <div style="font-size:13px;color:var(--blue-400);background:rgba(59,130,246,.06);padding:12px;border-radius:var(--radius-sm);line-height:1.7;border:1px solid rgba(59,130,246,0.1)">
+            🤖 AI 解析：${n.ai_reason || n.summary || '無特別說明'}
+          </div>
+        </div>`;
+    }).join('');
   } else {
-      list.innerHTML = `<p style="padding:20px; color:var(--red-400); font-size:16px;">分析失敗：${res.message || '無資料'}</p>`;
+    list.innerHTML = `<p style="padding:20px;color:var(--red-400);font-size:15px">分析失敗：${res.message || '無資料'}</p>`;
   }
   btn.disabled = false;
 }
 
+// ============================
+// SENTIMENT
+// ============================
 async function fetchSentiment() {
-    const btn = document.getElementById('btn-sentiment');
-    const scoreEl = document.getElementById('sentiment-score');
-    const labelEl = document.getElementById('sentiment-label');
-    const reasonEl = document.getElementById('sentiment-reasoning');
-    const newsGrid = document.getElementById('sentiment-news-grid');
-    
-    btn.disabled = true;
-    scoreEl.innerText = "⏳";
-    reasonEl.innerText = "分析中，請稍候...";
-    newsGrid.innerHTML = "";
+  const btn = document.getElementById('btn-sentiment');
+  const scoreEl = document.getElementById('sentiment-score');
+  const labelEl = document.getElementById('sentiment-label');
+  const reasonEl = document.getElementById('sentiment-reasoning');
+  const newsGrid = document.getElementById('sentiment-news-grid');
+  btn.disabled = true;
+  scoreEl.innerText = '⏳';
+  reasonEl.innerText = '分析中，請稍候...';
+  newsGrid.innerHTML = '';
 
-    const res = await apiCall('/api/sentiment', 'GET');
-    
-    if (res && res.score !== undefined) {
-        // 設定分數顏色與文字
-        let color = "#94a3b8"; // 中立
-        if (res.score >= 56) color = "#22c55e"; // 樂觀
-        if (res.score <= 45) color = "#ef4444"; // 恐懼
-        
-        scoreEl.style.color = color;
-        scoreEl.innerText = res.score;
-        labelEl.innerText = res.label;
-        reasonEl.innerText = res.reasoning || "分析完成。";
+  const res = await apiCall('/api/sentiment', 'GET');
+  if (res && res.score !== undefined) {
+    let color = '#94a3b8';
+    if (res.score >= 56) color = '#22c55e';
+    if (res.score <= 45) color = '#ef4444';
+    scoreEl.style.color = color;
+    scoreEl.style.textShadow = `0 0 40px ${color}40`;
+    scoreEl.innerText = res.score;
+    labelEl.innerText = res.label;
+    reasonEl.innerText = res.reasoning || '分析完成。';
 
-        // 渲染五則新聞摘要
-        if (res.news_analysis) {
-            newsGrid.innerHTML = res.news_analysis.map(n => {
-                let tagColor = n.sentiment === '多' ? 'var(--green-500)' : (n.sentiment === '空' ? 'var(--red-500)' : 'var(--slate-500)');
-                return `
-                    <div class="news-tile">
-                        <span class="sentiment-tag" style="background:${tagColor}">${n.sentiment}</span>
-                        <div style="font-size:13px; font-weight:bold; color:#fff; margin-bottom:5px;">${n.title}</div>
-                        <div style="font-size:12px; color:var(--slate-400);">${n.summary}</div>
-                    </div>
-                `;
-            }).join('');
-        }
+    if (res.recommendations && res.recommendations.length > 0) {
+      document.getElementById('sentiment-recommend').innerHTML = `
+        <div style="margin-top:16px"><div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:12px">📊 AI 推薦標的</div>
+        <div class="recommendation-grid">${res.recommendations.map(r => `
+          <div class="stock-card">
+            <div class="stock-card-header"><span style="font-size:16px;font-weight:700;color:#fff">${r.ticker || r.name}</span>
+            <span class="badge badge-green">${r.action || '觀察'}</span></div>
+            <div style="font-size:13px;color:var(--slate-400);line-height:1.6">${r.reason || ''}</div>
+          </div>`).join('')}</div></div>`;
     }
-    btn.disabled = false;
+
+    if (res.news_analysis) {
+      newsGrid.innerHTML = res.news_analysis.map(n => {
+        const tagColor = n.sentiment === '多' ? 'var(--green-500)' : (n.sentiment === '空' ? 'var(--red-500)' : 'var(--slate-500)');
+        return `<div class="news-tile">
+          <span class="sentiment-tag" style="background:${tagColor}">${n.sentiment}</span>
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:5px">${n.title}</div>
+          <div style="font-size:12px;color:var(--slate-400);line-height:1.5">${n.summary}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+  btn.disabled = false;
 }
 
+// ============================
+// SCREENER
+// ============================
 function renderStockListHTML(title, emoji, stocks) {
-    if(!stocks || stocks.length === 0) return '';
-    return `
-        <div style="margin-top:16px; background:rgba(15,23,42,0.4); border:1px solid var(--slate-700); border-radius:8px; padding:16px;">
-            <div style="color:#fff; font-size:15px; font-weight:bold; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-               <span>${emoji}</span> ${title}
+  if (!stocks || stocks.length === 0) return '';
+  return `
+    <div style="margin-top:16px;background:rgba(15,23,42,0.3);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:16px">
+      <div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <span>${emoji}</span> ${title}
+      </div>
+      ${stocks.map(fs => `
+        <div style="margin-bottom:10px;border-bottom:1px dashed var(--slate-700);padding-bottom:10px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+            <span style="color:#fff;font-weight:700;font-size:14px;cursor:pointer" onclick="document.getElementById('kline-ticker').value='${fs.ticker}';navigateTo('kline');setTimeout(fetchKline,100)">${fs.ticker} ${fs.name || ''}</span>
+            <span style="color:var(--slate-400);font-size:12px">現價：${fs.price} | 近5日：<span style="color:${fs.pct_5d >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${fs.pct_5d > 0 ? '+' : ''}${fs.pct_5d}%</span></span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${(fs.tags || []).length > 0 ? fs.tags.map(t => `<span class="badge ${t.includes('買超') || t.includes('強勢') ? 'badge-green' : (t.includes('賣超') || t.includes('錯殺') ? 'badge-red' : 'badge-orange')}">${t}</span>`).join('') : '<span class="badge badge-slate">觀察中</span>'}
+          </div>
+          ${fs.main_force ? `
+          <div style="margin-top:6px;background:rgba(15,23,42,0.45);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+              <span style="font-size:12px;color:var(--slate-300)">🧠 主力動向：${fs.main_force.bias || '無法判斷'}</span>
+              <span style="font-size:11px;color:var(--orange-400)">動能 ${fs.main_force.score ?? 0}/100</span>
             </div>
-            ${stocks.map(fs => `
-                <div style="margin-bottom:10px; border-bottom:1px dashed var(--slate-700); padding-bottom:10px; display:flex; flex-direction:column; gap:6px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:#fff; font-weight:600; font-size:15px;">${fs.ticker} ${fs.name || ''}</span>
-                        <span style="color:var(--slate-400); font-size:13px;">現價：${fs.price} | 近5日：<span style="color:${fs.pct_5d >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${fs.pct_5d > 0 ? '+' : ''}${fs.pct_5d}%</span></span>
-                    </div>
-                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                        ${(fs.tags || []).length > 0 ? fs.tags.map(t => `<span class="badge ${t.includes('買超') || t.includes('強勢') ? 'badge-green' : (t.includes('賣超') || t.includes('錯殺') ? 'badge-red' : 'badge-orange')}">${t}</span>`).join('') : '<span style="color:var(--slate-600); border-color:var(--slate-700); font-size:12px; padding:2px 8px; border-radius:4px; border:1px solid;">觀察中</span>'}
-                    </div>
-                    ${fs.main_force ? `
-                    <div style="margin-top:6px; background:rgba(15,23,42,0.55); border:1px solid var(--slate-700); border-radius:8px; padding:10px;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
-                            <span style="font-size:13px; color:var(--slate-300);">🧠 主力動向：${fs.main_force.bias || '無法判斷'}</span>
-                            <span style="font-size:12px; color:var(--orange-400);">動能分數 ${fs.main_force.score ?? 0}/100</span>
-                        </div>
-                        <div style="font-size:12px; color:var(--slate-500); line-height:1.5; margin-bottom:6px;">${fs.main_force.summary || '無資料'}</div>
-                        <div style="font-size:12px; color:var(--slate-300); line-height:1.6;">
-                            ${(fs.main_force.patterns || []).map(p => `• ${p}`).join('<br>')}
-                        </div>
-                    </div>` : ''}
-                </div>
-            `).join('')}
-        </div>
-    `;
+            <div style="font-size:11px;color:var(--slate-500);line-height:1.5;margin-bottom:6px">${fs.main_force.summary || '無資料'}</div>
+            <div style="font-size:11px;color:var(--slate-300);line-height:1.6">
+              ${(fs.main_force.patterns || []).map(p => `• ${p}`).join('<br>')}
+            </div>
+          </div>` : ''}
+        </div>`).join('')}
+    </div>`;
 }
 
 async function runScreener() {
-  if(screenerTargets.length === 0) {
-      alert('請在上方設定至少一檔目標標的。');
-      return;
-  }
-
+  if (screenerTargets.length === 0) { showToast('請在上方設定至少一檔目標標的', 'warning'); return; }
   const btn = document.getElementById('btn-screener');
   const resBox = document.getElementById('screener-result');
   btn.disabled = true;
-  resBox.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text" style="margin-top:12px;">正在分析產業族群、建構供應鏈並彙整主力動能...</p></div>';
+  resBox.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text" style="margin-top:12px">正在分析產業族群、建構供應鏈並彙整主力動能...</p></div>';
 
-  const usePortfolio = screenerTargets.length === 0;
   const res = await apiCall('/screener/analyze', 'POST', {
-      source: usePortfolio ? 'portfolio' : 'manual',
-      user_id: currentUser ? currentUser.id : null,
-      targets: usePortfolio ? [] : screenerTargets,
-      filters: [] 
+    source: 'manual',
+    user_id: currentUser ? currentUser.id : null,
+    targets: screenerTargets,
+    filters: []
   });
-  
-  if(res.status === 'success') {
-          const data = res.data || [];
-          if(data.length === 0) {
-              resBox.innerHTML = '<div class="card"><div class="card-body" style="color:var(--slate-400);">目前沒有可分析資料，請先新增標的或匯入部位。</div></div>';
-              btn.disabled = false;
-              return;
+
+  if (res.status === 'success') {
+    const data = res.data || [];
+    if (data.length === 0) {
+      resBox.innerHTML = '<div class="card"><div class="card-body" style="color:var(--slate-500);text-align:center">目前沒有可分析資料</div></div>';
+      btn.disabled = false;
+      return;
+    }
+
+    resBox.innerHTML = data.map(item => {
+      const ev = item.evaluated_stocks || [];
+      const strongStocks = ev.filter(s => s.pct_5d >= 10 || (s.main_force && s.main_force.score >= 70));
+      const weakStocks = ev.filter(s => s.pct_5d <= -10 || (s.main_force && s.main_force.score <= 30));
+      const otherStocks = ev.filter(s => !strongStocks.includes(s) && !weakStocks.includes(s));
+      const graphId = 'graph-' + item.target.ticker.replace(/\./g, '-');
+
+      return `
+        <details style="background:var(--glass-bg);border:1px solid var(--glass-border);padding:20px;border-radius:var(--radius-lg);margin-bottom:16px;backdrop-filter:blur(8px)" open>
+          <summary style="cursor:pointer;outline:none;display:flex;align-items:center;font-size:17px;font-weight:800;color:#fff;gap:8px">
+            🎯 目標標的：${item.target.ticker} ${item.target.name || ''}
+          </summary>
+          <div style="margin-top:20px;display:grid;gap:14px">
+            <div id="${graphId}" style="width:100%;height:420px;background:rgba(15,23,42,0.3);border:1px solid var(--glass-border);border-radius:var(--radius-md)"></div>
+            <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm);border-left:4px solid var(--blue-500)">
+              <div style="color:var(--slate-500);font-size:11px;margin-bottom:4px;font-weight:600">所屬產業族群</div>
+              <div style="color:var(--blue-400);font-size:15px;font-weight:700">${item.group}</div>
+            </div>
+            <div class="grid grid-2">
+              <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm)">
+                <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">🔗 相關概念</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  ${item.concepts.map(c => `<span class="badge badge-purple">${c}</span>`).join('')}
+                </div>
+              </div>
+              <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm)">
+                <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">⚙️ 供應鏈</div>
+                <div style="font-size:13px;color:var(--slate-300);line-height:1.8">
+                  上游：${(item.supply_chain.upstream || []).join('、') || '無'}<br>
+                  中游：${(item.supply_chain.midstream || []).join('、') || '無'}<br>
+                  下游：${(item.supply_chain.downstream || []).join('、') || '無'}
+                </div>
+              </div>
+            </div>
+            ${renderStockListHTML('🔥 強勢指標股', '🔥', strongStocks)}
+            ${renderStockListHTML('📉 弱勢/錯殺股', '📉', weakStocks)}
+            ${renderStockListHTML('📋 其他關聯標的', '📋', otherStocks)}
+          </div>
+        </details>`;
+    }).join('');
+
+    // Draw force graphs
+    setTimeout(() => {
+      data.forEach(item => {
+        const graphId = 'graph-' + item.target.ticker.replace(/\./g, '-');
+        const chartDom = document.getElementById(graphId);
+        if (!chartDom) return;
+        const myChart = echarts.init(chartDom, 'dark');
+        const nodes = [], links = [], seenNodes = new Set();
+        const centerName = item.target.ticker + ' ' + (item.target.name || '');
+        nodes.push({ name: centerName, symbolSize: 60, itemStyle: { color: '#f97316', shadowBlur: 20, shadowColor: 'rgba(249,115,22,0.4)' } });
+        seenNodes.add(centerName);
+
+        if (item.supply_chain) {
+          (item.supply_chain.upstream || []).forEach(x => {
+            if (!seenNodes.has(x)) { nodes.push({ name: x, symbolSize: 44, itemStyle: { color: '#22c55e' } }); seenNodes.add(x); }
+            links.push({ source: x, target: centerName, value: '上游原料' });
+          });
+          (item.supply_chain.midstream || []).forEach(x => {
+            if (!seenNodes.has(x)) { nodes.push({ name: x, symbolSize: 44, itemStyle: { color: '#3b82f6' } }); seenNodes.add(x); }
+            if (x !== centerName) links.push({ source: x, target: centerName, value: '同業中游' });
+          });
+          (item.supply_chain.downstream || []).forEach(x => {
+            if (!seenNodes.has(x)) { nodes.push({ name: x, symbolSize: 44, itemStyle: { color: '#a855f7' } }); seenNodes.add(x); }
+            links.push({ source: centerName, target: x, value: '下游客戶' });
+          });
+        }
+        (item.evaluated_stocks || []).forEach(s => {
+          const sName = s.ticker + ' ' + (s.name || '');
+          if (!seenNodes.has(sName)) {
+            nodes.push({ name: sName, symbolSize: 32, itemStyle: { color: '#64748b' } });
+            seenNodes.add(sName);
+            links.push({ source: centerName, target: sName, value: '產業關聯' });
           }
+        });
 
-          resBox.innerHTML = data.map(item => {
-              const ev = item.evaluated_stocks || [];
-              const strongStocks = ev.filter(s => s.pct_5d >= 10 || (s.main_force && s.main_force.score >= 70));
-              const weakStocks = ev.filter(s => s.pct_5d <= -10 || (s.main_force && s.main_force.score <= 30));
-              const otherStocks = ev.filter(s => !strongStocks.includes(s) && !weakStocks.includes(s));
-              // 建立符合 HTML 規範的唯一 ID
-              const graphId = "graph-" + item.target.ticker.replace(/\./g, "-");
-
-              return `
-              <details style="background:var(--slate-800); border:1px solid var(--slate-700); padding:16px; border-radius:12px; margin-bottom:16px; transition:0.3s;" open>
-                  <summary style="cursor:pointer; outline:none; display:flex; align-items:center; font-size:18px; font-weight:bold; color:#fff;">
-                      🎯 目標標的：${item.target.ticker} ${item.target.name || ''}
-                  </summary>
-                  <div style="margin-top:20px; display:grid; gap:12px;">
-                      
-                      <div id="${graphId}" style="width:100%; height:450px; background:rgba(15,23,42,0.4); border:1px solid var(--slate-700); border-radius:8px; margin-bottom:12px;"></div>
-
-                      <div style="background:rgba(15,23,42,0.4); padding:12px; border-radius:8px; border-left:4px solid var(--blue-500);">
-                          <div style="color:var(--slate-400); font-size:13px; margin-bottom:4px;">所屬產業族群</div>
-                          <div style="color:var(--blue-400); font-size:15px; font-weight:600;">${item.group}</div>
-                      </div>
-                      <div class="grid grid-2">
-                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
-                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">🔗 相關概念分類</div>
-                              <div style="color:var(--slate-200); font-size:14px; line-height:1.6;">
-                                  ${item.concepts.map(c => `<span style="display:inline-block; background:var(--slate-700); padding:2px 8px; border-radius:4px; margin:0 6px 6px 0; font-size:12px;">${c}</span>`).join('')}
-                              </div>
-                          </div>
-                          <div style="background:rgba(15,23,42,0.4); padding:14px; border-radius:8px;">
-                              <div style="color:var(--slate-400); font-size:13px; margin-bottom:8px; font-weight:600;">⚙️ 產業供應鏈地圖</div>
-                              <div style="color:var(--slate-200); font-size:14px; line-height:1.8;">
-                                  上游：${(item.supply_chain.upstream || []).join('、') || '無'}<br>
-                                  中游：${(item.supply_chain.midstream || []).join('、') || '無'}<br>
-                                  下游：${(item.supply_chain.downstream || []).join('、') || '無'}
-                              </div>
-                          </div>
-                      </div>
-                      
-                      ${renderStockListHTML('🔥 強勢指標股 (漲逾10% 或 主力買超)', '🔥', strongStocks)}
-                      ${renderStockListHTML('📉 弱勢/錯殺股 (跌逾10% 或 主力賣超)', '📉', weakStocks)}
-                      ${renderStockListHTML('📋 其他關聯標的', '📋', otherStocks)}
-                      
-                  </div>
-              </details>
-          `}).join('');
-
-          // 延遲繪製以確保 DOM 元素已載入
-          setTimeout(() => {
-              data.forEach(item => {
-                  const graphId = "graph-" + item.target.ticker.replace(/\./g, "-");
-                  const chartDom = document.getElementById(graphId);
-                  if(!chartDom) return;
-                  
-                  const myChart = echarts.init(chartDom, 'dark');
-                  const nodes = [];
-                  const links = [];
-                  const seenNodes = new Set();
-
-                  const centerName = item.target.ticker + " " + (item.target.name || "");
-                  nodes.push({ name: centerName, symbolSize: 65, itemStyle: { color: "#f97316" } });
-                  seenNodes.add(centerName);
-
-                  if(item.supply_chain) {
-                      (item.supply_chain.upstream || []).forEach(x => {
-                          if(!seenNodes.has(x)) {
-                              nodes.push({ name: x, symbolSize: 48, itemStyle: { color: "#22c55e" } });
-                              seenNodes.add(x);
-                          }
-                          links.push({ source: x, target: centerName, value: "上游原料" });
-                      });
-                      (item.supply_chain.midstream || []).forEach(x => {
-                          if(!seenNodes.has(x)) {
-                              nodes.push({ name: x, symbolSize: 48, itemStyle: { color: "#3b82f6" } });
-                              seenNodes.add(x);
-                          }
-                          if(x !== centerName) {
-                              links.push({ source: x, target: centerName, value: "同業中游" });
-                          }
-                      });
-                      (item.supply_chain.downstream || []).forEach(x => {
-                          if(!seenNodes.has(x)) {
-                              nodes.push({ name: x, symbolSize: 48, itemStyle: { color: "#a855f7" } });
-                              seenNodes.add(x);
-                          }
-                          links.push({ source: centerName, target: x, value: "下游客戶" });
-                      });
-                  }
-
-                  (item.evaluated_stocks || []).forEach(s => {
-                      const sName = s.ticker + " " + (s.name || "");
-                      if(!seenNodes.has(sName)) {
-                          nodes.push({ name: sName, symbolSize: 35, itemStyle: { color: "#64748b" } });
-                          seenNodes.add(sName);
-                          links.push({ source: centerName, target: sName, value: "產業關聯" });
-                      }
-                  });
-
-                  const option = {
-                      backgroundColor: 'transparent',
-                      tooltip: { trigger: 'item', formatter: '{b}' },
-                      series: [{
-                          type: 'graph',
-                          layout: 'force',
-                          roam: true,
-                          draggable: true,
-                          edgeSymbol: ['none', 'arrow'],
-                          edgeSymbolSize: [4, 7],
-                          label: { show: true, position: 'right', color: '#fff', fontSize: 11 },
-                          force: { repulsion: 500, edgeLength: 130, gravity: 0.1 },
-                          data: nodes,
-                          links: links,
-                          lineStyle: { color: 'rgba(255,255,255,0.15)', width: 1.5, curveness: 0.1 }
-                      }]
-                  };
-                  myChart.setOption(option);
-              });
-          }, 100);
+        myChart.setOption({
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'item', formatter: '{b}', backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0' } },
+          series: [{
+            type: 'graph', layout: 'force', roam: true, draggable: true,
+            edgeSymbol: ['none', 'arrow'], edgeSymbolSize: [4, 7],
+            label: { show: true, position: 'right', color: '#e2e8f0', fontSize: 10 },
+            force: { repulsion: 450, edgeLength: 120, gravity: 0.1 },
+            data: nodes, links: links,
+            lineStyle: { color: 'rgba(255,255,255,0.1)', width: 1.5, curveness: 0.1 }
+          }]
+        });
+      });
+    }, 150);
   } else {
-      resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
+    resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
   }
   btn.disabled = false;
 }
 
+// ============================
+// CHAT
+// ============================
 let chatOpen = false;
 function toggleChat() {
   chatOpen = !chatOpen;
@@ -1181,46 +1534,83 @@ function toggleChat() {
   if (chatOpen) document.getElementById('chat-input').focus();
 }
 
+function clearChat() {
+  document.getElementById('chat-messages').innerHTML = '<div class="chat-msg bot">對話已清除，隨時可以開始新的對話 🚀</div>';
+  currentChatbotId = null;
+  showToast('對話已清除', 'info');
+}
+
+function renderMarkdown(text) {
+  // Basic markdown rendering for chat
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^[-•]\s+(.+)/gm, '• $1')
+    .replace(/^(\d+)\.\s+(.+)/gm, '$1. $2');
+}
+
 async function sendChat() {
   const input = document.getElementById('chat-input');
   const msg = input.value.trim();
   if (!msg) return;
   input.value = '';
-
   const messagesDiv = document.getElementById('chat-messages');
   const sendBtn = document.getElementById('chat-send-btn');
-  
   messagesDiv.innerHTML += `<div class="chat-msg user">${msg}</div>`;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
   const typingId = 'typing-' + Date.now();
-  messagesDiv.innerHTML += `<div class="chat-msg bot" id="${typingId}"><div class="spinner" style="width:16px; height:16px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:8px;"></div>思考中...</div>`;
+  messagesDiv.innerHTML += `<div class="chat-msg bot" id="${typingId}"><div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></div>思考中...</div>`;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
   sendBtn.disabled = true;
 
   const body = { message: msg };
-  if(currentChatbotId) body.conversation_id = currentChatbotId;
-
+  if (currentChatbotId) body.conversation_id = currentChatbotId;
   const res = await apiCall('/chat', 'POST', body);
   document.getElementById(typingId).remove();
 
   if (res.status === 'success') {
-    if(res.conversation_id) currentChatbotId = res.conversation_id;
-    messagesDiv.innerHTML += `<div class="chat-msg bot">${res.reply}</div>`;
+    if (res.conversation_id) currentChatbotId = res.conversation_id;
+    messagesDiv.innerHTML += `<div class="chat-msg bot">${renderMarkdown(res.reply)}</div>`;
   } else {
     messagesDiv.innerHTML += `<div class="chat-msg bot" style="color:var(--red-400)">⚠️ ${res.message}</div>`;
   }
-  
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
   sendBtn.disabled = false;
   input.focus();
 }
 
+// ============================
+// KEYBOARD SHORTCUTS
+// ============================
+document.addEventListener('keydown', (e) => {
+  // Don't trigger shortcuts when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+  const pageKeys = { '1': 'war', '2': 'stress', '3': 'tech', '4': 'kline', '5': 'backtest', '6': 'news', '7': 'sentiment', '8': 'screener' };
+
+  if (pageKeys[e.key]) { navigateTo(pageKeys[e.key]); e.preventDefault(); }
+  else if (e.key === '/') { document.getElementById('quick-search-input').focus(); e.preventDefault(); }
+  else if (e.key === 'c' || e.key === 'C') { toggleChat(); e.preventDefault(); }
+  else if (e.key === 'Escape') {
+    if (chatOpen) toggleChat();
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => { m.classList.remove('open'); m.style.display = 'none'; });
+  }
+});
+
+// ============================
+// INIT
+// ============================
 function init() {
   checkHealth();
   updateAuthUI();
   loadPositionsFromServer();
   fetchMacroData();
+  fetchMarketStatus();
+  updateClock();
+  setInterval(updateClock, 1000);
+  setInterval(fetchMarketStatus, 60000);
 }
 
 window.onload = init;

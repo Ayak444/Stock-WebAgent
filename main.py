@@ -617,6 +617,16 @@ async def get_sentiment():
     result = get_sentiment_analysis(combined_news)
     return result
 
+@app.get("/market_status")
+def market_status():
+    is_open = DataProvider.is_market_open()
+    return {"status": "success", "is_open": is_open, "time": datetime.now().isoformat()}
+
+@app.get("/trades")
+def get_trades(user_id: str):
+    data = db.get_trade_history(user_id)
+    return {"status": "success", "data": data}
+
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
