@@ -397,20 +397,48 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
 
         <div id="macro-bar" class="grid grid-4" style="margin-bottom:24px"></div>
 
-        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px">⚡ 即時更新</button>
-
-        <div class="grid grid-2">
-          <div class="card">
-            <div class="card-header">🤖 每日大盤摘要</div>
-            <div class="card-body" id="war-ai-summary">
-              <span style="color:var(--slate-500)">點擊上方即時更新以獲取最新 AI 解析...</span>
-            </div>
-          </div>
-          <div class="card">
+        <div class="grid grid-3" style="margin-bottom:24px; gap:24px;">
+          <div class="card" style="grid-column: span 2; margin-bottom:0;">
             <div class="card-header">📰 各大財經頭條 (最新 10 則)</div>
-            <div class="card-body" id="war-news" style="padding:16px;max-height:500px;overflow-y:auto">
+            <div class="card-body" id="war-news" style="padding:16px;max-height:380px;overflow-y:auto">
               <span style="color:var(--slate-500);display:block">無最新新聞</span>
             </div>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-header">📅 近期重點行事曆</div>
+            <div class="card-body" style="padding:16px;max-height:380px;overflow-y:auto">
+               <ul style="list-style:none;padding:0;margin:0;font-size:14px;line-height:1.8">
+                 <li style="border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;margin-bottom:12px">
+                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">明天</div>
+                   <div style="font-weight:600;font-size:15px;color:#fff">2330 台積電</div>
+                   <div style="color:var(--slate-400);font-size:13px">第二季法說會 (14:00)</div>
+                 </li>
+                 <li style="border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;margin-bottom:12px">
+                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">後天</div>
+                   <div style="font-weight:600;font-size:15px;color:#fff">2317 鴻海</div>
+                   <div style="color:var(--slate-400);font-size:13px">除息 5.4 元 (現金殖利率 ~2.6%)</div>
+                 </li>
+                 <li style="border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;margin-bottom:12px">
+                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">下週一</div>
+                   <div style="font-weight:600;font-size:15px;color:#fff">2603 長榮</div>
+                   <div style="color:var(--slate-400);font-size:13px">除息 10 元</div>
+                 </li>
+                 <li>
+                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">下週三</div>
+                   <div style="font-weight:600;font-size:15px;color:#fff">聯準會 FOMC</div>
+                   <div style="color:var(--slate-400);font-size:13px">利率決議會議</div>
+                 </li>
+               </ul>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px;border-radius:12px;">⚡ 即時分析大盤重點摘要</button>
+
+        <div class="card">
+          <div class="card-header">🤖 每日大盤摘要與 AI 觀點</div>
+          <div class="card-body" id="war-ai-summary" style="font-size:15px;line-height:1.7;min-height:120px;">
+            <span style="color:var(--slate-500)">點擊上方即時更新以獲取最新 AI 解析...</span>
           </div>
         </div>
       </div>
@@ -703,7 +731,8 @@ const fmt = (num, d = 2) => Number(num).toLocaleString('en-US', { minimumFractio
 // STOCK UTILS
 // ============================
 const stockNames = {
-  "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2382": "廣達", "2603": "長榮"
+  "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2382": "廣達", "2603": "長榮",
+  "2311": "日月光", "2325": "矽品", "3711": "日月光投控"
 };
 
 function normalizeTicker(val) {
@@ -1414,8 +1443,8 @@ async function runBacktest() {
               return `<tr>
                 <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">${t.action}</span></td>
                 <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">${t.date || '-'}</td>
-                <td style="text-align:right;font-weight:600;color:#fff">$${fmt(t.price)}</td>
-                <td style="text-align:right;font-weight:700;color:${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${t.return_pct ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
+                <td style="text-align:right;font-weight:600;color:#fff">NT$${fmt(t.price)}</td>
+                <td style="text-align:right;font-weight:700;color:${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${t.return_pct !== undefined && t.return_pct !== 0 ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -1612,9 +1641,9 @@ async function runScreener() {
               <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm)">
                 <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">⚙️ 供應鏈</div>
                 <div style="font-size:13px;color:var(--slate-300);line-height:1.8">
-                  上游：${(item.supply_chain.upstream || []).join('、') || '無'}<br>
-                  中游：${(item.supply_chain.midstream || []).join('、') || '無'}<br>
-                  下游：${(item.supply_chain.downstream || []).join('、') || '無'}
+                  上游：${(item.supply_chain.upstream || []).map(t => displayTicker(t)).join('、') || '無'}<br>
+                  中游：${(item.supply_chain.midstream || []).map(t => displayTicker(t)).join('、') || '無'}<br>
+                  下游：${(item.supply_chain.downstream || []).map(t => displayTicker(t)).join('、') || '無'}
                 </div>
               </div>
             </div>

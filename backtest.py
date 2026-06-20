@@ -35,17 +35,21 @@ class Backtester:
                         shares += buy_shares
                         trades.append({
                             "date": str(row.name.date()),
-                            "type": "BUY", "price": round(price, 2),
-                            "shares": buy_shares
+                            "action": "BUY", "price": round(price, 2),
+                            "shares": buy_shares,
+                            "return_pct": 0
                         })
+                        last_buy_price = price
                 # 死亡交叉 or RSI 過熱
                 elif ((prev['Close'] > prev['MA20'] and price < row['MA20']) or
                       row['RSI'] > 75) and shares > 0:
                     cash += shares * price
+                    ret_pct = ((price / last_buy_price) - 1) * 100 if 'last_buy_price' in locals() and last_buy_price > 0 else 0
                     trades.append({
                         "date": str(row.name.date()),
-                        "type": "SELL", "price": round(price, 2),
-                        "shares": shares
+                        "action": "SELL", "price": round(price, 2),
+                        "shares": shares,
+                        "return_pct": round(ret_pct, 2)
                     })
                     shares = 0
 
@@ -66,9 +70,9 @@ class Backtester:
             "ticker": ticker,
             "days": days,
             "strategy_return": round(strategy_return, 2),
-            "buyhold_return": round(bh_return, 2),
-            "outperform": round(strategy_return - bh_return, 2),
-            "total_trades": len(trades),
+            "buy_hold_return": round(bh_return, 2),
+            "outperformance": round(strategy_return - bh_return, 2),
+            "trade_count": len(trades),
             "final_value": round(final_value, 0),
             "trades": trades[-10:]  # 最近 10 筆
         }
