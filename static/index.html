@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -253,12 +255,86 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
   .page-header h2{font-size:18px}
   .stat-card{padding:14px}
 }
+/* ===== Landing Page ===== */
+.landing { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--slate-950); z-index: 3000; overflow-y: auto; overflow-x: hidden; color: #fff; }
+.landing-noise { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E'); opacity: 0.03; pointer-events: none; }
+.landing-nav { position: fixed; top: 0; left: 0; width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; z-index: 3010; background: rgba(2,6,23,0.7); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+.landing-nav .logo { font-size: 20px; font-weight: 800; letter-spacing: 1px; }
+.landing-nav .nav-links { display: flex; gap: 20px; align-items: center; }
+.hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 120px 20px 60px; position: relative; }
+.hero::before { content:''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(37,99,235,0.15) 0%, rgba(2,6,23,0) 70%); pointer-events: none; z-index: -1; }
+.hero-content { max-width: 800px; text-align: center; }
+.badge-pill { display: inline-block; padding: 6px 16px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: var(--blue-400); border-radius: var(--radius-full); font-size: 13px; font-weight: 600; margin-bottom: 24px; letter-spacing: 1px; }
+.hero-title { font-size: clamp(48px, 6vw, 72px); font-weight: 800; line-height: 1.1; margin-bottom: 24px; letter-spacing: -1px; }
+.text-gradient { background: linear-gradient(135deg, #60a5fa, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-desc { font-size: clamp(16px, 2vw, 20px); color: var(--slate-400); line-height: 1.6; margin-bottom: 40px; max-width: 600px; margin-inline: auto; }
+.hero-btn-main { padding: 16px 32px; font-size: 16px; border-radius: var(--radius-full); box-shadow: 0 10px 30px rgba(37,99,235,0.3); }
+
+.scroll-section { padding: 120px 40px; max-width: 1200px; margin: 0 auto; position: relative; }
+.feature-row { display: flex; align-items: center; gap: 60px; min-height: 80vh; }
+.feature-text { flex: 1; }
+.feature-title { font-size: clamp(32px, 4vw, 48px); font-weight: 800; line-height: 1.2; margin-bottom: 20px; }
+.feature-desc { font-size: 18px; color: var(--slate-400); line-height: 1.7; }
+.feature-img { flex: 1.2; position: relative; }
+.dashboard-preview-wrapper { perspective: 1000px; }
+.dashboard-preview-img { width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--glass-border); box-shadow: 0 25px 50px rgba(0,0,0,0.5); transform: rotateX(15deg) rotateY(-15deg) scale(0.95); transform-style: preserve-3d; transition: border-color 0.3s ease; }
+
+/* App hidden initially */
+.app { opacity: 0; pointer-events: none; }
+.app.active { opacity: 1; pointer-events: auto; }
+
+@media(max-width:768px){
+  .landing-nav { padding: 16px 20px; }
+  .feature-row { flex-direction: column; text-align: center; gap: 40px; padding-top: 40px; }
+  .scroll-section { padding: 60px 20px; }
+}
 </style>
 </head>
 <body>
 
 <button class="mobile-toggle" id="mobile-toggle" onclick="toggleSidebar()">☰</button>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ===== Landing Page ===== -->
+<div id="landing" class="landing">
+  <div class="landing-noise"></div>
+  <nav class="landing-nav">
+    <div class="logo">🚀 股金往來</div>
+    <div class="nav-links">
+      <button class="btn-ghost" onclick="scrollToFeatures()">功能特點</button>
+      <button class="btn-analyze" id="landing-cta" onclick="startJourney()">開始探索</button>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-content">
+      <div class="badge-pill hero-elem">✨ 智能分析儀表板 v3.0 上線</div>
+      <h1 class="hero-title hero-elem">掌握台股脈動<br><span class="text-gradient">AI 驅動未來</span></h1>
+      <p class="hero-desc hero-elem">結合大語言模型與深度技術分析，為您提供最精準的市場洞察、策略回測與個股健診，打造機構級的看盤體驗。</p>
+      <div class="hero-actions hero-elem">
+        <button class="btn-analyze hero-btn-main" onclick="startJourney()" id="hero-main-btn">立即登入使用 ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-section" id="features">
+    <div class="feature-row">
+      <div class="feature-text feature-left">
+        <h2 class="feature-title">全知全能的<br><span class="text-gradient">智能看盤</span></h2>
+        <p class="feature-desc">透過 GSAP 動畫引擎打造極致流暢的視覺體驗，無論是即時行情還是複雜的 K 線圖，皆能順暢無阻地完美呈現。</p>
+      </div>
+      <div class="feature-img feature-right">
+        <div class="dashboard-preview-wrapper">
+          <img src="preview.png" alt="Dashboard Preview" class="dashboard-preview-img" id="dashboard-preview">
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="scroll-section" style="min-height: 50vh; display: flex; align-items: center; justify-content: center;">
+    <h2 class="hero-title end-text" style="text-align: center;">準備好顛覆您的<br><span class="text-gradient">投資體驗了嗎？</span></h2>
+  </div>
+</div>
 
 <div class="app">
   <aside class="sidebar" id="sidebar">
@@ -829,6 +905,11 @@ async function handleAuthSubmit() {
       updateAuthUI();
       loadPositionsFromServer();
       showToast(`歡迎回來，${res.user.name || res.user.email}！`, 'success');
+      
+      // Trigger dashboard transition if landing is still active
+      if (document.getElementById('landing').style.display !== 'none') {
+        enterDashboard();
+      }
     } else { errDiv.innerText = res.detail || res.message || '登入失敗'; errDiv.style.display = 'block'; }
   }
 }
@@ -1619,6 +1700,113 @@ async function sendChat() {
 }
 
 // ============================
+// LANDING PAGE & GSAP ANIMATIONS
+// ============================
+let landingAnimationDone = false;
+
+function initLanding() {
+  if (typeof gsap === 'undefined') return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Hero entrance
+  const tl = gsap.timeline();
+  tl.from(".landing-nav", { y: -50, opacity: 0, duration: 0.8, ease: "power3.out" })
+    .from(".hero-elem", { 
+      y: 40, 
+      opacity: 0, 
+      duration: 0.8, 
+      stagger: 0.15, 
+      ease: "power3.out" 
+    }, "-=0.4");
+
+  // Feature row scroll
+  gsap.from(".feature-left", {
+    scrollTrigger: {
+      trigger: ".feature-row",
+      start: "top 70%",
+    },
+    x: -50,
+    opacity: 0,
+    duration: 1,
+    ease: "power3.out"
+  });
+
+  // 3D Dashboard preview scroll effect
+  gsap.to(".dashboard-preview-img", {
+    scrollTrigger: {
+      trigger: ".feature-row",
+      start: "top 70%",
+      end: "bottom 30%",
+      scrub: 1
+    },
+    rotateX: 0,
+    rotateY: 0,
+    scale: 1.02,
+    boxShadow: "0 0 60px rgba(59,130,246,0.2)",
+    ease: "none"
+  });
+
+  // End text
+  gsap.from(".end-text", {
+    scrollTrigger: {
+      trigger: ".end-text",
+      start: "top 80%",
+    },
+    y: 50,
+    opacity: 0,
+    duration: 1,
+    ease: "power3.out"
+  });
+}
+
+function scrollToFeatures() {
+  document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
+}
+
+function startJourney() {
+  if (!currentUser) {
+    showAuthModal('login');
+  } else {
+    enterDashboard();
+  }
+}
+
+function enterDashboard() {
+  if (landingAnimationDone) return;
+  landingAnimationDone = true;
+
+  if (typeof gsap === 'undefined') {
+    document.getElementById('landing').style.display = 'none';
+    document.querySelector('.app').classList.add('active');
+    return;
+  }
+
+  const tl = gsap.timeline({
+    onComplete: () => {
+      document.getElementById('landing').style.display = 'none';
+      document.querySelector('.app').classList.add('active');
+      
+      // Dashboard entrance animations
+      gsap.from(".sidebar", { x: -100, opacity: 0, duration: 0.6, ease: "power3.out" });
+      gsap.from(".top-bar", { y: -30, opacity: 0, duration: 0.5, ease: "power3.out" }, "-=0.4");
+      gsap.from(".card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.05, ease: "power3.out" }, "-=0.2");
+      gsap.from(".stat-card", { scale: 0.9, opacity: 0, duration: 0.5, stagger: 0.05, ease: "back.out(1.5)" }, "-=0.4");
+      
+      // Trigger initial data load now that UI is visible
+      fetchMacroData();
+    }
+  });
+
+  // Animate landing out
+  tl.to(".landing", {
+    y: "-100vh",
+    opacity: 0,
+    duration: 0.8,
+    ease: "power4.inOut"
+  });
+}
+
+// ============================
 // KEYBOARD SHORTCUTS
 // ============================
 document.addEventListener('keydown', (e) => {
@@ -1643,6 +1831,13 @@ function init() {
   fetchStockNames();
   checkHealth();
   updateAuthUI();
+  
+  if (currentUser) {
+    document.getElementById('hero-main-btn').innerText = '進入您的儀表板 ➔';
+  }
+  
+  initLanding();
+
   loadPositionsFromServer();
   fetchMacroData();
   fetchMarketStatus();
