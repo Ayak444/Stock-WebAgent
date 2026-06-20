@@ -622,6 +622,21 @@ def market_status():
     is_open = DataProvider.is_market_open()
     return {"status": "success", "is_open": is_open, "time": datetime.now().isoformat()}
 
+@app.get("/api/rankings")
+def get_rankings():
+    data = DataProvider.get_rankings()
+    return {"status": "success", "data": data}
+
+@app.get("/api/fundamentals/{ticker}")
+def get_fundamentals(ticker: str):
+    data = DataProvider.get_fundamentals(ticker)
+    return {"status": "success", "data": data}
+
+@app.get("/api/chips")
+def get_chips():
+    data = DataProvider.get_chip_data()
+    return {"status": "success", "data": data}
+
 @app.get("/api/stock_names")
 def get_stock_names():
     from screener_engine import OPENAPI_CACHE

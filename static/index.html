@@ -105,6 +105,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--sla
 .grid-2{grid-template-columns:repeat(2,1fr)}
 .grid-3{grid-template-columns:repeat(3,1fr)}
 .grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-5{grid-template-columns:repeat(5,1fr)}
 
 /* ===== Badges ===== */
 .badge{display:inline-flex;align-items:center;font-size:11px;padding:3px 10px;border-radius:var(--radius-full);border:1px solid;font-weight:600;letter-spacing:0.2px}
@@ -385,6 +386,15 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           </div>
         </div>
 
+        <div id="rankings-bar" class="card" style="margin-bottom:24px">
+          <div class="card-header">🔥 盤面熱點 (上市成交量 Top 5)</div>
+          <div class="card-body">
+            <div id="rankings-content" class="grid grid-5">
+               <span style="color:var(--slate-500)">讀取中...</span>
+            </div>
+          </div>
+        </div>
+
         <div id="macro-bar" class="grid grid-4" style="margin-bottom:24px"></div>
 
         <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px">⚡ 即時更新</button>
@@ -471,6 +481,31 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           <div id="kline-chart" style="width:100%;height:500px;background:rgba(15,23,42,0.3)"></div>
         </div>
         <div id="kline-signals" style="margin-top:16px"></div>
+
+        <div id="kline-fundamentals" style="margin-top:16px; display:none;">
+          <div class="grid grid-2">
+            <div class="card" style="margin-bottom:0">
+              <div class="card-header">📊 基本面資訊</div>
+              <div class="card-body">
+                <table class="index-table" id="fund-table">
+                  <tr><td>每股盈餘 (EPS)</td><td id="fund-eps" style="font-weight:700">-</td></tr>
+                  <tr><td>本益比 (P/E)</td><td id="fund-pe" style="font-weight:700">-</td></tr>
+                  <tr><td>殖利率 (Yield)</td><td id="fund-yield" style="font-weight:700">-</td></tr>
+                  <tr><td>營收成長率</td><td id="fund-rev" style="font-weight:700">-</td></tr>
+                  <tr><td>市值</td><td id="fund-cap" style="font-weight:700">-</td></tr>
+                </table>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:0">
+              <div class="card-header">🏦 法人籌碼動向 (外資與投信)</div>
+              <div class="card-body">
+                <div id="chip-content" style="font-size:14px; color:var(--slate-300); line-height:1.6">
+                  <span style="color:var(--slate-500)">讀取中...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ========== PAGE: Backtest ========== -->
@@ -1229,6 +1264,9 @@ async function fetchKline() {
   const displayName = displayTicker(ticker);
   document.getElementById('kline-chart-title').textContent = `📈 ${displayName} — 載入中...`;
   document.getElementById('kline-signals').innerHTML = '';
+  document.getElementById('kline-fundamentals').style.display = 'none';
+
+  fetchFundamentalsAndChips(ticker);
 
   const res = await apiCall(`/kline/${ticker}?days=${klineDays}`);
   if (res.status !== 'success') {
@@ -1642,8 +1680,76 @@ async function runScreener() {
   btn.disabled = false;
 }
 
+async function fetchRankings() {
+  const container = document.getElementById('rankings-content');
+  if(!container) return;
+  try {
+    const res = await apiCall('/api/rankings');
+    if (res.status === 'success' && res.data && res.data.volume && res.data.volume.length > 0) {
+      container.innerHTML = res.data.volume.map(item => `
+        <div class="stat-card">
+          <div style="font-size:12px; color:var(--slate-400); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${displayTicker(item.ticker)}</div>
+          <div style="font-size:16px; font-weight:700; color:#fff">${item.price}</div>
+          <div style="font-size:11px; color:var(--orange-400); margin-top:4px">量: ${item.volume} 千股</div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<span style="color:var(--slate-500)">無排行資料</span>';
+    }
+  } catch(e) {
+    container.innerHTML = '<span style="color:var(--red-400)">讀取失敗</span>';
+  }
+}
+
+async function fetchFundamentalsAndChips(ticker) {
+  const fundDiv = document.getElementById('kline-fundamentals');
+  fundDiv.style.display = 'block';
+
+  document.getElementById('fund-eps').textContent = '讀取中...';
+  document.getElementById('fund-pe').textContent = '讀取中...';
+  document.getElementById('fund-yield').textContent = '讀取中...';
+  document.getElementById('fund-rev').textContent = '讀取中...';
+  document.getElementById('fund-cap').textContent = '讀取中...';
+  document.getElementById('chip-content').innerHTML = '<span style="color:var(--slate-500)">讀取中...</span>';
+
+  // Fundamentals
+  apiCall(`/api/fundamentals/${ticker}`).then(res => {
+    if(res.status === 'success' && res.data) {
+      document.getElementById('fund-eps').textContent = res.data.eps || '-';
+      document.getElementById('fund-pe').textContent = res.data.pe || '-';
+      document.getElementById('fund-yield').textContent = res.data.dividendYield ? (res.data.dividendYield * 100).toFixed(2) + '%' : '-';
+      document.getElementById('fund-rev').textContent = res.data.revenueGrowth ? (res.data.revenueGrowth * 100).toFixed(2) + '%' : '-';
+      document.getElementById('fund-cap').textContent = res.data.marketCap ? (res.data.marketCap / 100000000).toFixed(2) + ' 億' : '-';
+    } else {
+      document.getElementById('fund-eps').textContent = '-';
+    }
+  });
+
+  // Chips
+  apiCall('/api/chips').then(res => {
+    const code = ticker.split('.')[0];
+    if(res.status === 'success' && res.data && res.data[code]) {
+      const data = res.data[code];
+      const forColor = data.Foreign > 0 ? 'var(--red-400)' : 'var(--green-400)';
+      const truColor = data.Trust > 0 ? 'var(--red-400)' : 'var(--green-400)';
+      document.getElementById('chip-content').innerHTML = `
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--slate-400);margin-bottom:4px">外資買賣超</div>
+          <div style="font-size:18px;font-weight:700;color:${forColor}">${data.Foreign > 0 ? '+' : ''}${data.Foreign.toLocaleString()} 張</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--slate-400);margin-bottom:4px">投信買賣超</div>
+          <div style="font-size:18px;font-weight:700;color:${truColor}">${data.Trust > 0 ? '+' : ''}${data.Trust.toLocaleString()} 張</div>
+        </div>
+      `;
+    } else {
+      document.getElementById('chip-content').innerHTML = '<span style="color:var(--slate-500)">無近期籌碼資料 (可能為盤後或假日無資料)</span>';
+    }
+  });
+}
+
 // ============================
-// CHAT
+// MODALS
 // ============================
 let chatOpen = false;
 function toggleChat() {
@@ -1840,6 +1946,7 @@ function init() {
 
   loadPositionsFromServer();
   fetchMacroData();
+  fetchRankings();
   fetchMarketStatus();
   updateClock();
   setInterval(updateClock, 1000);

@@ -212,6 +212,43 @@ class DataProvider:
         return 0, ""
 
     @staticmethod
+    def get_rankings():
+        try:
+            url = "https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX20"
+            r = requests.get(url, timeout=5, headers=HEADERS)
+            data = r.json()
+            vol_top = []
+            if isinstance(data, list):
+                for row in data[:5]:
+                    vol_top.append({
+                        "ticker": f"{row.get('證券代號')}.TW",
+                        "name": row.get('證券名稱'),
+                        "volume": int(row.get('成交股數', '0').replace(',', '')) // 1000,
+                        "price": row.get('收盤價')
+                    })
+            return {"volume": vol_top}
+        except Exception as e:
+            return {"volume": []}
+
+    @staticmethod
+    def get_fundamentals(ticker: str):
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            return {
+                "eps": info.get("trailingEps", "-"),
+                "pe": info.get("trailingPE", "-"),
+                "dividendYield": info.get("dividendYield", "-"),
+                "revenueGrowth": info.get("revenueGrowth", "-"),
+                "marketCap": info.get("marketCap", "-"),
+                "sector": info.get("sector", "-"),
+                "industry": info.get("industry", "-")
+            }
+        except Exception:
+            return {}
+
+    @staticmethod
     def get_chip_data():
         try:
             for i in range(5):
