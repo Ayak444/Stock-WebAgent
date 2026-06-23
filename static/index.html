@@ -921,12 +921,16 @@ async function fetchMacroData() {
       const up = val.change >= 0;
       const color = up ? 'var(--green-400)' : 'var(--red-400)';
       const sign = up ? '+' : '';
-      const dName = nMap[key] || key;
       bar.innerHTML += `
-        <div class="stat-card ${up ? 'up' : 'down'}">
-          <div style="font-size:12px;color:var(--slate-500);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dName}</div>
-          <div style="font-size:28px;font-weight:800;color:#fff;margin:8px 0;letter-spacing:-0.5px">${fmt(val.price)}</div>
-          <div style="font-size:14px;color:${color};font-weight:700">${sign}${fmt(val.change)} (${sign}${fmt(val.pct_change)}%)</div>
+        <div class="stat-card" style="padding:16px; border-top:2px solid ${color}">
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:center">
+            <div style="font-size:13px; color:var(--slate-300); font-weight:700">${key}</div>
+            <div style="font-size:13px; color:${color}; font-weight:700">~ ${sign}${fmt(val.change)}</div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-end">
+            <div style="font-size:24px; font-weight:800; color:#fff; letter-spacing:-0.5px">${fmt(val.price)}</div>
+            <div style="font-size:13px; color:${color}; font-weight:600">(${sign}${fmt(val.pct_change)}%)</div>
+          </div>
         </div>`;
     });
   } else {

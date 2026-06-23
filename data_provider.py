@@ -22,8 +22,10 @@ class DataProvider:
     @staticmethod
     def get_macro_indices():
         result = {}
-        tickers = {"^TWII": "加權指數", "^SOX": "費半指數", "CL=F": "油價", "GC=F": "金價"}
-        
+        tickers = {
+            "^TWII": "台灣加權", "^SOX": "費城半導體", "^GSPC": "S&P 500", "TSM": "台積電 ADR",
+            "NVDA": "輝達 NVDA", "^N225": "日經 225", "^KS11": "韓國綜合", "^VIX": "VIX 恐慌"
+        }
         for symbol, name in tickers.items():
             try:
                 url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d"
