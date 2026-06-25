@@ -1,9 +1,12 @@
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import re
 import json
+
+# 台灣時區 UTC+8
+TW_TZ = timezone(timedelta(hours=8))
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -12,7 +15,7 @@ HEADERS = {
 class DataProvider:
     @staticmethod
     def is_market_open():
-        now = datetime.now()
+        now = datetime.now(TW_TZ)
         if now.weekday() >= 5:
             return False
         start = now.replace(hour=9, minute=0, second=0)

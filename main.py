@@ -3,7 +3,7 @@ import json
 import re
 import traceback
 import requests as http_requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -620,7 +620,8 @@ async def get_sentiment():
 @app.get("/market_status")
 def market_status():
     is_open = DataProvider.is_market_open()
-    return {"status": "success", "is_open": is_open, "time": datetime.now().isoformat()}
+    tw_tz = timezone(timedelta(hours=8))
+    return {"status": "success", "is_open": is_open, "time": datetime.now(tw_tz).isoformat()}
 
 @app.get("/api/rankings")
 def get_rankings():

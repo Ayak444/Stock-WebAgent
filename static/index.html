@@ -318,33 +318,90 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
     </div>
   </div>
 
-  <div class="scroll-section" id="features">
-    <div style="text-align:center; margin-bottom:60px">
-      <h2 class="feature-title" style="margin-bottom:16px">四大核心功能<br><span class="text-gradient">全方位投資輔助</span></h2>
-      <p style="color:var(--slate-400); font-size:18px; max-width:600px; margin:0 auto; line-height:1.7">透過極致流暢的視覺體驗，為您提供最精準的市場洞察、策略回測與個股健診，打造機構級的看盤體驗。</p>
+  <div class="scroll-section" id="features" style="position:relative">
+    <!-- Subtle background grid pattern -->
+    <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;mask-image:radial-gradient(ellipse 70% 50% at 50% 50%,black 40%,transparent 100%)"></div>
+
+    <div style="text-align:center; margin-bottom:80px; position:relative">
+      <div class="badge-pill" style="margin-bottom:20px">🧩 核心功能總覽</div>
+      <h2 class="feature-title" style="margin-bottom:20px">四大核心功能<br><span class="text-gradient">全方位投資輔助</span></h2>
+      <p style="color:var(--slate-400); font-size:18px; max-width:620px; margin:0 auto; line-height:1.8">結合 AI 深度分析與機構級數據，從盤面總覽到策略驗證，<br>為您打造一站式的專業投資決策平台。</p>
     </div>
-    
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
-      <div class="feature-card" style="background:rgba(15,23,42,0.6); padding:30px; border-radius:24px; border:1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: transform 0.3s ease, border-color 0.3s ease; cursor:default;" onmouseover="this.style.transform='translateY(-5px)'; this.style.borderColor='rgba(96,165,250,0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,255,255,0.05)'">
-        <div style="width:56px; height:56px; background:rgba(96,165,250,0.1); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:24px; color:#60a5fa">🔥</div>
-        <h3 style="color:#fff; margin-bottom:14px; font-size:22px; font-weight:700">盤面熱點與排行</h3>
-        <p style="color:var(--slate-400); font-size:15px; line-height:1.8">即時追蹤上市櫃成交量與漲跌幅榜單，市場資金流向一目了然，隨時掌握主流題材。</p>
+
+    <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 24px; position:relative">
+
+      <!-- Card 1: 盤面熱點 -->
+      <div class="feature-card" style="position:relative; background:linear-gradient(135deg,rgba(15,23,42,0.8),rgba(30,41,59,0.4)); padding:36px; border-radius:20px; border:1px solid rgba(96,165,250,0.15); overflow:hidden; transition:all 0.4s cubic-bezier(0.4,0,0.2,1); cursor:default" onmouseover="this.style.transform='translateY(-6px)';this.style.borderColor='rgba(96,165,250,0.4)';this.style.boxShadow='0 20px 60px rgba(96,165,250,0.1)'" onmouseout="this.style.transform='';this.style.borderColor='rgba(96,165,250,0.15)';this.style.boxShadow=''">
+        <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(96,165,250,0.12),transparent 70%);pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div style="width:52px;height:52px;background:linear-gradient(135deg,rgba(96,165,250,0.2),rgba(59,130,246,0.05));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid rgba(96,165,250,0.2)">🔥</div>
+          <div>
+            <span style="color:rgba(96,165,250,0.6);font-size:12px;font-weight:700;letter-spacing:2px">STEP 01</span>
+            <h3 style="color:#fff;font-size:20px;font-weight:700;margin-top:2px">盤面熱點與排行</h3>
+          </div>
+        </div>
+        <p style="color:var(--slate-400);font-size:15px;line-height:1.8;margin-bottom:18px">即時追蹤上市櫃成交量與漲跌幅榜單，市場資金流向一目了然。</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="color:var(--slate-300);font-size:13px">✦ 成交量 / 漲跌幅 TOP 排行</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 即時資金流向追蹤</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 主流題材板塊總覽</span>
+        </div>
       </div>
-      <div class="feature-card" style="background:rgba(15,23,42,0.6); padding:30px; border-radius:24px; border:1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: transform 0.3s ease, border-color 0.3s ease; cursor:default;" onmouseover="this.style.transform='translateY(-5px)'; this.style.borderColor='rgba(168,85,247,0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,255,255,0.05)'">
-        <div style="width:56px; height:56px; background:rgba(168,85,247,0.1); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:24px; color:#a855f7">📊</div>
-        <h3 style="color:#fff; margin-bottom:14px; font-size:22px; font-weight:700">基本面與籌碼分析</h3>
-        <p style="color:var(--slate-400); font-size:15px; line-height:1.8">一鍵查看企業 EPS、本益比、殖利率，並結合最新外資與投信買賣超動向，深度剖析個股體質。</p>
+
+      <!-- Card 2: 基本面 -->
+      <div class="feature-card" style="position:relative; background:linear-gradient(135deg,rgba(15,23,42,0.8),rgba(30,41,59,0.4)); padding:36px; border-radius:20px; border:1px solid rgba(168,85,247,0.15); overflow:hidden; transition:all 0.4s cubic-bezier(0.4,0,0.2,1); cursor:default" onmouseover="this.style.transform='translateY(-6px)';this.style.borderColor='rgba(168,85,247,0.4)';this.style.boxShadow='0 20px 60px rgba(168,85,247,0.1)'" onmouseout="this.style.transform='';this.style.borderColor='rgba(168,85,247,0.15)';this.style.boxShadow=''">
+        <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(168,85,247,0.12),transparent 70%);pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div style="width:52px;height:52px;background:linear-gradient(135deg,rgba(168,85,247,0.2),rgba(139,92,246,0.05));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid rgba(168,85,247,0.2)">📊</div>
+          <div>
+            <span style="color:rgba(168,85,247,0.6);font-size:12px;font-weight:700;letter-spacing:2px">STEP 02</span>
+            <h3 style="color:#fff;font-size:20px;font-weight:700;margin-top:2px">基本面與籌碼分析</h3>
+          </div>
+        </div>
+        <p style="color:var(--slate-400);font-size:15px;line-height:1.8;margin-bottom:18px">一鍵查看企業 EPS、本益比、殖利率，深度剖析個股體質。</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="color:var(--slate-300);font-size:13px">✦ EPS / PE Ratio / 殖利率</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 外資 / 投信 買賣超動向</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 個股財報快速診斷</span>
+        </div>
       </div>
-      <div class="feature-card" style="background:rgba(15,23,42,0.6); padding:30px; border-radius:24px; border:1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: transform 0.3s ease, border-color 0.3s ease; cursor:default;" onmouseover="this.style.transform='translateY(-5px)'; this.style.borderColor='rgba(34,197,94,0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,255,255,0.05)'">
-        <div style="width:56px; height:56px; background:rgba(34,197,94,0.1); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:24px; color:#22c55e">🤖</div>
-        <h3 style="color:#fff; margin-bottom:14px; font-size:22px; font-weight:700">AI 關聯供應鏈</h3>
-        <p style="color:var(--slate-400); font-size:15px; line-height:1.8">利用大語言模型自動爬梳產業上下游關係，精準捕捉關聯概念股，挖掘潛在投資機會。</p>
+
+      <!-- Card 3: AI 供應鏈 -->
+      <div class="feature-card" style="position:relative; background:linear-gradient(135deg,rgba(15,23,42,0.8),rgba(30,41,59,0.4)); padding:36px; border-radius:20px; border:1px solid rgba(34,197,94,0.15); overflow:hidden; transition:all 0.4s cubic-bezier(0.4,0,0.2,1); cursor:default" onmouseover="this.style.transform='translateY(-6px)';this.style.borderColor='rgba(34,197,94,0.4)';this.style.boxShadow='0 20px 60px rgba(34,197,94,0.1)'" onmouseout="this.style.transform='';this.style.borderColor='rgba(34,197,94,0.15)';this.style.boxShadow=''">
+        <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(34,197,94,0.12),transparent 70%);pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div style="width:52px;height:52px;background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(22,163,74,0.05));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid rgba(34,197,94,0.2)">🤖</div>
+          <div>
+            <span style="color:rgba(34,197,94,0.6);font-size:12px;font-weight:700;letter-spacing:2px">STEP 03</span>
+            <h3 style="color:#fff;font-size:20px;font-weight:700;margin-top:2px">AI 關聯供應鏈</h3>
+          </div>
+        </div>
+        <p style="color:var(--slate-400);font-size:15px;line-height:1.8;margin-bottom:18px">利用大語言模型自動爬梳產業上下游，挖掘潛在投資機會。</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="color:var(--slate-300);font-size:13px">✦ LLM 智能產業鏈分析</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 上中下游關聯概念股</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 視覺化供應鏈圖譜</span>
+        </div>
       </div>
-      <div class="feature-card" style="background:rgba(15,23,42,0.6); padding:30px; border-radius:24px; border:1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: transform 0.3s ease, border-color 0.3s ease; cursor:default;" onmouseover="this.style.transform='translateY(-5px)'; this.style.borderColor='rgba(245,158,11,0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,255,255,0.05)'">
-        <div style="width:56px; height:56px; background:rgba(245,158,11,0.1); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:24px; color:#f59e0b">📈</div>
-        <h3 style="color:#fff; margin-bottom:14px; font-size:22px; font-weight:700">歷史策略回測</h3>
-        <p style="color:var(--slate-400); font-size:15px; line-height:1.8">內建 MA20 + RSI 等技術指標交易邏輯，一鍵執行量化回測，真實模擬歷史績效與勝率。</p>
+
+      <!-- Card 4: 歷史回測 -->
+      <div class="feature-card" style="position:relative; background:linear-gradient(135deg,rgba(15,23,42,0.8),rgba(30,41,59,0.4)); padding:36px; border-radius:20px; border:1px solid rgba(245,158,11,0.15); overflow:hidden; transition:all 0.4s cubic-bezier(0.4,0,0.2,1); cursor:default" onmouseover="this.style.transform='translateY(-6px)';this.style.borderColor='rgba(245,158,11,0.4)';this.style.boxShadow='0 20px 60px rgba(245,158,11,0.1)'" onmouseout="this.style.transform='';this.style.borderColor='rgba(245,158,11,0.15)';this.style.boxShadow=''">
+        <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(245,158,11,0.12),transparent 70%);pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div style="width:52px;height:52px;background:linear-gradient(135deg,rgba(245,158,11,0.2),rgba(217,119,6,0.05));border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid rgba(245,158,11,0.2)">📈</div>
+          <div>
+            <span style="color:rgba(245,158,11,0.6);font-size:12px;font-weight:700;letter-spacing:2px">STEP 04</span>
+            <h3 style="color:#fff;font-size:20px;font-weight:700;margin-top:2px">歷史策略回測</h3>
+          </div>
+        </div>
+        <p style="color:var(--slate-400);font-size:15px;line-height:1.8;margin-bottom:18px">內建 MA20 + RSI 等技術指標，一鍵執行量化回測模擬。</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="color:var(--slate-300);font-size:13px">✦ MA / RSI 策略自動執行</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 勝率 / 最大回撤統計</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 歷史績效視覺化圖表</span>
+        </div>
       </div>
+
     </div>
   </div>
   
