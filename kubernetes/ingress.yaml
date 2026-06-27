@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stock-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - stock-api.example.com
+    secretName: stock-api-tls
+  rules:
+  - host: stock-api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: stock-api
+            port:
+              number: 8000
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: stock-api
+            port:
+              number: 8000
+      - path: /graphql
+        pathType: Prefix
+        backend:
+          service:
+            name: stock-api
+            port:
+              number: 8000
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: stock-api
+            port:
+              number: 8000
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: stock-api-monitor
+spec:
+  selector:
+    matchLabels:
+      app: stock-api
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
