@@ -20,11 +20,7 @@ websockets==12.0
 strawberry-graphql[asgi]==0.235.0
 
 # 機器學習特徵工程
-<<<<<<< Updated upstream
-scikit-learn==1.4.1
-=======
 scikit-learn==1.4.1.post1
->>>>>>> Stashed changes
 scipy==1.12.0
 
 # 監控和指標
