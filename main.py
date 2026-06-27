@@ -2,13 +2,26 @@ import os
 import json
 import re
 import traceback
+import asyncio
+import logging
+import pandas as pd
 import requests as http_requests
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from uuid import uuid4
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+# 新的核心模塊
+from cache_layer import cache_manager
+from ai_agents import orchestrator
+from async_data_provider import AsyncDataProvider, get_async_provider, close_async_provider
+from task_queue import job_runner, ScheduledTaskManager
+from websocket_system import ws_manager, msg_handler, price_broadcaster, initialize_websocket_system, shutdown_websocket_system
+
+# 原有模塊
 from agent import get_sentiment_analysis
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
@@ -23,11 +36,17 @@ from backtest import Backtester
 from notifier import EmailNotifier
 from screener_engine import analyze_related_stocks
 
+# 設置日誌
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
 MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
 MAIAGENT_WEBCHAT_ID = os.environ.get("MAIAGENT_WEBCHAT_ID", "")
 MAIAGENT_BASE_URL = "https://api.maiagent.ai/api"
 
+# 舊版 MaiAgentClient（保留以支持舊 API）
 class MaiAgentClient:
     def __init__(self, api_key: str, chatbot_id: str, webchat_id: str):
         self.api_key = api_key
@@ -79,6 +98,7 @@ class MaiAgentClient:
 
 mai_client = MaiAgentClient(MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID)
 
+# 後台任務調度器
 scheduler = None
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
@@ -86,16 +106,49 @@ try:
 except ImportError:
     pass
 
+
+async def daily_analysis_task_async():
+    """非同步每日分析任務"""
+    default_targets = [
+        StockTarget("2330.TW", "台積電", "台股", 1000, 1000),
+        StockTarget("0050.TW", "元大台灣50", "ETF", 180, 1000),
+    ]
+    results, _ = await _analyze_targets_async(default_targets)
+    db.save_analysis(results)
+    html = notifier.format_analysis(results)
+    notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", html)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if scheduler:
-        scheduler.add_job(daily_analysis_task, 'cron', hour=14, minute=0, id='daily')
-        scheduler.start()
+    """應用生命週期管理"""
+    # 啟動異步任務隊列
+    await job_runner.start()
+    logger.info("✓ 異步任務隊列已啟動")
+    
+    # 啟動定時任務
+    job_runner.schedule_daily(
+        "daily_analysis",
+        "每日股票分析",
+        daily_analysis_task_async,
+        hour=14,  # 台股收盤後
+        minute=0
+    )
+    logger.info("✓ 定時任務已排程（每日 14:00）")
+    
+    # 初始化 WebSocket 系統
+    async_provider = await get_async_provider()
+    await initialize_websocket_system(async_provider)
+    logger.info("✓ WebSocket 實時推送已啟動")
+    
     yield
-    if scheduler:
-        scheduler.shutdown()
+    
+    # 清理
+    await job_runner.stop()
+    await shutdown_websocket_system()
+    await close_async_provider()
+    logger.info("✓ 應用清理完成")
 
-app = FastAPI(title="台股智能分析 API", version="3.0", lifespan=lifespan)
+app = FastAPI(title="台股智能分析 API", version="4.0（多代理升級版）", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,7 +160,118 @@ app.add_middleware(
 db = Database()
 notifier = EmailNotifier()
 
+async def _analyze_targets_async(targets):
+    """
+    異步目標分析 - 使用新的多代理系統
+    並行獲取數據、計算指標、執行 AI 分析
+    """
+    async_provider = await get_async_provider()
+    
+    # 並行獲取籌碼、匯率和所有股票的歷史數據
+    chip_task = asyncio.create_task(async_provider.get_chip_data())
+    fx_task = asyncio.create_task(async_provider.get_fx_status())
+    
+    # 為所有目標並行獲取歷史數據
+    history_tasks = {
+        t.id: asyncio.create_task(async_provider.get_stock_history(t.id, days=180))
+        for t in targets
+    }
+    
+    # 等待所有初始任務完成
+    chip = await chip_task
+    fx_val, fx_note = await fx_task
+    histories = await asyncio.gather(*history_tasks.values())
+    
+    results = []
+    
+    for t, df in zip(targets, histories):
+        try:
+            if df.empty:
+                results.append({
+                    "name": t.name, "ticker": t.id, "price": 0,
+                    "score": 0, "advice": "資料讀取失敗", "pl": 0,
+                    "valuation": "無數據", "signals": ["無法取得歷史資料"],
+                    "exit": "-", "sl": 0
+                })
+                continue
+            
+            # 計算技術指標
+            df_with_indicators = TechnicalAnalyzer.calculate_indicators(df)
+            last = df_with_indicators.iloc[-1]
+            price = float(last['Close'])
+            
+            # 組合技術指標數據
+            indicators = {
+                'MA5': float(last.get('MA5', price)),
+                'MA20': float(last.get('MA20', price)),
+                'MA60': float(last.get('MA60', price)),
+                'RSI': float(last.get('RSI', 50)),
+                'MACD': float(last.get('MACD', 0)),
+                'Signal': float(last.get('Signal', 0)),
+                'K': float(last.get('K', 50)),
+                'D': float(last.get('D', 50)),
+                'Volume': float(last.get('Volume', 0))
+            }
+            
+            # 獲取實時價格
+            rt_price = await async_provider.get_realtime_price(t.id)
+            final_price = rt_price if rt_price else price
+            
+            # 傳統策略評估（快速通道）
+            eval_result = StrategyEngine.evaluate(
+                t.id, df_with_indicators, chip, fx_val, t.cost, t.shares
+            )
+            
+            # 獲取新聞進行多代理分析
+            news_list = NewsCrawler.fetch_all(limit_per_source=3)[:5]
+            news_text = "\n".join([f"- {n['title']}" for n in news_list])
+            
+            # 使用多代理系統進行綜合分析（可選，取決於 AI 可用性）
+            if mai_client.enabled:
+                try:
+                    multi_agent_result = await orchestrator.analyze_stock(
+                        t.id, t.name, indicators, news_text, final_price, t.cost
+                    )
+                    # 融合結果
+                    combined_advice = multi_agent_result['final_decision'].get('final_advice', eval_result['advice'])
+                    combined_score = int(multi_agent_result['final_decision'].get('score', eval_result['score']))
+                except Exception as e:
+                    logger.warning(f"多代理分析失敗 {t.id}: {e}")
+                    combined_advice = eval_result['advice']
+                    combined_score = eval_result['score']
+            else:
+                combined_advice = eval_result['advice']
+                combined_score = eval_result['score']
+            
+            pl = round((final_price - t.cost) / t.cost * 100, 2) if t.cost > 0 else 0
+            results.append({
+                "name": t.name, "ticker": t.id,
+                "price": round(final_price, 2), "score": combined_score,
+                "advice": combined_advice, "pl": pl,
+                "valuation": eval_result['valuation'],
+                "signals": eval_result['signals'],
+                "exit": eval_result['exit_note'],
+                "sl": eval_result['stop_loss']
+            })
+        
+        except Exception as e:
+            logger.error(f"分析 {t.id} 出現異常: {e}")
+            traceback.print_exc()
+            results.append({
+                "name": t.name, "ticker": t.id, "price": 0,
+                "score": 0, "advice": "運算錯誤", "pl": 0,
+                "valuation": "無數據", "signals": [f"例外: {str(e)[:80]}"],
+                "exit": "-", "sl": 0
+            })
+    
+    return results, fx_note
+
+
 def _analyze_targets(targets):
+    """
+    同步版本（保留以支持舊 API）
+    使用傳統的同步調用
+    """
     chip = DataProvider.get_chip_data()
     fx_val, fx_note = DataProvider.get_fx_status()
     results = []
@@ -281,6 +445,72 @@ def root():
         return FileResponse("static/index.html")
     return {"status": "alive", "message": "API 運作中", "docs": "/docs"}
 
+# ===== WebSocket 實時推送端點 =====
+@app.websocket("/ws/live")
+async def websocket_live(websocket: WebSocket):
+    """
+    實時行情推送 WebSocket 端點
+    客戶端可訂閱特定股票的實時報價
+    """
+    client_id = str(uuid4())
+    await ws_manager.connect(websocket, room_id="live")
+    
+    try:
+        # 歡迎消息
+        await ws_manager.send_to_client(websocket, {
+            "type": "connection_established",
+            "client_id": client_id,
+            "message": "已連接到實時推送服務"
+        })
+        
+        # 監聽客戶端消息
+        while True:
+            data = await websocket.receive_text()
+            await msg_handler.handle_message(websocket, client_id, data)
+    
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(websocket, room_id="live")
+        logger.info(f"客戶端 {client_id} 已斷開連接")
+    except Exception as e:
+        logger.error(f"WebSocket 錯誤 {client_id}: {e}")
+        await ws_manager.disconnect(websocket, room_id="live")
+
+@app.websocket("/ws/prices")
+async def websocket_prices(websocket: WebSocket):
+    """實時價格推送頻道"""
+    await ws_manager.connect(websocket, room_id="prices")
+    try:
+        while True:
+            await asyncio.sleep(10)  # 保持連接活躍
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(websocket, room_id="prices")
+
+@app.websocket("/ws/analysis")
+async def websocket_analysis(websocket: WebSocket):
+    """分析結果推送頻道"""
+    await ws_manager.connect(websocket, room_id="analysis")
+    try:
+        while True:
+            await asyncio.sleep(10)
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(websocket, room_id="analysis")
+
+# ===== WebSocket 統計和管理端點 =====
+@app.get("/ws/stats")
+def websocket_stats():
+    """取得 WebSocket 連接統計"""
+    return ws_manager.get_stats()
+
+@app.get("/ws/queue-stats")
+def queue_stats():
+    """取得任務隊列統計"""
+    return job_runner.get_stats()
+
+@app.get("/cache/stats")
+def cache_stats():
+    """取得緩存統計"""
+    return cache_manager.get_stats()
+
 @app.get("/ping")
 @app.head("/ping")
 def ping():
@@ -289,25 +519,76 @@ def ping():
 @app.get("/health")
 @app.head("/health")
 def health():
+    """系統健康檢查（包含新系統狀態）"""
+    queue_stats = job_runner.get_stats()
+    ws_stats = ws_manager.get_stats()
+    cache_stats_data = cache_manager.get_stats()
+    
     return {
         "status": "ok",
+        "version": "4.0",
+        "timestamp": datetime.now().isoformat(),
+        
+        # 傳統系統
         "maiagent": mai_client.enabled,
         "email": notifier.enabled,
-        "scheduler": scheduler is not None and scheduler.running if scheduler else False,
-        "time": datetime.now().isoformat()
+        "database": True if db.supabase else False,
+        
+        # 新系統狀態
+        "systems": {
+            "task_queue": {
+                "running": True,
+                "pending_tasks": queue_stats['pending'],
+                "active_workers": queue_stats['workers'],
+                "total_processed": queue_stats['success']
+            },
+            "websocket": {
+                "active_connections": ws_stats['total_connections'],
+                "subscriptions": ws_stats['total_subscriptions']
+            },
+            "cache": {
+                "usage_percent": cache_stats_data['usage_percent'],
+                "items": cache_stats_data['total_items']
+            }
+        }
     }
 
 @app.get("/macro")
-def macro_data():
-    data = DataProvider.get_macro_indices()
+async def macro_data():
+    """
+    獲取宏觀經濟指標
+    使用異步數據提供者並結合緩存
+    """
+    async_provider = await get_async_provider()
+    data = await async_provider.get_macro_indices()
     return {"status": "success", "data": data}
 
 @app.post("/analyze")
-def analyze(req: AnalyzeRequest):
+async def analyze(req: AnalyzeRequest):
+    """
+    異步分析端點
+    使用新的多代理系統進行綜合分析
+    """
     targets = [StockTarget(t.id, t.name, t.type, t.cost, t.shares) for t in req.targets]
-    results, fx_note = _analyze_targets(targets)
-    db.save_analysis(results)
-    return {"status": "success", "data": results, "fx": fx_note}
+    
+    try:
+        results, fx_note = await _analyze_targets_async(targets)
+        db.save_analysis(results)
+        
+        # 並行推送到 WebSocket 客戶端
+        for result in results:
+            await price_broadcaster.push_analysis_result(result['ticker'], result)
+        
+        return {
+            "status": "success",
+            "data": results,
+            "fx": fx_note,
+            "cached_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"分析失敗: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
 def chat(req: ChatRequest):
@@ -462,16 +743,36 @@ def auto_news():
         return {"status": "error", "message": str(e)[:200]}
 
 @app.get("/kline/{ticker}")
-def get_kline(ticker: str, days: int = 180):
+async def get_kline(ticker: str, days: int = 180):
+    """
+    獲取 K 線數據
+    結合緩存和異步數據獲取
+    """
     try:
-        df = DataProvider.get_stock_history(ticker, days)
+        # 先檢查緩存
+        cached_kline = cache_manager.get_kline(ticker, days)
+        if cached_kline:
+            logger.debug(f"使用緩存 K 線: {ticker}")
+            df = pd.DataFrame(cached_kline)
+            df['Date'] = pd.to_datetime(df['Date'])
+        else:
+            # 異步獲取
+            async_provider = await get_async_provider()
+            df = await async_provider.get_stock_history(ticker, days)
+        
         if df.empty:
-            return JSONResponse({"status": "error", "message": "找不到資料"}, status_code=404)
+            return JSONResponse(
+                {"status": "error", "message": "找不到資料"},
+                status_code=404
+            )
+        
+        # 計算技術指標
         df = TechnicalAnalyzer.calculate_indicators(df).reset_index()
+        
         candles, volumes, ma5, ma20, ma60 = [], [], [], [], []
         date_col = 'Date' if 'Date' in df.columns else df.columns[0]
+        
         for _, row in df.iterrows():
-            import pandas as pd
             ts = int(row[date_col].timestamp()) if not pd.isna(row[date_col]) else 0
             candles.append({
                 "time": ts,
@@ -490,14 +791,20 @@ def get_kline(ticker: str, days: int = 180):
                 ma20.append({"time": ts, "value": round(float(row['MA20']), 2)})
             if not pd.isna(row.get('MA60')):
                 ma60.append({"time": ts, "value": round(float(row['MA60']), 2)})
+        
         return {
             "status": "success", "ticker": ticker,
             "candles": candles, "volumes": volumes,
-            "ma5": ma5, "ma20": ma20, "ma60": ma60
+            "ma5": ma5, "ma20": ma20, "ma60": ma60,
+            "from_cache": cached_kline is not None
         }
     except Exception as e:
+        logger.error(f"獲取 K 線失敗: {e}")
         traceback.print_exc()
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        return JSONResponse(
+            {"status": "error", "message": str(e)},
+            status_code=500
+        )
 
 @app.get("/history")
 def history(ticker: str = None, limit: int = 100):
