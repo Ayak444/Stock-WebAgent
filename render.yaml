@@ -9,6 +9,7 @@ services:
       - key: MAIAGENT_API_KEY
         sync: false
       - key: MAIAGENT_CHATBOT_ID
+<<<<<<< Updated upstream
         sync: false
       - key: MAIAGENT_WEBCHAT_ID
         sync: false
@@ -29,11 +30,26 @@ services:
       - key: DB_PATH
         value: history.db
       - key: EMAIL_SENDER
+=======
+>>>>>>> Stashed changes
         sync: false
-      - key: EMAIL_PASSWORD
+      - key: MAIAGENT_WEBCHAT_ID
         sync: false
-      - key: EMAIL_RECEIVER
+      - key: SUPABASE_URL
         sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: REDIS_HOST
+        value: redis
+      - key: REDIS_PORT
+        value: "6379"
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: REDIS_DB
+        value: "0"
+      - key: POSTGRES_URL
+        sync: false
+<<<<<<< Updated upstream
       - key: GEMINI_API_KEY
         sync: false
       - key: MULTION_API_KEY
@@ -42,6 +58,17 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+=======
+      - key: DB_PATH
+        value: history.db
+      # Email notifier removed
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+>>>>>>> Stashed changes
       - key: STOCK_ALERT_WEBHOOK
         sync: false
       - key: ENVIRONMENT

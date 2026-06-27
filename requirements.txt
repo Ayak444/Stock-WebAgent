@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
 pandas==2.2.0
@@ -12,7 +13,6 @@ beautifulsoup4==4.12.3
 lxml==5.1.0
 python-dotenv==1.0.1
 supabase>=2.3.0
-multion>=0.8.0
 aiohttp==3.9.1
 websockets==12.0
 redis>=5.0.0
@@ -24,7 +24,11 @@ redis[hiredis]==5.0.1
 strawberry-graphql[asgi]==0.235.0
 
 # 機器學習特徵工程
+<<<<<<< Updated upstream
 scikit-learn==1.4.1
+=======
+scikit-learn==1.4.1.post1
+>>>>>>> Stashed changes
 scipy==1.12.0
 
 # 監控和指標

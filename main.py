@@ -33,8 +33,8 @@ from strategy import StrategyEngine
 from news_crawler import NewsCrawler
 from database import Database
 from backtest import Backtester
-from notifier import EmailNotifier
 from screener_engine import analyze_related_stocks
+from notifier import DiscordNotifier
 
 # 設置日誌
 logging.basicConfig(level=logging.INFO)
@@ -115,8 +115,8 @@ async def daily_analysis_task_async():
     ]
     results, _ = await _analyze_targets_async(default_targets)
     db.save_analysis(results)
-    html = notifier.format_analysis(results)
-    notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", html)
+    desc = notifier.format_analysis(results)
+    notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", desc)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -158,7 +158,7 @@ app.add_middleware(
 )
 
 db = Database()
-notifier = EmailNotifier()
+notifier = DiscordNotifier()
 
 async def _analyze_targets_async(targets):
     """
@@ -435,8 +435,8 @@ def daily_analysis_task():
     ]
     results, _ = _analyze_targets(default_targets)
     db.save_analysis(results)
-    html = notifier.format_analysis(results)
-    notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", html)
+    desc = notifier.format_analysis(results)
+    notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", desc)
 
 @app.get("/")
 @app.head("/")
@@ -531,7 +531,7 @@ def health():
         
         # 傳統系統
         "maiagent": mai_client.enabled,
-        "email": notifier.enabled,
+        "discord": notifier.enabled,
         "database": True if db.supabase else False,
         
         # 新系統狀態

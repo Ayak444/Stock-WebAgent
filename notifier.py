@@ -1,49 +1,69 @@
-"""Email 通知"""
+"""Discord Webhook 通知"""
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
+from datetime import datetime
 
-
-class EmailNotifier:
+class DiscordNotifier:
     def __init__(self):
-        self.sender = os.environ.get("EMAIL_SENDER", "")
-        self.password = os.environ.get("EMAIL_PASSWORD", "")
-        self.receiver = os.environ.get("EMAIL_RECEIVER", "")
-        self.enabled = bool(self.sender and self.password and self.receiver)
+        self.webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "")
+        self.enabled = bool(self.webhook_url)
 
-    def send(self, subject: str, html_body: str):
+    def _post(self, payload: dict) -> bool:
         if not self.enabled:
-            print("[Email] 未設定環境變數，跳過")
+            print("[Discord] 未設定 DISCORD_WEBHOOK_URL 環境變數，跳過發送")
             return False
-
+            
         try:
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = self.sender
-            msg['To'] = self.receiver
-            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login(self.sender, self.password)
-                smtp.send_message(msg)
-            print("[Email] 發送成功")
+            resp = requests.post(self.webhook_url, json=payload)
+            resp.raise_for_status()
+            print("[Discord] 通知發送成功")
             return True
         except Exception as e:
-            print(f"[Email] 失敗: {e}")
+            print(f"[Discord] 發送失敗: {e}")
             return False
 
-    def format_analysis(self, results: list):
-        """格式化分析結果為 HTML"""
-        html = "<h2>📊 今日台股分析報告</h2><table border='1' cellpadding='8' style='border-collapse:collapse'>"
-        html += "<tr style='background:#333;color:#fff'><th>標的</th><th>價格</th><th>評分</th><th>建議</th><th>損益</th></tr>"
+    def send(self, title: str, description: str = "", color: int = 0x3498db):
+        """發送一般 Embed 訊息"""
+        embed = {
+            "title": title,
+            "description": description,
+            "color": color,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        return self._post({"embeds": [embed]})
+        
+    def send_alert(self, title: str, message: str, level: str = "info"):
+        """發送即時告警（根據等級變更顏色）"""
+        colors = {
+            "info": 0x3498db,    # 藍色
+            "success": 0x2ecc71, # 綠色
+            "warning": 0xf1c40f, # 黃色
+            "error": 0xe74c3c    # 紅色
+        }
+        color = colors.get(level.lower(), 0x3498db)
+        return self.send(title, message, color)
+
+    def format_analysis(self, results: list) -> str:
+        """格式化分析結果為 Discord Markdown 字串"""
+        lines = []
         for r in results:
-            html += f"""<tr>
-                <td>{r.get('name','')} ({r.get('ticker','')})</td>
-                <td>${r.get('price',0)}</td>
-                <td>{r.get('score',0)}</td>
-                <td><b>{r.get('advice','')}</b></td>
-                <td>{r.get('pl',0):+.2f}%</td>
-            </tr>"""
-        html += "</table>"
-        return html
+            name = r.get('name', '')
+            ticker = r.get('ticker', '')
+            price = r.get('price', 0)
+            score = r.get('score', 0)
+            advice = r.get('advice', '')
+            pl = r.get('pl', 0)
+            
+            lines.append(f"**{name} ({ticker})**")
+            lines.append(f"• 價格: `${price}`")
+            lines.append(f"• 評分: `{score}`")
+            lines.append(f"• 建議: **{advice}**")
+            pl_str = f"{pl:+.2f}%"
+            if pl > 0:
+                pl_str = f"📈 **{pl_str}**"
+            elif pl < 0:
+                pl_str = f"📉 **{pl_str}**"
+            lines.append(f"• 損益: {pl_str}")
+            lines.append("")
+            
+        return "\n".join(lines)

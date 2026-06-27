@@ -14,11 +14,17 @@ Render 部署說明
 - SUPABASE_KEY (Secret)
 - REDIS_PASSWORD (Secret)
 - POSTGRES_URL or POSTGRES_* components (Secret)
+<<<<<<< Updated upstream
 - EMAIL_PASSWORD (Secret)
 - GEMINI_API_KEY (Secret, if used)
 - MULTION_API_KEY (Secret, if used)
 - NEWS_API_KEY (Secret, if used)
 - SENTRY_DSN (Secret, optional)
+=======
+- DISCORD_WEBHOOK_URL (Secret, optional)
+- GEMINI_API_KEY (Secret, if used)
+- NEWS_API_KEY (Secret, if used)
+>>>>>>> Stashed changes
 - STOCK_ALERT_WEBHOOK (Secret, optional)
 
 3) 非敏感設定（可直接在 envVars 設值）

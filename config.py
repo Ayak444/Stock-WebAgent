@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     API_PORT: int = Field(8000)
     API_WORKERS: int = Field(4)
 
+<<<<<<< Updated upstream
     # Email / notifier
     EMAIL_SENDER: Optional[str] = Field(None)
     EMAIL_PASSWORD: Optional[str] = Field(None)
@@ -57,6 +58,13 @@ class Settings(BaseSettings):
     # Third-party keys
     GEMINI_API_KEY: Optional[str] = Field(None)
     MULTION_API_KEY: Optional[str] = Field(None)
+=======
+    # Discord / notifier
+    DISCORD_WEBHOOK_URL: Optional[str] = Field(None)
+
+    # Third-party keys
+    GEMINI_API_KEY: Optional[str] = Field(None)
+>>>>>>> Stashed changes
     NEWS_API_KEY: Optional[str] = Field(None)
 
     # ML / cache / tasks
@@ -77,7 +85,10 @@ class Settings(BaseSettings):
     # Monitoring
     ENABLE_METRICS: bool = Field(True)
     METRICS_PORT: int = Field(8001)
+<<<<<<< Updated upstream
     SENTRY_DSN: Optional[str] = Field(None)
+=======
+>>>>>>> Stashed changes
 
     # Docker / CI
     DOCKER_REGISTRY: Optional[str] = Field(None)
