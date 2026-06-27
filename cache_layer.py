@@ -105,7 +105,6 @@ class CacheManager:
     """
     def __init__(self):
         self.memory_cache = MemoryCache(max_size=10000)
-        self.redis_cache = None  # 可選的 Redis 連接
         
         # 緩存分類
         self.kline_cache = {}       # K 線數據

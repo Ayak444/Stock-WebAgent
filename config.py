@@ -23,12 +23,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = Field(None)
     SUPABASE_KEY: Optional[str] = Field(None)
 
-    # Redis
-    REDIS_HOST: str = Field("localhost")
-    REDIS_PORT: int = Field(6379)
-    REDIS_PASSWORD: Optional[str] = Field(None)
-    REDIS_DB: int = Field(0)
-    REDIS_MAX_CONNECTIONS: int = Field(50)
+
 
     # Postgres / DB
     POSTGRES_URL: Optional[str] = Field(None)
@@ -72,7 +67,6 @@ class Settings(BaseSettings):
     ML_FEATURE_CACHE_SIZE: int = Field(1000)
     ML_PCA_COMPONENTS: int = Field(10)
 
-    CACHE_TYPE: str = Field("redis")
     CACHE_TTL_KLINE: int = Field(86400)
     CACHE_TTL_SENTIMENT: int = Field(3600)
     CACHE_TTL_ANALYSIS: int = Field(1800)

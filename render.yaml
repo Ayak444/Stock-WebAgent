@@ -16,14 +16,6 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
-      - key: REDIS_HOST
-        value: redis
-      - key: REDIS_PORT
-        value: "6379"
-      - key: REDIS_PASSWORD
-        sync: false
-      - key: REDIS_DB
-        value: "0"
       - key: POSTGRES_URL
         sync: false
       - key: DB_PATH

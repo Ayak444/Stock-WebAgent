@@ -254,14 +254,12 @@ class GraphQLResolvers:
     def __init__(self):
         self.async_provider = None
         self.orchestrator = None
-        self.redis_cache = None
         self.cache_manager = None
     
-    def set_dependencies(self, async_provider, orchestrator, redis_cache, cache_manager):
+    def set_dependencies(self, async_provider, orchestrator, cache_manager):
         """設置依賴注入"""
         self.async_provider = async_provider
         self.orchestrator = orchestrator
-        self.redis_cache = redis_cache
         self.cache_manager = cache_manager
     
     async def resolve_get_stock_price(self, ticker: str) -> Optional[StockPrice]:
@@ -292,8 +290,8 @@ class GraphQLResolvers:
         
         try:
             # 檢查快取
-            if self.redis_cache:
-                cached = await self.redis_cache.get(f"analysis:{ticker}")
+            if self.cache_manager:
+                cached = self.cache_manager.get_analysis(ticker)
                 if cached:
                     return StockAnalysis(
                         ticker=ticker,
@@ -378,14 +376,12 @@ class GraphQLResolvers:
     
     async def resolve_clear_cache(self, pattern: str = "*") -> bool:
         """解析: 清除緩存"""
-        if not self.redis_cache:
+        if not self.cache_manager:
             return False
         
         try:
-            keys = await self.redis_cache.get_all_keys(pattern)
-            for key in keys:
-                await self.redis_cache.delete(key)
-            logger.info(f"✓ 已清除 {len(keys)} 項緩存")
+            self.cache_manager.memory_cache.clear()
+            logger.info("✓ 已清除所有內存緩存")
             return True
         except Exception as e:
             logger.error(f"清除緩存失敗: {e}")
