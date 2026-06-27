@@ -13,3 +13,6 @@ lxml==5.1.0
 python-dotenv==1.0.1
 supabase>=2.3.0
 multion>=0.8.0
+aiohttp==3.9.1
+websockets==12.0
+redis>=5.0.0
