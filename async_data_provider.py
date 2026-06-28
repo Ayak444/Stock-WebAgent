@@ -102,7 +102,7 @@ class AsyncDataProvider:
                 result[name] = responses[idx]
         
         # 緩存 5 分鐘
-        cache_manager.memory_cache.set("macro_indices", result, ttl=300)
+        cache_manager.memory_cache.set("macro_indices", result, ttl_seconds=300)
         return result
     
     async def _fetch_macro_symbol(self, symbol: str, name: str) -> Dict:
