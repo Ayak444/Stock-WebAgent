@@ -141,8 +141,13 @@ class AsyncDataProvider:
         cached_df_dict = cache_manager.get_kline(ticker, days)
         if cached_df_dict:
             df = pd.DataFrame(cached_df_dict)
-            df['Date'] = pd.to_datetime(df['Date'])
-            return df.set_index('Date')
+            if 'Date' not in df.columns and 'index' in df.columns:
+                df = df.rename(columns={'index': 'Date'})
+            if 'Date' in df.columns:
+                df['Date'] = pd.to_datetime(df['Date'])
+                return df.set_index('Date')
+            else:
+                return df
         
         try:
             url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"

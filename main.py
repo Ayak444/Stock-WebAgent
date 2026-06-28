@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 # 新的核心模塊
 from cache_layer import cache_manager
-from ai_agents import orchestrator
+from crew_workflow import stock_crew_orchestrator
 from async_data_provider import AsyncDataProvider, get_async_provider, close_async_provider
 from task_queue import job_runner, ScheduledTaskManager
 from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
@@ -229,14 +229,29 @@ async def _analyze_targets_async(targets):
             # 使用多代理系統進行綜合分析（可選，取決於 AI 可用性）
             if mai_client.enabled:
                 try:
-                    multi_agent_result = await orchestrator.analyze_stock(
-                        t.id, t.name, indicators, news_text, final_price, t.cost
+                    crew_result_str = await stock_crew_orchestrator.run_analysis(
+                        ticker=t.id,
+                        name=t.name,
+                        price=final_price,
+                        cost=t.cost,
+                        news_content=news_text,
+                        indicators=indicators
                     )
-                    # 融合結果
-                    combined_advice = multi_agent_result['final_decision'].get('final_advice', eval_result['advice'])
-                    combined_score = int(multi_agent_result['final_decision'].get('score', eval_result['score']))
+                    
+                    import json
+                    import re
+                    
+                    clean_json = re.sub(r'```json\s*', '', str(crew_result_str), flags=re.IGNORECASE)
+                    clean_json = re.sub(r'```\s*', '', clean_json)
+                    match = re.search(r'\{.*\}', clean_json, re.DOTALL)
+                    if match:
+                        clean_json = match.group(0)
+                    
+                    multi_agent_result = json.loads(clean_json, strict=False)
+                    combined_advice = multi_agent_result.get('final_advice', eval_result['advice'])
+                    combined_score = int(multi_agent_result.get('score', eval_result['score']))
                 except Exception as e:
-                    logger.warning(f"多代理分析失敗 {t.id}: {e}")
+                    logger.warning(f"CrewAI 多代理分析失敗 {t.id}: {e}")
                     combined_advice = eval_result['advice']
                     combined_score = eval_result['score']
             else:
@@ -755,7 +770,10 @@ async def get_kline(ticker: str, days: int = 180):
         if cached_kline:
             logger.debug(f"使用緩存 K 線: {ticker}")
             df = pd.DataFrame(cached_kline)
-            df['Date'] = pd.to_datetime(df['Date'])
+            if 'Date' not in df.columns and 'index' in df.columns:
+                df = df.rename(columns={'index': 'Date'})
+            if 'Date' in df.columns:
+                df['Date'] = pd.to_datetime(df['Date'])
         else:
             # 異步獲取
             async_provider = await get_async_provider()

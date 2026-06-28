@@ -146,8 +146,15 @@ class CacheManager:
         ttl 默認 24 小時（歷史數據不變）
         """
         key = self.get_kline_key(ticker, days)
-        # 轉換 DataFrame 為可序列化格式
-        df_dict = df.to_dict('records') if hasattr(df, 'to_dict') else df
+        # 轉換 DataFrame 為可序列化格式，確保保留 Date 索引
+        if hasattr(df, 'reset_index'):
+            temp_df = df.copy()
+            if temp_df.index.name is None:
+                temp_df.index.name = 'Date'
+            df_dict = temp_df.reset_index().to_dict('records')
+        else:
+            df_dict = df
+            
         self.memory_cache.set(key, df_dict, ttl)
     
     # ===== 技術指標緩存 =====
