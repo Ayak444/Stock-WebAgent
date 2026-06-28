@@ -787,9 +787,9 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
 // ============================
 // GLOBAL STATE
 // ============================
-// Handle both local testing (Live Server) and production deployments
-const API_BASE = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
-  ? (window.location.port === '5500' ? 'https://ayak4.studio' : window.location.origin) 
+// Handle both local testing (Live Server), file:/// protocol, and production deployments
+const API_BASE = (window.location.protocol === 'file:' || window.location.port === '5500')
+  ? 'https://ayak4.studio'
   : window.location.origin;
 let currentChatbotId = null;
 let screenerTargets = [];
@@ -2011,16 +2011,8 @@ function initLanding() {
       ease: "power3.out" 
     }, "-=0.4");
 
-  // Feature cards fade in stagger (Run immediately to avoid scrollTrigger bugs)
-  gsap.from(".feature-card", {
-    y: 30,
-    opacity: 0,
-    duration: 0.8,
-    stagger: 0.15,
-    ease: "power2.out",
-    delay: 0.5
-  });
-
+  // Feature cards will just render normally via CSS to avoid any missing bugs
+  
   // End text
   gsap.from(".end-text", {
     scrollTrigger: {
