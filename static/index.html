@@ -2031,35 +2031,50 @@ function enterDashboard() {
   if (landingAnimationDone) return;
   landingAnimationDone = true;
 
+  const landing = document.getElementById('landing');
+  const app = document.querySelector('.app');
+
+  // Fallback function to ensure entry
+  const forceEntry = () => {
+    if (landing) landing.style.display = 'none';
+    if (app) app.classList.add('active');
+  };
+
+  // 避免任何不可預期的動畫卡死，設定 1 秒後強制進入
+  setTimeout(forceEntry, 1000);
+
   if (typeof gsap === 'undefined') {
-    document.getElementById('landing').style.display = 'none';
-    document.querySelector('.app').classList.add('active');
+    forceEntry();
     return;
   }
 
-  const tl = gsap.timeline({
-    onComplete: () => {
-      document.getElementById('landing').style.display = 'none';
-      document.querySelector('.app').classList.add('active');
-      
-      // Dashboard entrance animations
-      gsap.from(".sidebar", { x: -100, opacity: 0, duration: 0.6, ease: "power3.out" });
-      gsap.from(".top-bar", { y: -30, opacity: 0, duration: 0.5, ease: "power3.out" }, "-=0.4");
-      gsap.from(".card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.05, ease: "power3.out" }, "-=0.2");
-      gsap.from(".stat-card", { scale: 0.9, opacity: 0, duration: 0.5, stagger: 0.05, ease: "back.out(1.5)" }, "-=0.4");
-      
-      // Trigger initial data load now that UI is visible
-      fetchMacroData();
-    }
-  });
+  try {
+    const tl = gsap.timeline({
+      onComplete: () => {
+        forceEntry();
+        
+        // Dashboard entrance animations
+        gsap.from(".sidebar", { x: -100, opacity: 0, duration: 0.6, ease: "power3.out" });
+        gsap.from(".top-bar", { y: -30, opacity: 0, duration: 0.5, ease: "power3.out" }, "-=0.4");
+        gsap.from(".card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.05, ease: "power3.out" }, "-=0.2");
+        gsap.from(".stat-card", { scale: 0.9, opacity: 0, duration: 0.5, stagger: 0.05, ease: "back.out(1.5)" }, "-=0.4");
+        
+        // Trigger initial data load now that UI is visible
+        if (typeof fetchMacroData === 'function') fetchMacroData();
+      }
+    });
 
-  // Animate landing out
-  tl.to(".landing", {
-    y: "-100vh",
-    opacity: 0,
-    duration: 0.8,
-    ease: "power4.inOut"
-  });
+    // Animate landing out
+    tl.to(".landing", {
+      y: "-100vh",
+      opacity: 0,
+      duration: 0.8,
+      ease: "power4.inOut"
+    });
+  } catch (err) {
+    console.error("GSAP Animation error:", err);
+    forceEntry();
+  }
 }
 
 // ============================
