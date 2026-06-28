@@ -5,13 +5,14 @@
 
 class StockWebSocketClient {
     constructor(baseUrl = window.location.origin) {
-        this.baseUrl = baseUrl.replace(/^http/, 'ws');
+        this.baseUrl = baseUrl.replace(/^http(s)?:\/\//, 'ws$1://');
         this.ws = null;
         this.clientId = null;
         this.subscriptions = new Set();
         this.messageHandlers = {};
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.pingTimeout = null;
         this.reconnectDelay = 3000;
     }
 
@@ -103,7 +104,10 @@ class StockWebSocketClient {
                 break;
 
             case 'pong':
-                // 心跳回應
+                if (this.pingTimeout) {
+                    clearTimeout(this.pingTimeout);
+                    this.pingTimeout = null;
+                }
                 break;
 
             default:
@@ -189,7 +193,14 @@ class StockWebSocketClient {
      * 發送心跳
      */
     ping() {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
         this.sendMessage({ type: 'ping' });
+        
+        // 設定 5 秒超時檢測
+        this.pingTimeout = setTimeout(() => {
+            console.error('WebSocket 心跳超時，主動斷開連線');
+            this.ws.close();
+        }, 5000);
     }
 
     /**

@@ -28,7 +28,9 @@ import websocket_system
 from agent import get_sentiment_analysis
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
-    BacktestRequest, NewsSourceRequest, StockTarget, SentimentResponse
+    BacktestRequest, NewsSourceRequest, StockTarget, SentimentResponse,
+    ScreenerAnalyzeRequest, SyncPortfolioRequest, StressTestRecordRequest,
+    TradeRequest, AuthRequest
 )
 from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
@@ -38,6 +40,20 @@ from database import Database
 from backtest import Backtester
 from screener_engine import analyze_related_stocks
 from notifier import DiscordNotifier
+
+def extract_json_object(text: str) -> str:
+    """Extracts the first valid JSON object from a string using brace counting."""
+    start_idx = text.find('{')
+    if start_idx == -1: return ""
+    
+    brace_count = 0
+    for i in range(start_idx, len(text)):
+        if text[i] == '{': brace_count += 1
+        elif text[i] == '}':
+            brace_count -= 1
+            if brace_count == 0:
+                return text[start_idx:i+1]
+    return ""
 
 # 設置日誌
 logging.basicConfig(level=logging.INFO)
@@ -99,6 +115,12 @@ class MaiAgentClient:
         except Exception as e:
             return {"status": "error", "message": str(e)[:200]}
 
+    async def send_message_async(self, content: str, conversation_id: str = None) -> str:
+        return await asyncio.to_thread(self.send_message, content, conversation_id)
+
+    async def chat_async(self, user_message: str, conversation_id: str = None) -> dict:
+        return await asyncio.to_thread(self.chat, user_message, conversation_id)
+
 mai_client = MaiAgentClient(MAIAGENT_API_KEY, MAIAGENT_CHATBOT_ID, MAIAGENT_WEBCHAT_ID)
 
 # 後台任務調度器
@@ -123,7 +145,11 @@ async def daily_analysis_task_async():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """應用生命週期管理"""
+    # 初始化資料庫連線與 WebSocket 系統 (需在任務隊列前完成)
+    async_provider = await get_async_provider()
+    await initialize_websocket_system(async_provider)
+    logger.info("✓ WebSocket 實時推送已啟動")
+
     # 啟動異步任務隊列
     await job_runner.start()
     logger.info("✓ 異步任務隊列已啟動")
@@ -137,11 +163,6 @@ async def lifespan(app: FastAPI):
         minute=0
     )
     logger.info("✓ 定時任務已排程（每日 14:00）")
-    
-    # 初始化 WebSocket 系統
-    async_provider = await get_async_provider()
-    await initialize_websocket_system(async_provider)
-    logger.info("✓ WebSocket 實時推送已啟動")
     
     yield
     
@@ -203,6 +224,7 @@ async def _analyze_targets_async(targets):
     histories = await asyncio.gather(*history_tasks.values())
     
     results = []
+    consecutive_errors = 0
     
     for t, df in zip(targets, histories):
         try:
@@ -243,7 +265,7 @@ async def _analyze_targets_async(targets):
             )
             
             # 獲取新聞進行多代理分析
-            news_list = NewsCrawler.fetch_all(limit_per_source=3)[:5]
+            news_list = (await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3))[:5]
             news_text = "\n".join([f"- {n['title']}" for n in news_list])
             
             # 使用多代理系統進行綜合分析（可選，取決於 AI 可用性）
@@ -263,9 +285,9 @@ async def _analyze_targets_async(targets):
                     
                     clean_json = re.sub(r'```json\s*', '', str(crew_result_str), flags=re.IGNORECASE)
                     clean_json = re.sub(r'```\s*', '', clean_json)
-                    match = re.search(r'\{.*\}', clean_json, re.DOTALL)
-                    if match:
-                        clean_json = match.group(0)
+                    extracted = extract_json_object(clean_json)
+                    if extracted:
+                        clean_json = extracted
                     
                     multi_agent_result = json.loads(clean_json, strict=False)
                     combined_advice = multi_agent_result.get('final_advice', eval_result['advice'])
@@ -288,8 +310,13 @@ async def _analyze_targets_async(targets):
                 "exit": eval_result['exit_note'],
                 "sl": eval_result['stop_loss']
             })
+            consecutive_errors = 0
         
         except Exception as e:
+            consecutive_errors += 1
+            if consecutive_errors >= 3:
+                logger.error(f"全域例外熔斷：連續 {consecutive_errors} 次出現異常，中止分析。")
+                raise Exception(f"Circuit Breaker triggered: {e}")
             logger.error(f"分析 {t.id} 出現異常: {e}")
             traceback.print_exc()
             results.append({
@@ -448,9 +475,9 @@ def _ai_enrich_relation_profile(ticker: str, name: str, industry: str):
     text = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'```\s*', '', text)
     
-    match = re.search(r'\{.*\}', text, re.DOTALL)
-    if match:
-        clean_json = match.group(0)
+    extracted = extract_json_object(text)
+    if extracted:
+        clean_json = extracted
     else:
         clean_json = text
         
@@ -520,7 +547,9 @@ async def websocket_prices(websocket: WebSocket):
     await ws_manager.connect(websocket, room_id="prices")
     try:
         while True:
-            await asyncio.sleep(10)  # 保持連接活躍
+            data = await websocket.receive_text()
+            if "ping" in data.lower():
+                await websocket.send_json({"type": "pong", "timestamp": datetime.now().isoformat()})
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket, room_id="prices")
 
@@ -530,7 +559,9 @@ async def websocket_analysis(websocket: WebSocket):
     await ws_manager.connect(websocket, room_id="analysis")
     try:
         while True:
-            await asyncio.sleep(10)
+            data = await websocket.receive_text()
+            if "ping" in data.lower():
+                await websocket.send_json({"type": "pong", "timestamp": datetime.now().isoformat()})
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket, room_id="analysis")
 
@@ -631,10 +662,12 @@ async def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
-def chat(req: ChatRequest):
+async def chat(req: ChatRequest):
     payload = _extract_screener_prompt_payload(req.message)
     if payload:
-        data = analyze_related_stocks(
+        # 移至 Thread Pool 執行，避免阻塞主迴圈
+        data = await asyncio.to_thread(
+            analyze_related_stocks,
             payload["targets"],
             payload["filters"],
             ai_enricher=_ai_enrich_relation_profile if mai_client.enabled else None
@@ -664,11 +697,11 @@ def chat(req: ChatRequest):
                 f"【使用者問題】:\n{user_msg}"
             )
 
-    result = mai_client.chat(user_msg, conversation_id)
+    result = await mai_client.chat_async(user_msg, conversation_id)
     return result
 
 @app.post("/analyze_news")
-def analyze_news(req: NewsRequest):
+async def analyze_news(req: NewsRequest):
     if not mai_client.enabled:
         return {"status": "error", "message": "MaiAgent 未設定"}
     prompt = (
@@ -678,7 +711,7 @@ def analyze_news(req: NewsRequest):
         '"reasoning": "判斷原因（50字內）"}\n\n'
         f"新聞：\n{req.news_content[:2000]}"
     )
-    result = mai_client.chat(prompt)
+    result = await mai_client.chat_async(prompt)
     if result["status"] == "success":
         text = result["reply"].strip()
         if text.startswith("```"):
@@ -695,13 +728,16 @@ def get_news(sources: str = "", limit: int = 5):
     news = NewsCrawler.fetch_all(sources=source_list, limit_per_source=limit)
     return {"status": "success", "count": len(news), "data": news}
 
-@app.post("/news/analyze_batch")
-def analyze_news_batch(req: NewsSourceRequest):
+@app.post("/analyze_news_batch")
+async def analyze_news_batch(req: NewsSourceRequest):
     if not mai_client.enabled:
         return {"status": "error", "message": "MaiAgent 未設定"}
-    news_list = NewsCrawler.fetch_all(
-        sources=req.sources, limit_per_source=req.limit
-    )[:15]
+    
+    source_list = req.sources if req.sources else ['investing', 'ctee', 'cnyes']
+    limit = req.limit if req.limit and req.limit > 0 else 5
+    
+    news_list = await asyncio.to_thread(NewsCrawler.fetch_all, sources=source_list, limit_per_source=limit)
+    news_list = news_list[:15]
     if not news_list:
         return {"status": "error", "message": "沒有抓到新聞"}
     combined = "\n".join([
@@ -713,7 +749,7 @@ def analyze_news_batch(req: NewsSourceRequest):
         '[{"index": 1, "sentiment": "利多/利空/中立", "impact": "高/中/低", "reason": "簡短說明(30字內)"}]\n\n'
         f"新聞列表：\n{combined}"
     )
-    result = mai_client.chat(prompt)
+    result = await mai_client.chat_async(prompt)
     if result["status"] != "success":
         return result
     text = result["reply"].strip()
@@ -756,11 +792,12 @@ def analyze_news_batch(req: NewsSourceRequest):
     }
 
 @app.get("/auto_news")
-def auto_news():
+async def auto_news():
     if not mai_client.enabled:
         return {"status": "error", "message": "MaiAgent 未設定"}
     try:
-        news = NewsCrawler.fetch_all(limit_per_source=3)[:10]
+        news = await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3)
+        news = news[:10]
         if not news:
             return {"status": "error", "message": "無新聞資料"}
         titles = "\n".join([f"- [{n['source']}] {n['title']}" for n in news])
@@ -769,7 +806,7 @@ def auto_news():
             "包含：(1) 今日大盤氛圍 (2) 主要利多利空 (3) 操作建議。用繁體中文。\n\n"
             f"新聞：\n{titles}"
         )
-        result = mai_client.chat(prompt)
+        result = await mai_client.chat_async(prompt)
         if result["status"] == "success":
             return {
                 "status": "success",
@@ -858,8 +895,8 @@ def history_tickers():
     return {"status": "success", "data": db.get_all_tickers()}
 
 @app.post("/backtest")
-def backtest(req: BacktestRequest):
-    return Backtester.run(req.ticker, req.days)
+async def backtest(req: BacktestRequest):
+    return await asyncio.to_thread(Backtester.run, req.ticker, req.days)
 
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -869,28 +906,27 @@ def get_user_portfolio(user_id: str):
     return {"status": "success", "data": data}
 
 @app.post("/portfolio")
-def sync_user_portfolio(req: dict):
-    user_id = req.get("user_id")
+def sync_user_portfolio(req: SyncPortfolioRequest):
+    user_id = req.user_id
     if not user_id: return {"status": "error", "message": "Missing user_id"}
-    db.save_portfolio(user_id, req.get('portfolio', []))
+    db.save_portfolio(user_id, req.portfolio)
     return {"status": "success"}
 
 @app.post("/stress_test/save")
-def save_stress_test_final(req: dict):
-    user_id = req.get('user_id', DEFAULT_USER_ID)
+def save_stress_test_final(req: StressTestRecordRequest):
     db.save_stress_test_record(
-        user_id, 
-        req.get('scenario', '常規測試'), 
-        req.get('result', {})
+        req.user_id, 
+        req.scenario, 
+        req.result
     )
     return {"status": "success"}
 
 @app.post("/screener/analyze")
-def screener_analyze(req: dict):
-    targets = req.get("targets", [])
-    source = req.get("source", "manual")
+def screener_analyze(req: ScreenerAnalyzeRequest):
+    targets = req.targets or []
+    source = req.source
     if source == "portfolio":
-        user_id = req.get("user_id") or DEFAULT_USER_ID
+        user_id = req.user_id or DEFAULT_USER_ID
         portfolio = db.get_portfolio(user_id)
         targets = [p.get("code", "").strip() for p in portfolio if p.get("code")]
 
@@ -921,23 +957,19 @@ def get_stress_test_history_final(user_id: str = DEFAULT_USER_ID):
     return {"status": "success", "data": data}
 
 @app.post("/trade")
-def execute_trade(req: dict):
+def execute_trade(req: TradeRequest):
     success = db.record_trade(
-        req['user_id'], req['action'], req['ticker'], 
-        float(req['amount']), float(req['price'])
+        req.user_id, req.action, req.ticker, 
+        float(req.amount), float(req.price)
     )
     if success:
         return {"status": "success", "message": "交易已記錄"}
     return {"status": "error", "message": "交易失敗"}
 
 @app.post("/auth/signup")
-def signup(req: dict):
-    email = req.get("email")
-    password = req.get("password")
-    name = req.get("name")
-    
+def signup(req: AuthRequest):
     try:
-        user = db.create_user(email, password, name)
+        user = db.create_user(req.email, req.password, req.name)
         if user:
             return {"status": "success", "user": user}
         raise HTTPException(status_code=400, detail="註冊失敗")
@@ -945,18 +977,15 @@ def signup(req: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/auth/login")
-def login(req: dict):
-    email = req.get("email")
-    password = req.get("password")
-    
-    user = db.verify_user(email, password)
+def login(req: AuthRequest):
+    user = db.verify_user(req.email, req.password)
     if user:
         return {"status": "success", "user": user}
     raise HTTPException(status_code=401, detail="信箱或密碼錯誤")
 
 @app.get("/api/sentiment", response_model=SentimentResponse)
 async def get_sentiment():
-    news_list = NewsCrawler.fetch_all(limit_per_source=3)[:5]
+    news_list = (await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3))[:5]
     if not news_list:
         return {
             "score": 50, "label": "中立", "definition": "無數據", 
@@ -974,8 +1003,8 @@ def market_status():
     return {"status": "success", "is_open": is_open, "time": datetime.now(tw_tz).isoformat()}
 
 @app.get("/api/rankings")
-def get_rankings():
-    data = DataProvider.get_rankings()
+async def get_rankings():
+    data = await asyncio.to_thread(DataProvider.get_rankings)
     return {"status": "success", "data": data}
 
 @app.get("/api/fundamentals/{ticker}")

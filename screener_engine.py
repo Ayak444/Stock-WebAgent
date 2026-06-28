@@ -104,6 +104,7 @@ def _init_openapi_cache():
         r1 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers=headers, timeout=20)
         if r1.ok:
             for row in r1.json():
+                if len(OPENAPI_CACHE["profiles"]) >= 5000: break
                 code = row.get("公司代號", "")
                 name = row.get("公司簡稱", "")
                 industry = row.get("產業別", "未分類")
@@ -122,6 +123,7 @@ def _init_openapi_cache():
         r2 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", headers=headers, timeout=20)
         if r2.ok:
             for row in r2.json():
+                if len(OPENAPI_CACHE["profiles"]) >= 5000: break
                 code = row.get("公司代號", "")
                 name = row.get("公司簡稱", "")
                 industry = row.get("產業別", "未分類")

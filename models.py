@@ -48,8 +48,29 @@ class ScreenerAnalyzeRequest(BaseModel):
     user_id: Optional[str] = None
     source: str = "manual"  # manual | portfolio
     targets: Optional[List[str]] = None
-    filters: List[str]
+    filters: Optional[List[str]] = None
     
+class SyncPortfolioRequest(BaseModel):
+    user_id: str
+    portfolio: List[dict] = []
+
+class StressTestRecordRequest(BaseModel):
+    user_id: str = "default_user"
+    scenario: str = "常規測試"
+    result: dict = {}
+
+class TradeRequest(BaseModel):
+    user_id: str
+    action: str
+    ticker: str
+    amount: float
+    price: float
+
+class AuthRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
 class Recommendation(BaseModel):
     name: str
     code: str
