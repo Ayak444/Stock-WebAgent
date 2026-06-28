@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 import re
 import traceback
@@ -149,6 +152,23 @@ async def lifespan(app: FastAPI):
     logger.info("✓ 應用清理完成")
 
 app = FastAPI(title="台股智能分析 API", version="4.0（多代理升級版）", lifespan=lifespan)
+
+# --- Debug Middleware ---
+from fastapi import Request
+@app.middleware("http")
+async def log_request_body(request: Request, call_next):
+    if request.method == "POST":
+        body = await request.body()
+        print(f"DEBUG POST {request.url.path} BODY: {body}", flush=True)
+        
+        # Restore the request stream for FastAPI's internal Pydantic parsing!
+        # If we don't do this, the stream is consumed and FastAPI throws 422 Unprocessable Entity!
+        async def receive():
+            return {"type": "http.request", "body": body}
+        request._receive = receive
+        
+    response = await call_next(request)
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -457,7 +477,11 @@ def daily_analysis_task():
 @app.head("/")
 def root():
     if os.path.exists("static/index.html"):
-        return FileResponse("static/index.html")
+        return FileResponse("static/index.html", headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
     return {"status": "alive", "message": "API 運作中", "docs": "/docs"}
 
 # ===== WebSocket 實時推送端點 =====
