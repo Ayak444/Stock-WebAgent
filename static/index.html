@@ -1957,19 +1957,18 @@ const originalApiCall = window.apiCall || (async (url) => {
   return res.json();
 });
 
-window.apiCall = async function(url, options = {}) {
-  const result = await originalApiCall(url, options);
+window.apiCall = async function(endpoint, method = 'GET', body = null) {
+  const result = await originalApiCall(endpoint, method, body);
   
   // 如果是股票分析結果，則通過 WebSocket 推送到其他連接
-  if (url.includes('/analyze') && result.data && wsClient) {
-    result.data.forEach(item => {
-      if (item.ticker) {
-        // 推送分析結果到 WebSocket
-        if (wsClient.ws && wsClient.ws.readyState === WebSocket.OPEN) {
+  if (typeof endpoint === 'string' && endpoint.includes('/analyze') && result && result.data && window.wsClient) {
+    if (Array.isArray(result.data)) {
+      result.data.forEach(item => {
+        if (item.ticker && window.wsClient.ws && window.wsClient.ws.readyState === WebSocket.OPEN) {
           console.log(`推送分析結果到 WebSocket: ${item.ticker}`);
         }
-      }
-    });
+      });
+    }
   }
   
   return result;
