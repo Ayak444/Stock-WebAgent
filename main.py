@@ -19,8 +19,8 @@ from cache_layer import cache_manager
 from ai_agents import orchestrator
 from async_data_provider import AsyncDataProvider, get_async_provider, close_async_provider
 from task_queue import job_runner, ScheduledTaskManager
-from websocket_system import ws_manager, msg_handler, price_broadcaster, initialize_websocket_system, shutdown_websocket_system
-
+from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
+import websocket_system
 # 原有模塊
 from agent import get_sentiment_analysis
 from models import (
@@ -577,7 +577,8 @@ async def analyze(req: AnalyzeRequest):
         
         # 並行推送到 WebSocket 客戶端
         for result in results:
-            await price_broadcaster.push_analysis_result(result['ticker'], result)
+            if websocket_system.price_broadcaster:
+                await websocket_system.price_broadcaster.push_analysis_result(result['ticker'], result)
         
         return {
             "status": "success",
