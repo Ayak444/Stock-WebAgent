@@ -845,10 +845,32 @@ async function fetchStockNames() {
 // API HELPER
 // ============================
 async function apiCall(endpoint, method = 'GET', body = null) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' }, cache: 'no-store' };
-  if (body) opts.body = JSON.stringify(body);
+  let m = 'GET';
+  if (typeof method === 'string') {
+    m = method.toUpperCase();
+  } else if (method && typeof method === 'object') {
+    // Failsafe: if body was accidentally passed as second argument
+    body = method;
+    m = 'POST';
+  }
+
+  const opts = {
+    method: m,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
+  };
+
+  if (body) {
+    opts.body = JSON.stringify(body);
+  }
+
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`, opts);
+    const res = await fetch(API_BASE + endpoint, opts);
+    if (!res.ok) {
+      return { status: 'error', message: `HTTP 錯誤: ${res.status}` };
+    }
     return await res.json();
   } catch (e) {
     return { status: 'error', message: e.message || 'Network Error', stack: String(e) };
