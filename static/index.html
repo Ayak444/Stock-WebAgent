@@ -787,7 +787,10 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
 // ============================
 // GLOBAL STATE
 // ============================
-const API_BASE = window.location.origin;
+// Handle both local testing (Live Server) and production deployments
+const API_BASE = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
+  ? (window.location.port === '5500' ? 'https://ayak4.studio' : window.location.origin) 
+  : window.location.origin;
 let currentChatbotId = null;
 let screenerTargets = [];
 let positions = [];
@@ -2008,18 +2011,14 @@ function initLanding() {
       ease: "power3.out" 
     }, "-=0.4");
 
-  // Feature cards fade in stagger
+  // Feature cards fade in stagger (Run immediately to avoid scrollTrigger bugs)
   gsap.from(".feature-card", {
-    scrollTrigger: {
-      trigger: "#features",
-      scroller: ".landing",
-      start: "top 80%",
-    },
     y: 30,
     opacity: 0,
     duration: 0.8,
     stagger: 0.15,
-    ease: "power2.out"
+    ease: "power2.out",
+    delay: 0.5
   });
 
   // End text
@@ -2073,8 +2072,9 @@ function enterDashboard() {
         const tl2 = gsap.timeline();
         tl2.from(".sidebar", { x: -100, opacity: 0, duration: 0.6, ease: "power3.out" })
            .from(".top-bar", { y: -30, opacity: 0, duration: 0.5, ease: "power3.out" }, "-=0.4")
-           .from(".card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.05, ease: "power3.out" }, "-=0.2")
-           .from(".stat-card", { scale: 0.9, opacity: 0, duration: 0.5, stagger: 0.05, ease: "back.out(1.5)" }, "-=0.4");
+           .from(".card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.05, ease: "power3.out" }, "-=0.2");
+        
+        // Removed .stat-card from tl2 because they are dynamically rendered by fetchMacroData
         
         // Trigger initial data load now that UI is visible
         if (typeof fetchMacroData === 'function') fetchMacroData();
