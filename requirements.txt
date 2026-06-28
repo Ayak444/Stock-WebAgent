@@ -28,3 +28,7 @@ prometheus-client==0.19.0
 
 # 容器和部署
 python-json-logger==2.0.7
+
+# AI 代理框架
+crewai>=0.28.0
+langchain-groq>=0.1.0
