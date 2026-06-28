@@ -851,7 +851,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     const res = await fetch(`${API_BASE}${endpoint}`, opts);
     return await res.json();
   } catch (e) {
-    return { status: 'error', message: '無法連線至伺服器' };
+    return { status: 'error', message: e.message || 'Network Error', stack: String(e) };
   }
 }
 
@@ -985,7 +985,7 @@ async function checkHealth() {
   } else {
     dotApi.classList.add('err');
     dotAi.classList.add('err');
-    showToast('系統連線失敗', 'error');
+    showToast(`連線失敗: ${res.message} (${API_BASE})`, 'error');
   }
 }
 
