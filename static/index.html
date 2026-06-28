@@ -2078,15 +2078,6 @@ function enterDashboard() {
     const tl = gsap.timeline({
       onComplete: () => {
         forceEntry();
-        
-        // Dashboard entrance animations using a NEW timeline to avoid infinite loops
-        const tl2 = gsap.timeline();
-        tl2.from(".sidebar", { x: -100, opacity: 0, duration: 0.6, ease: "power3.out" })
-           .from(".top-bar", { y: -30, opacity: 0, duration: 0.5, ease: "power3.out" }, "-=0.4")
-           .from(".card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.05, ease: "power3.out" }, "-=0.2");
-        
-        // Removed .stat-card from tl2 because they are dynamically rendered by fetchMacroData
-        
         // Trigger initial data load now that UI is visible
         if (typeof fetchMacroData === 'function') fetchMacroData();
       }
