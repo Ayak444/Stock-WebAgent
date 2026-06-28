@@ -313,7 +313,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <h1 class="hero-title hero-elem">掌握台股脈動<br><span class="text-gradient">AI 驅動未來</span></h1>
       <p class="hero-desc hero-elem">結合大語言模型與深度技術分析，為您提供最精準的市場洞察、策略回測與個股健診，打造機構級的看盤體驗。</p>
       <div class="hero-actions hero-elem">
-        <button class="btn-analyze hero-btn-main" onclick="startJourney()" id="hero-main-btn">立即登入使用 ➔</button>
+        <button class="btn-analyze hero-btn-main" onclick="startJourney()" id="hero-main-btn">立即開始使用 ➔</button>
       </div>
     </div>
   </div>
@@ -2023,11 +2023,7 @@ function scrollToFeatures() {
 }
 
 function startJourney() {
-  if (!currentUser) {
-    showAuthModal('login');
-  } else {
-    enterDashboard();
-  }
+  enterDashboard();
 }
 
 function enterDashboard() {
