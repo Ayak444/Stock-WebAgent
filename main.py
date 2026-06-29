@@ -133,15 +133,32 @@ except ImportError:
 
 
 async def daily_analysis_task_async():
-    """非同步每日分析任務"""
-    default_targets = [
-        StockTarget("2330.TW", "台積電", "台股", 1000, 1000),
-        StockTarget("0050.TW", "元大台灣50", "ETF", 180, 1000),
-    ]
-    results, _ = await _analyze_targets_async(default_targets)
+    """非同步每日分析與資產配置報告任務"""
+    # 嘗試抓取預設使用者的資產配置
+    portfolio = db.get_portfolio(DEFAULT_USER_ID)
+    
+    targets = []
+    if portfolio:
+        for item in portfolio:
+            code = item.get("code", "")
+            if code:
+                if not code.endswith(".TW") and not code.endswith(".TWO"):
+                    code += ".TW"
+                cost = float(item.get("cost", 0)) if item.get("cost") else 0
+                shares = int(item.get("shares", 0)) if item.get("shares") else 0
+                targets.append(StockTarget(code, item.get("name", code), "自選", cost, shares))
+    
+    # 若無資產配置，退回預設名單
+    if not targets:
+        targets = [
+            StockTarget("2330.TW", "台積電", "台股", 1000, 1000),
+            StockTarget("0050.TW", "元大台灣50", "ETF", 180, 1000),
+        ]
+        
+    results, _ = await _analyze_targets_async(targets)
     db.save_analysis(results)
     desc = notifier.format_analysis(results)
-    notifier.send(f"📊 台股分析 {datetime.now().strftime('%Y-%m-%d')}", desc)
+    notifier.send(f"📊 每日投資組合與台股分析 {datetime.now().strftime('%Y-%m-%d')}", desc)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -157,12 +174,12 @@ async def lifespan(app: FastAPI):
     # 啟動定時任務
     job_runner.schedule_daily(
         "daily_analysis",
-        "每日股票分析",
+        "每日股票與資產配置分析",
         daily_analysis_task_async,
-        hour=14,  # 台股收盤後
+        hour=22,  # 晚上 10 點發送
         minute=0
     )
-    logger.info("✓ 定時任務已排程（每日 14:00）")
+    logger.info("✓ 定時任務已排程（每日 22:00）")
     
     yield
     
