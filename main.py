@@ -861,6 +861,8 @@ async def get_kline(ticker: str, days: int = 180):
         df = TechnicalAnalyzer.calculate_indicators(df).reset_index()
         
         candles, volumes, ma5, ma20, ma60 = [], [], [], [], []
+        rsi, macd, macd_signal, macd_hist = [], [], [], []
+        kd_k, kd_d = [], []
         date_col = 'Date' if 'Date' in df.columns else df.columns[0]
         
         for _, row in df.iterrows():
@@ -882,11 +884,29 @@ async def get_kline(ticker: str, days: int = 180):
                 ma20.append({"time": ts, "value": round(float(row['MA20']), 2)})
             if not pd.isna(row.get('MA60')):
                 ma60.append({"time": ts, "value": round(float(row['MA60']), 2)})
+            if not pd.isna(row.get('RSI')):
+                rsi.append({"time": ts, "value": round(float(row['RSI']), 2)})
+            if not pd.isna(row.get('MACD')):
+                macd.append({"time": ts, "value": round(float(row['MACD']), 2)})
+            if not pd.isna(row.get('Signal')):
+                macd_signal.append({"time": ts, "value": round(float(row['Signal']), 2)})
+            if not pd.isna(row.get('Histogram')):
+                macd_hist.append({
+                    "time": ts, 
+                    "value": round(float(row['Histogram']), 2),
+                    "color": "#26a69a" if row['Histogram'] >= 0 else "#ef5350"
+                })
+            if not pd.isna(row.get('K')):
+                kd_k.append({"time": ts, "value": round(float(row['K']), 2)})
+            if not pd.isna(row.get('D')):
+                kd_d.append({"time": ts, "value": round(float(row['D']), 2)})
         
         return {
             "status": "success", "ticker": ticker,
             "candles": candles, "volumes": volumes,
             "ma5": ma5, "ma20": ma20, "ma60": ma60,
+            "rsi": rsi, "macd": macd, "macd_signal": macd_signal, "macd_hist": macd_hist,
+            "kd_k": kd_k, "kd_d": kd_d,
             "from_cache": cached_kline is not None
         }
     except Exception as e:

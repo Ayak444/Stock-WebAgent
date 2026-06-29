@@ -570,6 +570,17 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
             <input class="input" id="kline-ticker" placeholder="輸入股票代號 (如 2330.TW)" onkeydown="if(event.key==='Enter')fetchKline()">
             <button class="btn-analyze" onclick="fetchKline()" style="flex-shrink:0">📊 載入圖表</button>
           </div>
+          
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label style="color:var(--slate-400); font-size:14px; font-weight:600;">副圖指標:</label>
+            <select id="sub-indicator-select" class="input" style="width:120px; padding:6px 12px;" onchange="updateSubChart()">
+              <option value="volume">成交量</option>
+              <option value="macd">MACD</option>
+              <option value="kd">KD 指標</option>
+              <option value="rsi">RSI</option>
+            </select>
+          </div>
+          
           <div style="display:flex;gap:6px;margin-left:auto">
             <button class="range-btn" data-days="30" onclick="setKlineDays(30)">1M</button>
             <button class="range-btn" data-days="90" onclick="setKlineDays(90)">3M</button>
@@ -804,6 +815,7 @@ let authMode = 'login';
 let klineDays = 180;
 let currentKlineTicker = '';
 let klineChart = null;
+let currentKlineData = null;
 let techTableData = [];
 let techSortCol = -1;
 let techSortAsc = true;
@@ -1354,7 +1366,7 @@ function sortTechTable(colIdx) {
   techTableData.sort((a, b) => {
     let va = a[key], vb = b[key];
     if (typeof va === 'number') return techSortAsc ? va - vb : vb - va;
-    return techSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+    return techSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(vb));
   });
   renderTechTable(techTableData);
 }
@@ -1394,14 +1406,14 @@ async function fetchKline() {
   if (klineChart) klineChart.dispose();
   klineChart = echarts.init(chartDom, 'dark');
 
+  currentKlineData = res;
+
   const dates = res.candles.map(c => { const d = new Date(c.time * 1000); return `${d.getMonth()+1}/${d.getDate()}`; });
   const ohlc = res.candles.map(c => [c.open, c.close, c.low, c.high]);
-  const vols = res.volumes.map(v => ({ value: v.value, itemStyle: { color: v.color === '#26a69a' ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)' } }));
   const ma5Data = res.ma5.map(m => m.value);
   const ma20Data = res.ma20.map(m => m.value);
   const ma60Data = res.ma60.map(m => m.value);
 
-  // Pad MA data to align with dates
   const padStart = (arr, total) => { const pad = total - arr.length; return [...Array(pad > 0 ? pad : 0).fill(null), ...arr]; };
 
   const option = {
@@ -1436,14 +1448,15 @@ async function fetchKline() {
       { name: 'MA20', type: 'line', data: padStart(ma20Data, dates.length), xAxisIndex: 0, yAxisIndex: 0,
         smooth: true, lineStyle: { width: 1.5, color: '#3b82f6' }, symbol: 'none' },
       { name: 'MA60', type: 'line', data: padStart(ma60Data, dates.length), xAxisIndex: 0, yAxisIndex: 0,
-        smooth: true, lineStyle: { width: 1.5, color: '#a855f7' }, symbol: 'none' },
-      { name: '成交量', type: 'bar', data: vols, xAxisIndex: 1, yAxisIndex: 1 }
+        smooth: true, lineStyle: { width: 1.5, color: '#a855f7' }, symbol: 'none' }
     ]
   };
   klineChart.setOption(option);
+  
+  updateSubChart();
+
   window.addEventListener('resize', () => klineChart && klineChart.resize());
 
-  // Load signals
   const sigRes = await apiCall('/analyze', 'POST', { targets: [{ id: ticker, name: '', type: '台股', cost: 0, shares: 0 }] });
   if (sigRes.status === 'success' && sigRes.data[0]) {
     const s = sigRes.data[0];
@@ -1464,6 +1477,56 @@ async function fetchKline() {
         </div>
       </div>`;
   }
+}
+
+function updateSubChart() {
+  if (!klineChart || !currentKlineData) return;
+  
+  const type = document.getElementById('sub-indicator-select').value;
+  const datesLen = currentKlineData.candles.length;
+  const padStart = (arr) => { const pad = datesLen - arr.length; return [...Array(pad > 0 ? pad : 0).fill(null), ...arr.map(v => v.value !== undefined ? v.value : v)]; };
+  
+  let newSeries = [];
+  
+  if (type === 'volume') {
+    const vols = currentKlineData.volumes.map(v => ({ value: v.value, itemStyle: { color: v.color === '#26a69a' ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)' } }));
+    newSeries = [{ name: '成交量', type: 'bar', data: vols, xAxisIndex: 1, yAxisIndex: 1 }];
+  } 
+  else if (type === 'macd') {
+    const macd = currentKlineData.macd ? padStart(currentKlineData.macd) : [];
+    const signal = currentKlineData.macd_signal ? padStart(currentKlineData.macd_signal) : [];
+    const hist = currentKlineData.macd_hist ? currentKlineData.macd_hist.map(v => ({ value: v.value, itemStyle: { color: v.color } })) : [];
+    const paddedHist = padStart(hist);
+    
+    newSeries = [
+      { name: 'MACD', type: 'line', data: macd, xAxisIndex: 1, yAxisIndex: 1, smooth: true, lineStyle: { width: 1.5, color: '#3b82f6' }, symbol: 'none' },
+      { name: 'Signal', type: 'line', data: signal, xAxisIndex: 1, yAxisIndex: 1, smooth: true, lineStyle: { width: 1.5, color: '#facc15' }, symbol: 'none' },
+      { name: 'Histogram', type: 'bar', data: paddedHist, xAxisIndex: 1, yAxisIndex: 1 }
+    ];
+  }
+  else if (type === 'kd') {
+    const kData = currentKlineData.kd_k ? padStart(currentKlineData.kd_k) : [];
+    const dData = currentKlineData.kd_d ? padStart(currentKlineData.kd_d) : [];
+    newSeries = [
+      { name: 'K', type: 'line', data: kData, xAxisIndex: 1, yAxisIndex: 1, smooth: true, lineStyle: { width: 1.5, color: '#3b82f6' }, symbol: 'none' },
+      { name: 'D', type: 'line', data: dData, xAxisIndex: 1, yAxisIndex: 1, smooth: true, lineStyle: { width: 1.5, color: '#facc15' }, symbol: 'none' }
+    ];
+  }
+  else if (type === 'rsi') {
+    const rsiData = currentKlineData.rsi ? padStart(currentKlineData.rsi) : [];
+    newSeries = [
+      { name: 'RSI', type: 'line', data: rsiData, xAxisIndex: 1, yAxisIndex: 1, smooth: true, lineStyle: { width: 1.5, color: '#a855f7' }, symbol: 'none',
+        markLine: {
+          symbol: ['none', 'none'],
+          label: { show: false },
+          data: [{ yAxis: 30, lineStyle: { color: '#ef4444', type: 'dashed' } }, { yAxis: 70, lineStyle: { color: '#22c55e', type: 'dashed' } }]
+        }
+      }
+    ];
+  }
+
+  const baseSeries = klineChart.getOption().series.slice(0, 4);
+  klineChart.setOption({ series: [...baseSeries, ...newSeries] }, { replaceMerge: ['series'] });
 }
 
 // ============================
@@ -1525,12 +1588,12 @@ async function runBacktest() {
           <tbody>
             ${trades.map(t => {
               const isBuy = t.action === 'BUY' || t.action === '買入';
-              return \`<tr>
-                <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">\${t.action}</span></td>
-                <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">\${t.date || '-'}</td>
-                <td style="text-align:right;font-weight:600;color:#fff">NT$\${fmt(t.price)}</td>
-                <td style="text-align:right;font-weight:700;color:\${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">\${t.return_pct !== undefined && t.return_pct !== 0 ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
-              </tr>\`;
+              return `<tr>
+                <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">${t.action}</span></td>
+                <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">${t.date || '-'}</td>
+                <td style="text-align:right;font-weight:600;color:#fff">NT$${fmt(t.price)}</td>
+                <td style="text-align:right;font-weight:700;color:${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${t.return_pct !== undefined && t.return_pct !== 0 ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
+              </tr>`;
             }).join('')}
           </tbody>
         </table>
