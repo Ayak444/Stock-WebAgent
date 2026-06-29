@@ -130,6 +130,7 @@ try:
     scheduler = BackgroundScheduler(timezone='Asia/Taipei')
 except ImportError:
     pass
+from cron_jobs import run_backtest_hydration_task
 
 
 async def daily_analysis_task_async():
@@ -179,7 +180,17 @@ async def lifespan(app: FastAPI):
         hour=22,  # 晚上 10 點發送
         minute=0
     )
-    logger.info("✓ 定時任務已排程（每日 22:00）")
+    
+    # 回測快取運算任務 (排在每日收盤後，如凌晨 2:00)
+    job_runner.schedule_daily(
+        "backtest_hydration",
+        "預先計算回測結果",
+        run_backtest_hydration_task,
+        hour=2,
+        minute=0
+    )
+    
+    logger.info("✓ 定時任務已排程（每日 22:00 與 02:00）")
     
     yield
     
@@ -896,6 +907,30 @@ def history_tickers():
 
 @app.post("/backtest")
 async def backtest(req: BacktestRequest):
+    """
+    修改為從資料庫讀取預先計算好的結果 (Database-Driven)
+    以達到毫秒級回應，不再即時運算
+    """
+    cached_result = db.get_backtest_results(req.ticker, strategy_name="default_ma_rsi")
+    if cached_result:
+        # 將 Supabase 回傳的資料結構轉為原本前端預期的格式
+        return {
+            "status": "success",
+            "ticker": cached_result.get("symbol", req.ticker),
+            "win_rate": cached_result.get("win_rate", 0),
+            "max_drawdown": cached_result.get("max_drawdown", 0),
+            "strategy_return": cached_result.get("total_return", 0),
+            "latest_signal": cached_result.get("latest_signal", "NEUTRAL"),
+            # 以下給予預設值以避免前端報錯
+            "buy_hold_return": 0,
+            "outperformance": 0,
+            "trade_count": 0,
+            "final_value": 0,
+            "trades": []
+        }
+    
+    # Fallback: 若資料庫還沒有預算資料，為了防止前端報錯，回傳等待中訊息或即時算一次
+    # 這裡選擇即時運算一次作為 fallback
     return await asyncio.to_thread(Backtester.run, req.ticker, req.days)
 
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"

@@ -239,3 +239,22 @@ class Database:
         except Exception as e:
             print(f"RAG Search Error: {e}")
         return []
+
+    def save_backtest_results(self, records: list):
+        """儲存背景預算好的回測結果"""
+        if not self.supabase or not records: return
+        try:
+            self.supabase.table("backtest_results").upsert(records).execute()
+        except Exception as e:
+            print(f"Save backtest results error: {e}")
+
+    def get_backtest_results(self, symbol: str, strategy_name: str = 'default'):
+        """讀取預先計算好的回測結果"""
+        if not self.supabase: return None
+        try:
+            res = self.supabase.table("backtest_results").select("*").eq("symbol", symbol).eq("strategy_name", strategy_name).execute()
+            if res.data:
+                return res.data[0]
+        except Exception as e:
+            print(f"Get backtest results error: {e}")
+        return None

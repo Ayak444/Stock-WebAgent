@@ -1491,7 +1491,9 @@ async function runBacktest() {
     const trades = res.trades || [];
     const tradeCount = res.trade_count || 0;
     const wins = trades.filter(t => t.return_pct > 0).length;
-    const winRate = tradeCount > 0 ? ((wins / tradeCount) * 100) : 0;
+    const calculatedWinRate = tradeCount > 0 ? ((wins / tradeCount) * 100) : 0;
+    const winRate = res.win_rate !== undefined && res.win_rate !== null ? res.win_rate : calculatedWinRate;
+    const maxDrawdown = res.max_drawdown || 0;
 
     resultDiv.innerHTML = `
       <div class="grid grid-4" style="margin-bottom:20px">
@@ -1508,11 +1510,10 @@ async function runBacktest() {
           <div class="value" style="color:${outperf >= 0 ? 'var(--cyan-400)' : 'var(--orange-400)'}">${outperf >= 0 ? '+' : ''}${fmt(outperf)}%</div>
         </div>
         <div class="backtest-stat">
-          <div class="label">交易次數 / 勝率</div>
-          <div class="value" style="color:var(--blue-400);font-size:22px">${tradeCount}次 / ${fmt(winRate, 0)}%</div>
+          <div class="label">最大回撤 / 勝率</div>
+          <div class="value" style="color:var(--blue-400);font-size:22px">${fmt(maxDrawdown)}% / ${fmt(winRate, 0)}%</div>
         </div>
       </div>
-
       ${trades.length > 0 ? `
       <div class="card">
         <div class="card-header">📋 最近交易紀錄 (最近 ${trades.length} 筆)</div>
@@ -1524,16 +1525,20 @@ async function runBacktest() {
           <tbody>
             ${trades.map(t => {
               const isBuy = t.action === 'BUY' || t.action === '買入';
-              return `<tr>
-                <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">${t.action}</span></td>
-                <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">${t.date || '-'}</td>
-                <td style="text-align:right;font-weight:600;color:#fff">NT$${fmt(t.price)}</td>
-                <td style="text-align:right;font-weight:700;color:${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${t.return_pct !== undefined && t.return_pct !== 0 ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
-              </tr>`;
+              return \`<tr>
+                <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">\${t.action}</span></td>
+                <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">\${t.date || '-'}</td>
+                <td style="text-align:right;font-weight:600;color:#fff">NT$\${fmt(t.price)}</td>
+                <td style="text-align:right;font-weight:700;color:\${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">\${t.return_pct !== undefined && t.return_pct !== 0 ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
+              </tr>\`;
             }).join('')}
           </tbody>
         </table>
-      </div>` : '<div class="card"><div class="card-body" style="color:var(--slate-500);text-align:center">此期間內無交易訊號</div></div>'}
+      </div>` : `
+      <div style="margin-top:20px; padding:20px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); text-align:center; color:var(--slate-400);">
+        最新策略訊號: <span style="color:var(--cyan-400); font-weight:bold; font-size:18px;">${res.latest_signal || "無"}</span>
+      </div>
+      `}
     `;
     showToast(`${ticker} 回測完成`, 'success');
   } else {
