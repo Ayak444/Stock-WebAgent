@@ -73,7 +73,7 @@ class FeatureEngineer:
         high_low = df['High'] - df['Low']
         high_close = np.abs(df['High'] - df['Close'].shift())
         low_close = np.abs(df['Low'] - df['Close'].shift())
-        tr = np.maximum(high_low, high_close, low_close)
+        tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
         features['atr_14'] = tr.rolling(14).mean()
         
         # 4. Parkinson 波動率（高低價格）
@@ -198,7 +198,8 @@ class FeatureEngineer:
         features['j_line'] = 3 * features['k_line'] - 2 * features['d_line']
         
         # 4. Stochastic
-        stoch = (df['Close'] - low_min) / (high_max - low_min) if high_max != low_min else 0
+        price_range = (high_max - low_min).replace(0, np.nan)
+        stoch = (df['Close'] - low_min) / price_range
         features['stochastic'] = stoch * 100
         
         return features

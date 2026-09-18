@@ -60,7 +60,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-MAIAGENT_API_KEY = os.environ.get("MAIAGENT_API_KEY", "")
+MAIAGENT_API_KEY = (
+    os.environ.get("GROQ_API_KEY", "")
+    or os.environ.get("MAIAGENT_API_KEY", "")
+)
 MAIAGENT_CHATBOT_ID = os.environ.get("MAIAGENT_CHATBOT_ID", "")
 MAIAGENT_WEBCHAT_ID = os.environ.get("MAIAGENT_WEBCHAT_ID", "")
 MAIAGENT_BASE_URL = "https://api.maiagent.ai/api"
@@ -546,11 +549,11 @@ async def websocket_live(websocket: WebSocket):
             await msg_handler.handle_message(websocket, client_id, data)
     
     except WebSocketDisconnect:
-        await ws_manager.disconnect(websocket, room_id="live")
+        await ws_manager.disconnect(websocket, room_id="live", client_id=client_id)
         logger.info(f"客戶端 {client_id} 已斷開連接")
     except Exception as e:
         logger.error(f"WebSocket 錯誤 {client_id}: {e}")
-        await ws_manager.disconnect(websocket, room_id="live")
+        await ws_manager.disconnect(websocket, room_id="live", client_id=client_id)
 
 @app.websocket("/ws/prices")
 async def websocket_prices(websocket: WebSocket):
@@ -633,6 +636,19 @@ def health():
             }
         }
     }
+
+
+@app.get("/health/auth")
+def auth_health():
+    """Check login storage without exposing users, credentials, or provider errors."""
+    result = db.check_auth_store()
+    return JSONResponse(
+        {
+            "status": "ok" if result["ok"] else "error",
+            "auth_store": result["reason"],
+        },
+        status_code=200 if result["ok"] else 503,
+    )
 
 @app.get("/macro")
 async def macro_data():
@@ -1028,12 +1044,19 @@ def signup(req: AuthRequest):
         if user:
             return {"status": "success", "user": user}
         raise HTTPException(status_code=400, detail="註冊失敗")
-    except Exception as e:
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("註冊服務發生錯誤")
+        raise HTTPException(status_code=503, detail="註冊服務暫時無法使用，請稍後再試")
 
 @app.post("/auth/login")
 def login(req: AuthRequest):
-    user = db.verify_user(req.email, req.password)
+    try:
+        user = db.verify_user(req.email, req.password)
+    except RuntimeError:
+        logger.exception("登入資料庫查詢失敗")
+        raise HTTPException(status_code=503, detail="登入服務暫時無法使用，請檢查資料庫設定")
     if user:
         return {"status": "success", "user": user}
     raise HTTPException(status_code=401, detail="信箱或密碼錯誤")

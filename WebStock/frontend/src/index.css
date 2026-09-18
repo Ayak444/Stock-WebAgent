@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-primary: #0B0E14;
+  --bg-panel: rgba(21, 26, 34, 0.6);
+  --bg-panel-solid: #151A22;
+  --bg-glass-border: rgba(255, 255, 255, 0.05);
+  
+  --color-text: #FFFFFF;
+  --color-text-secondary: #8B95A5;
+  
+  --color-buy: #00F2FE;
+  --color-sell: #FF0844;
+  
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Glassmorphism Panel Utilities */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--bg-glass-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Scrollbar customization for sleek look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-panel-solid);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* Animations */
+
+/* 1. Ripple Pulse (Buy/Sell Markers) */
+@keyframes ripplePulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    opacity: 0.8;
+    box-shadow: 0 0 0 10px rgba(0, 242, 254, 0);
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 242, 254, 0);
+  }
+}
+
+.ripple-pulse-buy {
+  animation: ripplePulse 2s infinite cubic-bezier(0.66, 0, 0, 1);
+  box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7);
+}
+
+@keyframes ripplePulseSell {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(255, 8, 68, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    opacity: 0.8;
+    box-shadow: 0 0 0 10px rgba(255, 8, 68, 0);
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(255, 8, 68, 0);
+  }
+}
+
+.ripple-pulse-sell {
+  animation: ripplePulseSell 2s infinite cubic-bezier(0.66, 0, 0, 1);
+  box-shadow: 0 0 0 0 rgba(255, 8, 68, 0.7);
+}
+
+/* Aurora Awakening (Cold Start) */
+@keyframes auroraGlow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.aurora-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(0,242,254,0.15) 0%, rgba(11,14,20,0) 70%);
+  filter: blur(40px);
+  animation: auroraGlow 4s infinite ease-in-out;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes loadProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.progress-bar-fill {
+  background: linear-gradient(90deg, var(--color-buy), #00A6FF);
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+}

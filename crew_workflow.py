@@ -9,7 +9,10 @@ class StockCrewOrchestrator:
     基於 CrewAI 的多代理台股分析協調器
     """
     def __init__(self):
-        self.api_key = os.environ.get("MAIAGENT_API_KEY", "")
+        self.api_key = (
+            os.environ.get("GROQ_API_KEY", "")
+            or os.environ.get("MAIAGENT_API_KEY", "")
+        )
         
         # 為了避免 API Key 不存在時報錯，只有在啟用時才實例化 LLM
         self.enabled = bool(self.api_key)

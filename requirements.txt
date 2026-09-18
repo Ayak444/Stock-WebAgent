@@ -6,6 +6,7 @@ numpy>=1.26.4
 yfinance>=0.2.37
 requests>=2.31.0
 pydantic>=2.6.1
+pydantic-settings>=2.2.1
 python-multipart>=0.0.9
 apscheduler>=3.10.4
 feedparser>=6.0.11

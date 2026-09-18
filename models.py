@@ -1,7 +1,7 @@
 """資料模型定義"""
 from dataclasses import dataclass
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Literal, Optional
+from pydantic import BaseModel, Field, field_validator
 
 
 @dataclass
@@ -18,8 +18,8 @@ class TargetItem(BaseModel):
     id: str
     name: str
     type: str
-    cost: float
-    shares: int
+    cost: float = Field(ge=0)
+    shares: int = Field(ge=0)
 
 
 class AnalyzeRequest(BaseModel):
@@ -36,12 +36,12 @@ class NewsRequest(BaseModel):
 
 class BacktestRequest(BaseModel):
     ticker: str
-    days: int = 180
+    days: int = Field(default=180, ge=30, le=3650)
 
 
 class NewsSourceRequest(BaseModel):
     sources: Optional[List[str]] = None  # ['bloomberg', 'investing', 'ctee', 'udn']
-    limit: int = 10
+    limit: int = Field(default=10, ge=1, le=20)
 
 
 class ScreenerAnalyzeRequest(BaseModel):
@@ -52,24 +52,32 @@ class ScreenerAnalyzeRequest(BaseModel):
     
 class SyncPortfolioRequest(BaseModel):
     user_id: str
-    portfolio: List[dict] = []
+    portfolio: List[dict] = Field(default_factory=list)
 
 class StressTestRecordRequest(BaseModel):
     user_id: str = "default_user"
     scenario: str = "常規測試"
-    result: dict = {}
+    result: dict = Field(default_factory=dict)
 
 class TradeRequest(BaseModel):
     user_id: str
-    action: str
+    action: Literal["買入", "賣出"]
     ticker: str
-    amount: float
-    price: float
+    amount: float = Field(gt=0)
+    price: float = Field(gt=0)
 
 class AuthRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
     name: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("請輸入有效的電子郵件")
+        return value
 
 class Recommendation(BaseModel):
     name: str

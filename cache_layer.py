@@ -53,8 +53,9 @@ class MemoryCache:
     def set(self, key: str, value: Any, ttl_seconds: int = 3600) -> None:
         """設置緩存"""
         with self.lock:
+            self.cleanup_expired()
             # 檢查是否超過容量
-            if len(self.store) >= self.max_size and key not in self.store:
+            while len(self.store) >= self.max_size and key not in self.store:
                 self._evict_lru()
             
             self.store[key] = CacheEntry(value, ttl_seconds)

@@ -4,7 +4,7 @@
  */
 
 class StockWebSocketClient {
-    constructor(baseUrl = window.location.origin) {
+    constructor(baseUrl = window.STOCK_API_BASE || window.location.origin) {
         this.baseUrl = baseUrl.replace(/^http(s)?:\/\//, 'ws$1://');
         this.ws = null;
         this.clientId = null;

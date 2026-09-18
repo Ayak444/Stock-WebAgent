@@ -7,8 +7,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_sentiment_analysis(news_content: str):
-    api_key = os.getenv("MAIAGENT_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY") or os.getenv("MAIAGENT_API_KEY")
     api_url = "https://api.groq.com/openai/v1/chat/completions"
+
+    if not api_key:
+        return {
+            "score": 50,
+            "label": "中立",
+            "definition": "AI 尚未設定",
+            "reasoning": "缺少 GROQ_API_KEY 環境變數",
+            "recommendations": [],
+            "news_analysis": []
+        }
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -38,6 +48,7 @@ def get_sentiment_analysis(news_content: str):
 
     try:
         response = requests.post(api_url, headers=headers, json=payload, timeout=45)
+        response.raise_for_status()
         res_data = response.json()
         
         ai_content = res_data["choices"][0]["message"]["content"].strip()
@@ -54,6 +65,23 @@ def get_sentiment_analysis(news_content: str):
 
         return parse_mai_result(clean_json)
         
+    except requests.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else 0
+        if status == 401:
+            reason = "Groq API Key 無效，請在部署環境更新 GROQ_API_KEY"
+        elif status == 429:
+            reason = "Groq API 已達速率或額度限制，請稍後再試"
+        else:
+            reason = f"Groq API 回傳 HTTP {status}"
+        print(f"Agent Request HTTP Error: {status}")
+        return {
+            "score": 50,
+            "label": "中立",
+            "definition": "暫時無法取得 AI 分析",
+            "reasoning": reason,
+            "recommendations": [],
+            "news_analysis": []
+        }
     except Exception as e:
         print(f"Agent Request Error: {e}")
         return {

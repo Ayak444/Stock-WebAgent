@@ -3,7 +3,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -14,7 +15,10 @@ class Settings(BaseSettings):
         print(settings.MAIAGENT_API_KEY)
     """
 
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
     # AI / Agent
+    GROQ_API_KEY: Optional[str] = Field(None, description="Groq API key")
     MAIAGENT_API_KEY: Optional[str] = Field(None, description="Groq / MAI Agent API key")
     MAIAGENT_CHATBOT_ID: Optional[str] = Field(None)
     MAIAGENT_WEBCHAT_ID: Optional[str] = Field(None)
@@ -74,11 +78,6 @@ class Settings(BaseSettings):
     DOCKER_REGISTRY: Optional[str] = Field(None)
     DOCKER_IMAGE_TAG: Optional[str] = Field(None)
     DOCKER_PULL_POLICY: Optional[str] = Field(None)
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 @lru_cache()
 def get_settings() -> Settings:

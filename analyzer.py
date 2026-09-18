@@ -20,10 +20,15 @@ class TechnicalAnalyzer:
 
         # RSI (14)
         delta = close.diff()
-        gain = delta.where(delta > 0, 0).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        rs = gain / loss.replace(0, np.nan)
-        df['RSI'] = 100 - (100 / (1 + rs))
+        gain = delta.clip(lower=0)
+        loss = -delta.clip(upper=0)
+        avg_gain = gain.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+        rs = avg_gain / avg_loss.replace(0, np.nan)
+        rsi = 100 - (100 / (1 + rs))
+        rsi = rsi.mask((avg_loss == 0) & (avg_gain > 0), 100)
+        rsi = rsi.mask((avg_loss == 0) & (avg_gain == 0), 50)
+        df['RSI'] = rsi
 
         # MACD
         ema12 = close.ewm(span=12, adjust=False).mean()

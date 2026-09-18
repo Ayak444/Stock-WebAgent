@@ -2,7 +2,12 @@
 // ============================
 // GLOBAL STATE
 // ============================
-const API_BASE = window.location.origin;
+const localFrontendPorts = new Set(['5173', '5500', '5501']);
+const API_BASE = (
+  location.protocol === 'file:' || localFrontendPorts.has(location.port)
+    ? 'http://127.0.0.1:8000'
+    : window.location.origin
+).replace(/\/$/, '');
 let currentChatbotId = null;
 let screenerTargets = [];
 let positions = [];
@@ -59,13 +64,30 @@ async function fetchStockNames() {
 // API HELPER
 // ============================
 async function apiCall(endpoint, method = 'GET', body = null) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' }, cache: 'no-store' };
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(30000)
+  };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, opts);
-    return await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await res.json()
+      : { message: (await res.text()).trim() };
+    if (!res.ok) {
+      const detail = payload.detail || payload.message || res.statusText;
+      return { status: 'error', detail, message: `HTTP ${res.status}: ${detail}` };
+    }
+    return payload;
   } catch (e) {
-    return { status: 'error', message: '無法連線至伺服器' };
+    return {
+      status: 'error',
+      message: `無法連線 API (${API_BASE})`,
+      detail: e?.message || 'Network Error'
+    };
   }
 }
 

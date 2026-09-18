@@ -1,11 +1,52 @@
 import os
 import json
+import base64
+import hashlib
+import hmac
+import secrets
 from datetime import datetime
 import pandas as pd
 from supabase import create_client, Client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+PASSWORD_SCHEME = "pbkdf2_sha256"
+PASSWORD_ITERATIONS = 600_000
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS
+    )
+    return "$".join((
+        PASSWORD_SCHEME,
+        str(PASSWORD_ITERATIONS),
+        base64.b64encode(salt).decode("ascii"),
+        base64.b64encode(digest).decode("ascii"),
+    ))
+
+
+def _verify_password(password: str, stored: str) -> tuple[bool, bool]:
+    """Return (matches, needs_upgrade), supporting legacy plaintext rows."""
+    if not stored.startswith(f"{PASSWORD_SCHEME}$"):
+        return hmac.compare_digest(password, stored), True
+    try:
+        _, iterations, salt_b64, digest_b64 = stored.split("$", 3)
+        actual = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            base64.b64decode(salt_b64),
+            int(iterations),
+        )
+        return hmac.compare_digest(actual, base64.b64decode(digest_b64)), False
+    except (ValueError, TypeError):
+        return False, False
+
+
+def _public_user(user: dict) -> dict:
+    return {key: value for key, value in user.items() if key != "password_hash"}
 
 class Database:
     def __init__(self):
@@ -14,6 +55,16 @@ class Database:
             self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         else:
             print("警告：未設定 SUPABASE_URL 或 SUPABASE_KEY")
+
+    def check_auth_store(self) -> dict:
+        if not self.supabase:
+            return {"ok": False, "reason": "not_configured"}
+        try:
+            self.supabase.table("users").select("id").limit(1).execute()
+            return {"ok": True, "reason": "ready"}
+        except Exception as exc:
+            print(f"Auth store health check failed: {type(exc).__name__}")
+            return {"ok": False, "reason": "query_failed"}
 
     def save_analysis(self, results: list):
         if not self.supabase: return
@@ -204,10 +255,13 @@ class Database:
         if not self.supabase: 
             raise Exception("Supabase 連線失敗：遺失 SUPABASE_URL 或 SUPABASE_KEY")
             
+        if len(password) < 8:
+            raise ValueError("密碼至少需要 8 個字元")
+
         data = {
-            "email": email,
+            "email": email.strip().lower(),
             "name": name,
-            "password_hash": password,
+            "password_hash": _hash_password(password),
             "virtual_balance": 500000
         }
         
@@ -215,18 +269,34 @@ class Database:
             res = self.supabase.table("users").insert(data).execute()
             if not res.data:
                 raise Exception("寫入成功但未回傳資料，請檢查 Supabase RLS 設定")
-            return res.data[0]
+            return _public_user(res.data[0])
         except Exception as e:
             print(f"\\n[⚠️ 註冊錯誤] {str(e)}\\n")
             raise Exception(f"資料庫錯誤: {str(e)}")
 
     def verify_user(self, email, password):
-        if not self.supabase: return None
-        res = self.supabase.table("users").select("*").eq("email", email).execute()
+        if not self.supabase:
+            raise RuntimeError("登入資料庫尚未設定")
+        try:
+            res = self.supabase.table("users").select("*").eq(
+                "email", email.strip().lower()
+            ).limit(1).execute()
+        except Exception as exc:
+            raise RuntimeError("登入資料庫查詢失敗") from exc
         if res.data:
             user = res.data[0]
-            if user['password_hash'] == password:
-                return user
+            matches, needs_upgrade = _verify_password(
+                password, str(user.get("password_hash", ""))
+            )
+            if matches:
+                if needs_upgrade:
+                    try:
+                        self.supabase.table("users").update({
+                            "password_hash": _hash_password(password)
+                        }).eq("id", user["id"]).execute()
+                    except Exception:
+                        pass
+                return _public_user(user)
         return None
 
     def search_corporate_reports(self, query: str, limit: int = 3):

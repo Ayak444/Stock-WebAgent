@@ -31,7 +31,7 @@ class WebSocketManager:
         self.active_connections[room_id].append(websocket)
         logger.info(f"客戶端已連接到 {room_id}，共 {len(self.active_connections[room_id])} 個連接")
     
-    async def disconnect(self, websocket, room_id: str = "default"):
+    async def disconnect(self, websocket, room_id: str = "default", client_id: str = None):
         """移除連接"""
         if room_id in self.active_connections:
             try:
@@ -39,6 +39,8 @@ class WebSocketManager:
                 logger.info(f"客戶端已斷開 {room_id}，剩餘 {len(self.active_connections[room_id])} 個連接")
             except ValueError:
                 pass
+        if client_id:
+            self.user_subscriptions.pop(client_id, None)
     
     async def subscribe(self, client_id: str, ticker: str):
         """訂閱特定股票"""
@@ -173,7 +175,8 @@ class PriceStreamBroadcaster:
                                 "change_pct": round(change_pct, 2)
                             }
                             
-                            await self.ws_manager.broadcast(message, room_id="prices")
+                            await self.ws_manager.broadcast(message.copy(), room_id="prices")
+                            await self.ws_manager.broadcast(message.copy(), room_id="live")
                 
                 await asyncio.sleep(interval)
             

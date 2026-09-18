@@ -796,8 +796,15 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
 // ============================
 // GLOBAL STATE
 // ============================
-// Handle both local testing (Live Server), file:/// protocol, and production deployments
-const API_BASE = 'https://ayak4.studio'; // Hardcoded to production to avoid any local environment issues
+// Same-origin in production; local static/Vite previews use the local FastAPI port.
+const apiMetaBase = document.querySelector('meta[name="api-base"]')?.content?.trim();
+const localFrontendPorts = new Set(['5173', '5500', '5501']);
+const API_BASE = (apiMetaBase || (
+  location.protocol === 'file:' || localFrontendPorts.has(location.port)
+    ? 'http://127.0.0.1:8000'
+    : location.origin
+)).replace(/\/$/, '');
+window.STOCK_API_BASE = API_BASE;
 let currentChatbotId = null;
 let screenerTargets = [];
 let positions = [];
@@ -869,7 +876,8 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
-    }
+    },
+    signal: AbortSignal.timeout(30000)
   };
 
   if (body) {
@@ -878,12 +886,24 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
   try {
     const res = await fetch(API_BASE + endpoint, opts);
+    const contentType = res.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await res.json()
+      : { message: (await res.text()).trim() };
     if (!res.ok) {
-      return { status: 'error', message: `HTTP 錯誤: ${res.status}` };
+      const detail = payload.detail || payload.message || res.statusText;
+      return { status: 'error', detail, message: `HTTP ${res.status}: ${detail}` };
     }
-    return await res.json();
+    return payload;
   } catch (e) {
-    return { status: 'error', message: e.message || 'Network Error', stack: String(e) };
+    const timedOut = e && e.name === 'TimeoutError';
+    return {
+      status: 'error',
+      message: timedOut
+        ? `API 連線逾時 (${API_BASE})`
+        : `無法連線 API (${API_BASE})，請確認後端已啟動或網站設定正確`,
+      detail: e?.message || 'Network Error'
+    };
   }
 }
 

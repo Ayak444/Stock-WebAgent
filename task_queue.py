@@ -142,6 +142,9 @@ class TaskQueue:
                     continue
                 
                 task = self.tasks[task_id]
+                if task.status == TaskStatus.CANCELLED:
+                    self.queue.task_done()
+                    continue
                 logger.info(f"[Worker-{worker_id}] 開始執行: {task.name} ({task_id})")
                 
                 task.status = TaskStatus.RUNNING
@@ -179,6 +182,8 @@ class TaskQueue:
                             f"[Worker-{worker_id}] 任務失敗（已達重試次數上限）: "
                             f"{task.name} ({task_id})\n{traceback.format_exc()}"
                         )
+                finally:
+                    self.queue.task_done()
             
             except Exception as e:
                 logger.error(f"[Worker-{worker_id}] 出現異常: {e}\n{traceback.format_exc()}")
@@ -257,7 +262,9 @@ class ScheduledTaskManager:
         }
         
         # 啟動定時任務
-        asyncio.create_task(self._run_daily_task(task_id))
+        self.scheduled_tasks[task_id] = asyncio.create_task(
+            self._run_daily_task(task_id)
+        )
         return task_id
     
     async def _run_daily_task(self, task_id: str):
