@@ -542,6 +542,11 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <div class="page" id="page-tech">
         <div class="page-header">
           <div><h2>異質技術分析</h2><p class="sub">技術指標融合 × K線型態識別</p></div>
+          <label for="analysis-mode">分析模式</label>
+          <select id="analysis-mode" style="padding:8px;background:#182235;color:white;border-radius:6px">
+            <option value="quick">快速技術分析</option>
+            <option value="deep">深度 AI 分析（較慢）</option>
+          </select>
           <button class="btn-analyze" id="btn-tech" onclick="fetchTechAnalysis()">⚡ 分析熱門權值股</button>
         </div>
         <div class="card">
@@ -1349,7 +1354,8 @@ async function fetchTechAnalysis() {
     { id: '2382.TW', name: '廣達', type: '台股', cost: 0, shares: 0 },
     { id: '2603.TW', name: '長榮', type: '台股', cost: 0, shares: 0 }
   ];
-  const res = await apiCall('/analyze', 'POST', { targets: preset });
+  const mode = document.getElementById('analysis-mode').value;
+  const res = await apiCall('/analyze', 'POST', { targets: preset, mode });
   if (res.status === 'success') {
     techTableData = res.data;
     renderTechTable(res.data);
@@ -1357,6 +1363,12 @@ async function fetchTechAnalysis() {
     tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400);text-align:center">錯誤: ${res.message}</td></tr>`;
   }
   btn.disabled = false;
+}
+
+function escapeRoutingText(value) {
+  const node = document.createElement('span');
+  node.textContent = String(value ?? '');
+  return node.innerHTML;
 }
 
 function renderTechTable(data) {
@@ -1371,9 +1383,24 @@ function renderTechTable(data) {
         <td style="text-align:center"><span style="font-size:12px;color:var(--slate-300)">${s.valuation}</span></td>
         <td><div style="font-size:11px;color:var(--slate-400);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.signals.join(' | ')}</div></td>
         <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px"><div class="score-bar-fill ${scoreClass}" style="width:${s.score}%"></div></div><span style="font-weight:800;font-size:14px;color:${scoreColor};width:32px;text-align:right">${s.score}</span></div></td>
-        <td style="text-align:right"><span class="badge ${adviceBadge}" style="font-size:11px">${s.advice}</span></td>
+        <td style="text-align:right"><span class="badge ${adviceBadge}" style="font-size:11px">${escapeRoutingText(s.advice)}</span></td>
       </tr>`;
   }).join('');
+  document.querySelectorAll('#tech-table tr').forEach((row, index) => {
+    const item = data[index];
+    const route = item.route || {};
+    const ai = item.ai_route || {};
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:var(--slate-400);margin-top:5px';
+    note.textContent = `${route.source || '來源未知'} · ${route.asof || '日期未知'} 日線${route.degraded ? ' · 備援' : ''}${route.from_cache ? ' · 快取' : ''}`;
+    row.cells[0].appendChild(note);
+    const status = document.createElement('div');
+    status.style.cssText = note.style.cssText;
+    status.textContent = ai.used ? 'AI 分析' : ai.requested === 'deep' ? 'AI 未使用，顯示技術分析' : '技術分析';
+    row.cells[5].appendChild(status);
+    // Treat AI-generated advice as text, never executable markup.
+    row.cells[5].querySelector('span').textContent = item.advice;
+  });
 }
 
 function sortTechTable(colIdx) {
@@ -1487,7 +1514,7 @@ async function fetchKline() {
         <div class="card-body">
           <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
             <span style="font-size:20px;font-weight:800;color:#fff">$${fmt(s.price)}</span>
-            <span class="badge ${advBadge}" style="font-size:13px;padding:5px 14px">${s.advice} (${s.score}分)</span>
+            <span class="badge ${advBadge}" style="font-size:13px;padding:5px 14px">${escapeRoutingText(s.advice)} (${s.score}分)</span>
             <span style="font-size:13px;color:var(--slate-400)">估值：${s.valuation}</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">

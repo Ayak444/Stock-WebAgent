@@ -133,55 +133,9 @@ class AsyncDataProvider:
         return {"price": 0, "change": 0, "pct_change": 0}
     
     async def get_stock_history(self, ticker: str, days: int = 180) -> pd.DataFrame:
-        """
-        獲取股票歷史價格
-        先查緩存，無則從 Yahoo Finance 取得
-        """
-        # 檢查緩存
-        cached_df_dict = cache_manager.get_kline(ticker, days)
-        if cached_df_dict:
-            df = pd.DataFrame(cached_df_dict)
-            if 'Date' not in df.columns and 'index' in df.columns:
-                df = df.rename(columns={'index': 'Date'})
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'])
-                return df.set_index('Date')
-            else:
-                return df
-        
-        try:
-            url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-                   f"?range=1y&interval=1d")
-            data = await self._get_json(url, timeout=10)
-            
-            if not data or 'chart' not in data:
-                return pd.DataFrame()
-            
-            result = data['chart']['result'][0]
-            timestamps = result['timestamp']
-            quote = result['indicators']['quote'][0]
-            
-            df = pd.DataFrame({
-                'Date': pd.to_datetime(timestamps, unit='s'),
-                'Open': quote['open'],
-                'High': quote['high'],
-                'Low': quote['low'],
-                'Close': quote['close'],
-                'Volume': quote['volume']
-            })
-            
-            df = df.dropna().set_index('Date')
-            cutoff = pd.Timestamp.now(tz='UTC').tz_localize(None) - pd.Timedelta(days=days)
-            df = df[df.index >= cutoff]
-            
-            # 存入緩存（24 小時）
-            cache_manager.set_kline(ticker, days, df, ttl=86400)
-            
-            return df
-        except Exception as e:
-            print(f"獲取 {ticker} 歷史數據失敗: {e}")
-            return pd.DataFrame()
-    
+        from market_routing import market_router
+        return await market_router.history(self._get_json, ticker, days)
+
     async def get_realtime_price(self, ticker: str) -> Optional[float]:
         """獲取實時價格"""
         try:

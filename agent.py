@@ -2,6 +2,7 @@ import os
 import json
 import re
 import requests
+from route_gateway import ai_gateway
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -47,12 +48,8 @@ def get_sentiment_analysis(news_content: str):
     }
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=45)
-        response.raise_for_status()
-        res_data = response.json()
-        
-        ai_content = res_data["choices"][0]["message"]["content"].strip()
-        
+        ai_content = ai_gateway.complete(payload).strip()
+
         ai_content = re.sub(r'```json\s*', '', ai_content, flags=re.IGNORECASE)
         ai_content = re.sub(r'```\s*', '', ai_content)
         

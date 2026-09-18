@@ -15,7 +15,7 @@ class StockTarget:
 
 # ========== API Request Models ==========
 class TargetItem(BaseModel):
-    id: str
+    id: str = Field(pattern=r'^[A-Za-z0-9.^=\-]{1,24}$')
     name: str
     type: str
     cost: float = Field(ge=0)
@@ -23,7 +23,8 @@ class TargetItem(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    targets: List[TargetItem]
+    targets: List[TargetItem] = Field(min_length=1, max_length=20)
+    mode: Literal["quick", "deep"] = "quick"
 
 
 class ChatRequest(BaseModel):

@@ -12,14 +12,14 @@ import requests as http_requests
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 from uuid import uuid4
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 # 新的核心模塊
 from cache_layer import cache_manager
-from crew_workflow import stock_crew_orchestrator
+from route_gateway import ai_gateway, audit
 from async_data_provider import AsyncDataProvider, get_async_provider, close_async_provider
 from task_queue import job_runner, ScheduledTaskManager
 from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
@@ -91,13 +91,8 @@ class MaiAgentClient:
             ],
             "temperature": 0.2
         }
-        
-        response = http_requests.post(
-            url, headers=self.headers, json=payload, timeout=120
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+
+        return ai_gateway.complete(payload)
 
     def chat(self, user_message: str, conversation_id: str = None) -> dict:
         try:
@@ -215,7 +210,7 @@ app.add_middleware(
 db = Database()
 notifier = DiscordNotifier()
 
-async def _analyze_targets_async(targets):
+async def _analyze_targets_async(targets, mode="quick"):
     """
     異步目標分析 - 使用新的多代理系統
     並行獲取數據、計算指標、執行 AI 分析
@@ -229,28 +224,36 @@ async def _analyze_targets_async(targets):
     # 為所有目標並行獲取歷史數據
     history_tasks = {
         t.id: asyncio.create_task(async_provider.get_stock_history(t.id, days=180))
-        for t in targets
+        for t in {t.id: t for t in targets}.values()
     }
-    
+
     # 等待所有初始任務完成
     chip = await chip_task
     fx_val, fx_note = await fx_task
-    histories = await asyncio.gather(*history_tasks.values())
-    
+    histories = dict(zip(history_tasks, await asyncio.gather(*history_tasks.values())))
+    news_text = ""
+    if mode == "deep" and mai_client.enabled:
+        try:
+            news_list = (await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3))[:5]
+            news_text = "\n".join(n.get("title", "") for n in news_list)
+        except Exception:
+            news_text = "News unavailable"
+
     results = []
     consecutive_errors = 0
-    
-    for t, df in zip(targets, histories):
+
+    for index, t in enumerate(targets):
+        df = histories[t.id]
         try:
             if df.empty:
                 results.append({
                     "name": t.name, "ticker": t.id, "price": 0,
                     "score": 0, "advice": "資料讀取失敗", "pl": 0,
                     "valuation": "無數據", "signals": ["無法取得歷史資料"],
-                    "exit": "-", "sl": 0
+                    "exit": "-", "sl": 0, "route": df.attrs.get("route", {})
                 })
                 continue
-            
+
             # 計算技術指標
             df_with_indicators = TechnicalAnalyzer.calculate_indicators(df)
             last = df_with_indicators.iloc[-1]
@@ -268,52 +271,30 @@ async def _analyze_targets_async(targets):
                 'D': float(last.get('D', 50)),
                 'Volume': float(last.get('Volume', 0))
             }
-            
+
             # 獲取實時價格
-            rt_price = await async_provider.get_realtime_price(t.id)
-            final_price = rt_price if rt_price else price
-            
+            final_price = price  # Same dated daily bar as indicators.
+
             # 傳統策略評估（快速通道）
             eval_result = StrategyEngine.evaluate(
                 t.id, df_with_indicators, chip, fx_val, t.cost, t.shares
             )
-            
+
             # 獲取新聞進行多代理分析
-            news_list = (await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3))[:5]
-            news_text = "\n".join([f"- {n['title']}" for n in news_list])
-            
-            # 使用多代理系統進行綜合分析（可選，取決於 AI 可用性）
-            if mai_client.enabled:
-                try:
-                    crew_result_str = await stock_crew_orchestrator.run_analysis(
-                        ticker=t.id,
-                        name=t.name,
-                        price=final_price,
-                        cost=t.cost,
-                        news_content=news_text,
-                        indicators=indicators
-                    )
-                    
-                    import json
-                    import re
-                    
-                    clean_json = re.sub(r'```json\s*', '', str(crew_result_str), flags=re.IGNORECASE)
-                    clean_json = re.sub(r'```\s*', '', clean_json)
-                    extracted = extract_json_object(clean_json)
-                    if extracted:
-                        clean_json = extracted
-                    
-                    multi_agent_result = json.loads(clean_json, strict=False)
-                    combined_advice = multi_agent_result.get('final_advice', eval_result['advice'])
-                    combined_score = int(multi_agent_result.get('score', eval_result['score']))
-                except Exception as e:
-                    logger.warning(f"CrewAI 多代理分析失敗 {t.id}: {e}")
-                    combined_advice = eval_result['advice']
-                    combined_score = eval_result['score']
-            else:
-                combined_advice = eval_result['advice']
-                combined_score = eval_result['score']
-            
+            combined_advice, combined_score = eval_result['advice'], eval_result['score']
+            ai_route = {"requested": mode, "used": False, "reason": "quick"}
+            if mode == "deep":
+                ai_route["reason"] = "budget_limit" if index >= 5 else "unavailable"
+                if index < 5 and mai_client.enabled:
+                    try:
+                        from routing_policy import deep_analysis
+                        analysis = await asyncio.to_thread(deep_analysis, t.id, indicators, news_text)
+                        combined_advice, combined_score = analysis["advice"], analysis["score"]
+                        ai_route.update(used=True, reason="success")
+                    except Exception:
+                        ai_route["reason"] = "ai_failed_using_technical"
+            audit("analysis", "ai" if ai_route["used"] else "technical", ai_route["reason"])
+
             pl = round((final_price - t.cost) / t.cost * 100, 2) if t.cost > 0 else 0
             results.append({
                 "name": t.name, "ticker": t.id,
@@ -322,10 +303,11 @@ async def _analyze_targets_async(targets):
                 "valuation": eval_result['valuation'],
                 "signals": eval_result['signals'],
                 "exit": eval_result['exit_note'],
-                "sl": eval_result['stop_loss']
+                "sl": eval_result['stop_loss'],
+                "route": df.attrs.get("route", {}), "ai_route": ai_route
             })
             consecutive_errors = 0
-        
+
         except Exception as e:
             consecutive_errors += 1
             if consecutive_errors >= 3:
@@ -667,11 +649,11 @@ async def analyze(req: AnalyzeRequest):
     使用新的多代理系統進行綜合分析
     """
     targets = [StockTarget(t.id, t.name, t.type, t.cost, t.shares) for t in req.targets]
-    
+
     try:
-        results, fx_note = await _analyze_targets_async(targets)
+        results, fx_note = await _analyze_targets_async(targets, req.mode)
         db.save_analysis(results)
-        
+
         # 並行推送到 WebSocket 客戶端
         for result in results:
             if websocket_system.price_broadcaster:
@@ -847,26 +829,17 @@ async def auto_news():
         return {"status": "error", "message": str(e)[:200]}
 
 @app.get("/kline/{ticker}")
-async def get_kline(ticker: str, days: int = 180):
+async def get_kline(ticker: str, days: int = Query(default=180, ge=1, le=3650)):
     """
     獲取 K 線數據
     結合緩存和異步數據獲取
     """
     try:
         # 先檢查緩存
-        cached_kline = cache_manager.get_kline(ticker, days)
-        if cached_kline:
-            logger.debug(f"使用緩存 K 線: {ticker}")
-            df = pd.DataFrame(cached_kline)
-            if 'Date' not in df.columns and 'index' in df.columns:
-                df = df.rename(columns={'index': 'Date'})
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'])
-        else:
-            # 異步獲取
-            async_provider = await get_async_provider()
-            df = await async_provider.get_stock_history(ticker, days)
-        
+        async_provider = await get_async_provider()
+        df = await async_provider.get_stock_history(ticker, days)
+        route = df.attrs.get("route", {})
+
         if df.empty:
             return JSONResponse(
                 {"status": "error", "message": "找不到資料"},
@@ -923,7 +896,7 @@ async def get_kline(ticker: str, days: int = 180):
             "ma5": ma5, "ma20": ma20, "ma60": ma60,
             "rsi": rsi, "macd": macd, "macd_signal": macd_signal, "macd_hist": macd_hist,
             "kd_k": kd_k, "kd_d": kd_d,
-            "from_cache": cached_kline is not None
+            "from_cache": route.get("from_cache", False), "route": route
         }
     except Exception as e:
         logger.error(f"獲取 K 線失敗: {e}")
@@ -1066,12 +1039,12 @@ async def get_sentiment():
     news_list = (await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3))[:5]
     if not news_list:
         return {
-            "score": 50, "label": "中立", "definition": "無數據", 
+            "score": 50, "label": "中立", "definition": "無數據",
             "reasoning": "目前無新聞", "recommendations": [], "news_analysis": []
         }
-    
+
     combined_news = "\n".join([f"新聞{i+1}: {n['title']} - {n['summary']}" for i, n in enumerate(news_list)])
-    result = get_sentiment_analysis(combined_news)
+    result = await asyncio.to_thread(get_sentiment_analysis, combined_news)
     return result
 
 @app.get("/market_status")
