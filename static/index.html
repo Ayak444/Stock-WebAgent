@@ -430,6 +430,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <div class="nav-section">資訊</div>
       <button class="nav-btn" data-page="news"><span class="icon">📰</span>新聞知識圖譜</button>
       <button class="nav-btn" data-page="sentiment"><span class="icon">📡</span>市場情緒雷達</button>
+      <button class="nav-btn" data-page="insights"><span class="icon">🔭</span>市場洞察</button>
       <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 關聯選股</button>
     </nav>
     <div class="sidebar-footer">
@@ -718,6 +719,52 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
         <div class="news-grid" id="sentiment-news-grid"></div>
       </div>
 
+      <!-- ========== PAGE: Market Insights ========== -->
+      <div class="page" id="page-insights">
+        <div class="page-header">
+          <div><h2>市場洞察</h2><p class="sub">集保大戶結構、產業漲幅與近期新聞熱度</p></div>
+          <button class="btn-analyze" id="btn-insights" onclick="fetchMarketInsights(true)">↻ 更新市場資料</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span>🐋 大戶持股分析</span>
+            <span class="badge badge-blue">TDCC 官方資料</span>
+          </div>
+          <div class="card-body">
+            <div class="input-group" style="max-width:520px;margin-bottom:16px">
+              <input class="input" id="major-holder-ticker" value="2330" placeholder="輸入台股代號，例如 2330" onkeydown="if(event.key==='Enter')fetchMajorHolders()">
+              <button class="btn-outline" id="btn-major-holders" onclick="fetchMajorHolders()" style="flex-shrink:0">分析持股</button>
+            </div>
+            <div id="major-holder-result" style="color:var(--slate-500);font-size:13px">輸入股票代號後，可查看 400 張以上大戶的持股比例與各級距分布。</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header">
+              <span>🏭 產業單日漲幅排行</span>
+              <span id="industry-as-of" style="font-size:11px;color:var(--slate-500)">等待載入</span>
+            </div>
+            <div class="card-body" id="industry-ranking">
+              <div class="loading"><div class="spinner"></div><div class="loading-text">等待讀取證交所資料</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span>🔥 最近話題最高 5 檔</span>
+              <span class="badge badge-orange">新聞提及熱度</span>
+            </div>
+            <div class="card-body" id="trending-stocks">
+              <div class="loading"><div class="spinner"></div><div class="loading-text">等待讀取近期新聞</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="reasoning-box" id="insights-methodology" style="margin-top:4px">
+          熱門股依近期財經 RSS 的個股提及頻率計算，代表新聞討論熱度，不代表成交量、搜尋量或買進建議。
+        </div>
+      </div>
+
       <!-- ========== PAGE: Screener ========== -->
       <div class="page" id="page-screener">
         <div class="page-header">
@@ -934,8 +981,10 @@ function showToast(message, type = 'info', duration = 4000) {
 const pageTitles = {
   war: '首頁', stress: '資產壓力測試', tech: '異質技術分析',
   kline: '個股 K 線圖', backtest: '策略回測', news: '新聞知識圖譜',
-  sentiment: '市場情緒雷達', screener: 'AI 關聯選股'
+  sentiment: '市場情緒雷達', insights: '市場洞察', screener: 'AI 關聯選股'
 };
+
+let marketInsightsLoaded = false;
 
 function navigateTo(pageName) {
   document.querySelectorAll('#nav .nav-btn[data-page]').forEach(b => {
@@ -945,6 +994,7 @@ function navigateTo(pageName) {
   const target = document.getElementById('page-' + pageName);
   if (target) target.classList.add('active');
   document.title = `${pageTitles[pageName] || ''} - 股金往來`;
+  if (pageName === 'insights' && !marketInsightsLoaded) fetchMarketInsights();
   // Close sidebar on mobile
   if (window.innerWidth <= 768) {
     document.getElementById('sidebar').classList.remove('open');
@@ -1908,6 +1958,116 @@ async function runScreener() {
   btn.disabled = false;
 }
 
+function insightNumber(value) {
+  return new Intl.NumberFormat('zh-TW').format(Number(value) || 0);
+}
+
+function safeNewsUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function fetchMarketInsights(force = false) {
+  if (marketInsightsLoaded && !force) return;
+  const button = document.getElementById('btn-insights');
+  const industriesBox = document.getElementById('industry-ranking');
+  const trendingBox = document.getElementById('trending-stocks');
+  if (!industriesBox || !trendingBox) return;
+  button.disabled = true;
+  industriesBox.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">正在彙整上市產業行情...</div></div>';
+  trendingBox.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">正在統計近期新聞提及...</div></div>';
+
+  const res = await apiCall('/api/market-insights');
+  const data = res.data || {};
+  const industries = data.industries || {};
+  const industryItems = industries.items || [];
+  document.getElementById('industry-as-of').textContent = industries.as_of ? `${industries.as_of} · ${industries.market || ''}` : '資料暫缺';
+  if (industryItems.length) {
+    industriesBox.innerHTML = `<div style="overflow-x:auto"><table class="data-table">
+      <thead><tr><th>#</th><th>產業</th><th style="text-align:right">平均</th><th style="text-align:right">上漲/樣本</th></tr></thead>
+      <tbody>${industryItems.map((item, index) => {
+        const change = Number(item.average_change) || 0;
+        const color = change >= 0 ? 'var(--red-400)' : 'var(--green-400)';
+        const leader = (item.leaders || [])[0];
+        return `<tr>
+          <td>${index + 1}</td>
+          <td><strong style="color:#fff">${escapeRoutingText(item.industry)}</strong><br><span style="font-size:11px;color:var(--slate-500)">${leader ? `領漲 ${escapeRoutingText(leader.ticker)} ${escapeRoutingText(leader.name)} ${Number(leader.pct_change) >= 0 ? '+' : ''}${Number(leader.pct_change).toFixed(2)}%` : ''}</span></td>
+          <td style="text-align:right;color:${color};font-weight:700">${change >= 0 ? '+' : ''}${change.toFixed(2)}%<br><span style="font-size:10px;color:var(--slate-500);font-weight:400">中位 ${Number(item.median_change).toFixed(2)}%</span></td>
+          <td style="text-align:right">${insightNumber(item.advancers)} / ${insightNumber(item.company_count)}</td>
+        </tr>`;
+      }).join('')}</tbody></table></div>
+      <div style="font-size:11px;color:var(--slate-500);margin-top:12px">${escapeRoutingText(industries.ranking_method || '')}；資料來源：${escapeRoutingText(industries.source || '')}</div>`;
+  } else {
+    industriesBox.innerHTML = `<span style="color:var(--red-400)">${escapeRoutingText(industries.error || '目前沒有可用的產業行情')}</span>`;
+  }
+
+  const trending = data.trending || {};
+  const trendingItems = trending.items || [];
+  if (trendingItems.length) {
+    trendingBox.innerHTML = trendingItems.map((item, index) => {
+      const link = safeNewsUrl(item.latest_link);
+      const headline = escapeRoutingText(item.latest_headline || '近期新聞提及');
+      const headlineHtml = link
+        ? `<a href="${escapeRoutingText(link)}" target="_blank" rel="noopener noreferrer" style="color:var(--slate-400);text-decoration:none">${headline}</a>`
+        : `<span style="color:var(--slate-400)">${headline}</span>`;
+      return `<div style="display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--glass-border)">
+        <div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(249,115,22,.12);color:var(--orange-400);font-weight:800">${index + 1}</div>
+        <div><div style="color:#fff;font-weight:700">${escapeRoutingText(item.ticker)} ${escapeRoutingText(item.name)}</div><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px">${headlineHtml}</div></div>
+        <div style="text-align:right"><strong style="color:var(--orange-400)">${insightNumber(item.mention_count)} 則</strong><br><span style="font-size:10px;color:var(--slate-500)">${insightNumber(item.source_count)} 個來源</span></div>
+      </div>`;
+    }).join('') + `<div style="font-size:11px;color:var(--slate-500);margin-top:12px">分析 ${insightNumber(trending.article_count)} 則新聞 · ${escapeRoutingText(trending.ranking_method || '')}</div>`;
+  } else {
+    trendingBox.innerHTML = `<span style="color:var(--red-400)">${escapeRoutingText(trending.error || '近期新聞未偵測到明確個股提及')}</span>`;
+  }
+
+  const methodology = document.getElementById('insights-methodology');
+  methodology.innerHTML = `<strong style="color:var(--blue-400)">計算說明：</strong> 產業排行範圍為 ${escapeRoutingText(industries.market || '資料暫缺')}，以成分股單日漲跌幅等權平均；熱門股取自 ${insightNumber(trending.article_count)} 則近期財經 RSS，代表新聞討論熱度，不代表成交量、搜尋量或買進建議。`;
+  marketInsightsLoaded = res.status === 'success' || res.status === 'partial';
+  button.disabled = false;
+  if (!marketInsightsLoaded) showToast(res.message || '市場洞察讀取失敗', 'error');
+}
+
+async function fetchMajorHolders() {
+  const input = document.getElementById('major-holder-ticker');
+  const button = document.getElementById('btn-major-holders');
+  const box = document.getElementById('major-holder-result');
+  const ticker = input.value.trim().toUpperCase().replace(/\.(TW|TWO)$/, '');
+  if (!/^[0-9A-Z]{4,10}$/.test(ticker)) {
+    showToast('請輸入有效的台股代號，例如 2330', 'warning');
+    return;
+  }
+  input.value = ticker;
+  button.disabled = true;
+  box.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">正在讀取集保戶股權分散表...</div></div>';
+  const res = await apiCall(`/api/market-insights/major-holders/${encodeURIComponent(ticker)}`);
+  if (res.status !== 'success' || !res.data) {
+    box.innerHTML = `<span style="color:var(--red-400)">${escapeRoutingText(res.detail || res.message || '大戶持股資料讀取失敗')}</span>`;
+    button.disabled = false;
+    return;
+  }
+  const item = res.data;
+  const name = stockNames[ticker] || '';
+  box.innerHTML = `<div class="grid grid-3" style="margin-bottom:16px">
+    <div class="stat-card up"><div style="font-size:11px;color:var(--slate-500)">400 張以上持股</div><div style="font-size:30px;font-weight:800;color:var(--red-400);margin-top:5px">${Number(item.large_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500)">${insightNumber(item.large_holder_accounts)} 戶</div></div>
+    <div class="stat-card"><div style="font-size:11px;color:var(--slate-500)">10 張以下持股</div><div style="font-size:30px;font-weight:800;color:var(--blue-400);margin-top:5px">${Number(item.small_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500)">小額持股占比</div></div>
+    <div class="stat-card"><div style="font-size:11px;color:var(--slate-500)">${escapeRoutingText(ticker)} ${escapeRoutingText(name)}</div><div style="font-size:18px;font-weight:800;color:#fff;margin-top:10px">${escapeRoutingText(item.data_date)}</div><div style="font-size:11px;color:var(--slate-500)">總戶數 ${insightNumber(item.total_accounts)}</div></div>
+  </div>
+  <div style="display:grid;gap:9px">${(item.breakdown || []).map(group => {
+    const ratio = Math.max(0, Math.min(100, Number(group.ratio) || 0));
+    return `<div style="display:grid;grid-template-columns:95px 1fr 70px;gap:10px;align-items:center;font-size:12px">
+      <span style="color:var(--slate-300)">${escapeRoutingText(group.label)}</span>
+      <div style="height:8px;background:var(--slate-800);border-radius:5px;overflow:hidden"><div style="height:100%;width:${ratio}%;background:linear-gradient(90deg,var(--blue-600),var(--orange-500));border-radius:5px"></div></div>
+      <span style="text-align:right;color:#fff">${ratio.toFixed(2)}%</span>
+    </div>`;
+  }).join('')}</div>
+  <div style="font-size:11px;color:var(--slate-500);margin-top:15px">門檻：${escapeRoutingText(item.large_holder_threshold)} · 資料來源：${escapeRoutingText(item.source)}</div>`;
+  button.disabled = false;
+}
+
 async function fetchRankings() {
   const container = document.getElementById('rankings-content');
   if(!container) return;
@@ -2204,7 +2364,7 @@ document.addEventListener('keydown', (e) => {
   // Don't trigger shortcuts when typing in inputs
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-  const pageKeys = { '1': 'war', '2': 'stress', '3': 'tech', '4': 'kline', '5': 'backtest', '6': 'news', '7': 'sentiment', '8': 'screener' };
+  const pageKeys = { '1': 'war', '2': 'stress', '3': 'tech', '4': 'kline', '5': 'backtest', '6': 'news', '7': 'sentiment', '8': 'insights', '9': 'screener' };
 
   if (pageKeys[e.key]) { navigateTo(pageKeys[e.key]); e.preventDefault(); }
   else if (e.key === '/') { document.getElementById('quick-search-input').focus(); e.preventDefault(); }

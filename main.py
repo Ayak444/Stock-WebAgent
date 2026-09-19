@@ -39,6 +39,7 @@ from news_crawler import NewsCrawler
 from database import Database
 from backtest import Backtester
 from screener_engine import analyze_related_stocks
+from market_insights import market_insights
 from notifier import DiscordNotifier
 
 def extract_json_object(text: str) -> str:
@@ -1071,6 +1072,46 @@ def get_chips():
 def get_stock_names():
     from screener_engine import OPENAPI_CACHE
     return {"status": "success", "data": OPENAPI_CACHE.get("mapping", {})}
+
+
+@app.get("/api/market-insights")
+async def get_market_insights():
+    """Return industry leaders and the five most-mentioned recent stocks."""
+    industry, trending = await asyncio.gather(
+        asyncio.to_thread(market_insights.industry_performance, 10),
+        asyncio.to_thread(market_insights.trending_stocks, 5),
+        return_exceptions=True,
+    )
+    data = {}
+    errors = []
+    if isinstance(industry, Exception):
+        logger.exception("產業漲幅資料讀取失敗", exc_info=industry)
+        data["industries"] = {"items": [], "error": "產業排行目前無法取得"}
+        errors.append("industries")
+    else:
+        data["industries"] = industry
+    if isinstance(trending, Exception):
+        logger.exception("熱門股新聞資料讀取失敗", exc_info=trending)
+        data["trending"] = {"items": [], "error": "新聞熱度目前無法取得"}
+        errors.append("trending")
+    else:
+        data["trending"] = trending
+    return {"status": "partial" if errors else "success", "data": data, "unavailable": errors}
+
+
+@app.get("/api/market-insights/major-holders/{ticker}")
+async def get_major_holders(ticker: str):
+    """Analyze the latest TDCC ownership distribution for one security."""
+    try:
+        data = await asyncio.to_thread(market_insights.major_holders, ticker)
+        return {"status": "success", "data": data}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("大戶持股資料讀取失敗")
+        raise HTTPException(status_code=502, detail="集保資料目前無法取得，請稍後再試") from exc
 
 @app.get("/trades")
 def get_trades(user_id: str):
