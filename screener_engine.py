@@ -1,4 +1,5 @@
 import re
+import threading
 import time
 from typing import Dict, List, Tuple
 import requests
@@ -79,14 +80,27 @@ OPENAPI_CACHE = {
     "mapping": {},
     "profiles": {}
 }
+_openapi_initialized = False
+_openapi_lock = threading.Lock()
 
 def _init_openapi_cache():
+    global _openapi_initialized
+    if _openapi_initialized:
+        return
+    with _openapi_lock:
+        if _openapi_initialized:
+            return
+        _load_openapi_cache()
+        _openapi_initialized = True
+
+
+def _load_openapi_cache():
     session = requests.Session()
     
     # 變數改名為 retry_strategy，並且使用大寫 R 的 Retry
     retry_strategy = Retry(
-        total=5,
-        backoff_factor=1,
+        total=2,
+        backoff_factor=0.5,
         status_forcelist=[429, 500, 502, 503, 504]
     )
     # 這裡也要對應改成 retry_strategy
@@ -101,7 +115,7 @@ def _init_openapi_cache():
     }
 
     try:
-        r1 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers=headers, timeout=20)
+        r1 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers=headers, timeout=8)
         if r1.ok:
             for row in r1.json():
                 if len(OPENAPI_CACHE["profiles"]) >= 5000: break
@@ -120,7 +134,7 @@ def _init_openapi_cache():
         print(f"OpenAPI Listed Fetch Error: {e}")
 
     try:
-        r2 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", headers=headers, timeout=20)
+        r2 = session.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_O", headers=headers, timeout=8)
         if r2.ok:
             for row in r2.json():
                 if len(OPENAPI_CACHE["profiles"]) >= 5000: break
@@ -138,8 +152,6 @@ def _init_openapi_cache():
     except Exception as e:
         print(f"OpenAPI OTC Fetch Error: {e}")
 
-_init_openapi_cache()
-
 FALLBACK_NAMES = {
     "8046": "南電",
     "2330": "台積電",
@@ -150,6 +162,7 @@ FALLBACK_NAMES = {
 }
 
 def _find_company_profile(ticker: str) -> Dict:
+    _init_openapi_cache()
     code = ticker.split(".")[0]
     if code in OPENAPI_CACHE["profiles"]:
         return OPENAPI_CACHE["profiles"][code]
@@ -180,6 +193,7 @@ def _industry_concepts(industry: str) -> List[str]:
     return [industry or "未分類", "待補充"]
 
 def _build_industry_peers(target_ticker: str, industry: str, limit: int = 9) -> List[str]:
+    _init_openapi_cache()
     peers = []
     target_code = target_ticker.split(".")[0]
     

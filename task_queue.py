@@ -355,3 +355,43 @@ class AsyncJobRunner:
 
 # 全局異步任務管理器實例
 job_runner = AsyncJobRunner()
+
+
+DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
+DEFAULT_BACKTEST_TICKERS = ["2330.TW", "0050.TW", "2317.TW", "2454.TW", "2308.TW"]
+
+
+async def run_backtest_hydration_task():
+    """Recalculate the daily backtest cache without creating import-time clients."""
+    from backtest import Backtester
+    from database import Database
+
+    database = Database()
+    tickers = set(DEFAULT_BACKTEST_TICKERS)
+    for item in database.get_portfolio(DEFAULT_USER_ID) or []:
+        code = item.get("code", "")
+        if code and not code.endswith((".TW", ".TWO")):
+            code += ".TW"
+        if code:
+            tickers.add(code)
+
+    records = []
+    for ticker in tickers:
+        try:
+            result = await asyncio.to_thread(Backtester.run, ticker, 750)
+            if result.get("status") == "success":
+                records.append({
+                    "symbol": ticker,
+                    "strategy_name": "default_ma_rsi",
+                    "win_rate": result.get("win_rate", 0),
+                    "max_drawdown": result.get("max_drawdown", 0),
+                    "total_return": result.get("strategy_return", 0),
+                    "latest_signal": result.get("latest_signal", "NEUTRAL"),
+                })
+            else:
+                logger.warning("Backtest hydration failed for %s: %s", ticker, result.get("message"))
+        except Exception:
+            logger.exception("Backtest hydration failed for %s", ticker)
+    if records:
+        database.save_backtest_results(records)
+    logger.info("Backtest hydration completed: %d/%d", len(records), len(tickers))

@@ -9,6 +9,7 @@ import requests
 
 logger = logging.getLogger('routing')
 counts = Counter()
+DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
 
 def audit(task, source, outcome):
     counts[(task, source, outcome)] += 1
@@ -26,6 +27,7 @@ class AIGateway:
 
     def complete(self, payload):
         key = os.getenv('GROQ_API_KEY') or os.getenv('MAIAGENT_API_KEY', '')
+        model = os.getenv('GROQ_MODEL', DEFAULT_GROQ_MODEL).strip() or DEFAULT_GROQ_MODEL
         if not key:
             raise AIUnavailable('尚未設定 GROQ_API_KEY')
         fingerprint = hashlib.sha256(key.encode()).digest()
@@ -42,7 +44,7 @@ class AIGateway:
                 response = requests.post(
                     'https://api.groq.com/openai/v1/chat/completions',
                     headers={'Authorization': f'Bearer {key}'},
-                    json={**payload, 'max_tokens': 1500}, timeout=(5, 30))
+                    json={**payload, 'model': model, 'max_tokens': 1500}, timeout=(5, 30))
                 if response.status_code in (401, 403):
                     self.blocked_until = float('inf')
                     raise AIUnavailable('Groq 驗證失敗，請更新部署環境的 GROQ_API_KEY')
@@ -53,6 +55,11 @@ class AIGateway:
                         delay = 60
                     self.blocked_until = time.monotonic() + delay
                     raise AIUnavailable('Groq 額度或速率限制，稍後重試')
+                if response.status_code in (400, 404, 422):
+                    audit('ai', 'groq', f'rejected_{response.status_code}')
+                    raise AIUnavailable(
+                        f'Groq 拒絕請求（HTTP {response.status_code}），請檢查 GROQ_MODEL 或請求格式'
+                    )
                 response.raise_for_status()
                 content = response.json()['choices'][0]['message']['content']
                 if not isinstance(content, str) or not content.strip():

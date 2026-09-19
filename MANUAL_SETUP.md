@@ -4,7 +4,7 @@
 
 ## 你需要手工完成
 
-1. **Groq**：撤銷曾放入版本控制或失效的 Key，產生新 Key；到 Render → 服務 → Environment 更新 `GROQ_API_KEY`。不要把 Key 貼進對話、前端或 Git。若仍設有舊 `MAIAGENT_API_KEY`，移除以免誤用。更新後重新部署／重啟服務。
+1. **Groq**：撤銷曾放入版本控制或失效的 Key，產生新 Key；到 Render → 服務 → Environment 更新 `GROQ_API_KEY`，並設定 `GROQ_MODEL=openai/gpt-oss-120b`。不要把 Key 貼進對話、前端或 Git。若仍設有舊 `MAIAGENT_API_KEY`，移除以免誤用。更新後重新部署／重啟服務。
 2. **Supabase**：在專案設定確認 `SUPABASE_URL` 及後端專用 `SUPABASE_KEY`（以 `.env.example` 實際欄位為準），同步到 Render；曾提交的 secret key 請輪替。前端不可使用 secret/service-role Key。
 3. **登入資料表**：先備份、比對 `migrations/001_auth_store.sql` 與現有資料庫，再於 Supabase SQL Editor 執行適用的遷移。若有重複 Email 或既有不同欄位，先處理資料衝突。這次路由本身不需要新資料表。
 4. **Render**：部署此版本，維持一個 Uvicorn worker；環境變數只需 `GROQ_API_KEY`、`SUPABASE_URL`、`SUPABASE_KEY`、`TZ=Asia/Taipei`、`PYTHON_VERSION=3.11.11`。啟動命令 `uvicorn main:app --host 0.0.0.0 --port $PORT`。`PORT` 由 Render 自動提供，不要手動固定。快取與熔斷目前是單程序狀態，多副本需後續共用 Redis。

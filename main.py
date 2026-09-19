@@ -19,13 +19,13 @@ from fastapi.staticfiles import StaticFiles
 
 # 新的核心模塊
 from cache_layer import cache_manager
-from route_gateway import ai_gateway, audit
-from async_data_provider import AsyncDataProvider, get_async_provider, close_async_provider
-from task_queue import job_runner, ScheduledTaskManager
+from route_gateway import ai_gateway, audit, DEFAULT_GROQ_MODEL
+from async_data_provider import get_async_provider, close_async_provider
+from task_queue import job_runner, run_backtest_hydration_task
 from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
 import websocket_system
 # 原有模塊
-from agent import get_sentiment_analysis
+from routing_policy import get_sentiment_analysis
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
     BacktestRequest, NewsSourceRequest, StockTarget, SentimentResponse,
@@ -85,7 +85,7 @@ class MaiAgentClient:
     def send_message(self, content: str, conversation_id: str = None) -> str:
         url = "https://api.groq.com/openai/v1/chat/completions"
         payload = {
-            "model": "llama-3.3-70b-versatile",
+            "model": DEFAULT_GROQ_MODEL,
             "messages": [
                 {"role": "user", "content": content}
             ],
@@ -128,7 +128,6 @@ try:
     scheduler = BackgroundScheduler(timezone='Asia/Taipei')
 except ImportError:
     pass
-from cron_jobs import run_backtest_hydration_task
 
 
 async def daily_analysis_task_async():

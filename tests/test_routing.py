@@ -48,6 +48,19 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('range=1y', url)
 
 class AITests(unittest.TestCase):
+    @patch.dict(os.environ, {'GROQ_API_KEY': 'test-only-key'}, clear=True)
+    @patch('route_gateway.requests.post')
+    def test_deprecated_payload_model_is_replaced(self, post):
+        post.return_value = Mock(status_code=200)
+        post.return_value.json.return_value = {
+            'choices': [{'message': {'content': 'OK'}}]
+        }
+        gateway = AIGateway()
+        self.assertEqual(gateway.complete({'model': 'retired-model'}), 'OK')
+        self.assertEqual(
+            post.call_args.kwargs['json']['model'], 'openai/gpt-oss-120b'
+        )
+
     @patch.dict(os.environ, {'GROQ_API_KEY': 'test-only-key'})
     @patch('route_gateway.requests.post')
     def test_auth_failure_blocks_following_requests(self, post):
