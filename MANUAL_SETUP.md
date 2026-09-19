@@ -8,6 +8,7 @@
 2. **Supabase**：在專案設定確認 `SUPABASE_URL` 及後端專用 `SUPABASE_KEY`（以 `.env.example` 實際欄位為準），同步到 Render；曾提交的 secret key 請輪替。前端不可使用 secret/service-role Key。
 3. **登入資料表**：先備份、比對 `migrations/001_auth_store.sql` 與現有資料庫，再於 Supabase SQL Editor 執行適用的遷移。若有重複 Email 或既有不同欄位，先處理資料衝突。這次路由本身不需要新資料表。
 4. **Render**：部署此版本，維持一個 Uvicorn worker；環境變數只需 `GROQ_API_KEY`、`SUPABASE_URL`、`SUPABASE_KEY`、`TZ=Asia/Taipei`、`PYTHON_VERSION=3.11.11`。啟動命令 `uvicorn main:app --host 0.0.0.0 --port $PORT`。`PORT` 由 Render 自動提供，不要手動固定。快取與熔斷目前是單程序狀態，多副本需後續共用 Redis。
+   專案同時包含 `.python-version`，避免 Render 在既有服務未同步 Blueprint 時改用預設 Python 3.14。若建置日誌仍顯示 3.14，刪除服務上覆寫的 `PYTHON_VERSION` 後重新加入 `3.11.11`，再 Clear build cache & deploy。
 5. **驗收**：確認 `/health` 及 `/health/auth`；再用自己的帳號登入。若仍出現 Failed to fetch，檢查瀏覽器 Network 的 API 網址、HTTP 狀態及 Render 同時間日誌。不要分享密碼、Authorization header 或完整連線設定。
 6. 測試快速分析不需 Groq；深度分析成功時 `ai_route.used=true`。失效 Key 下仍應得到技術結果，`ai_route.reason` 指出退回原因。Render 日誌搜尋 `route task=` 檢查選路。
 
