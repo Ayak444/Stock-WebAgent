@@ -1113,6 +1113,36 @@ async def get_major_holders(ticker: str):
         logger.exception("大戶持股資料讀取失敗")
         raise HTTPException(status_code=502, detail="集保資料目前無法取得，請稍後再試") from exc
 
+
+@app.get("/api/market-insights/stock-snapshot/{ticker}")
+async def get_stock_snapshot(ticker: str):
+    """Return one stock's price, industry, ownership, and news context."""
+    try:
+        snapshot = await asyncio.to_thread(market_insights.stock_snapshot, ticker)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "code": "invalid_ticker",
+                "message": "請輸入有效的台股代號，例如 2330、2330.TW 或 6488.TWO",
+            },
+        )
+    except Exception:
+        logger.exception("個股決策摘要建立失敗")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "code": "snapshot_unavailable",
+                "message": "個股決策摘要目前無法取得，請稍後再試",
+            },
+        )
+
+    if snapshot["status"] == "unavailable":
+        return JSONResponse(status_code=503, content=snapshot)
+    return snapshot
+
 @app.get("/trades")
 def get_trades(user_id: str):
     data = db.get_trade_history(user_id)

@@ -722,21 +722,29 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <!-- ========== PAGE: Market Insights ========== -->
       <div class="page" id="page-insights">
         <div class="page-header">
-          <div><h2>市場洞察</h2><p class="sub">集保大戶結構、產業漲幅與近期新聞熱度</p></div>
+          <div><h2>市場洞察</h2><p class="sub">個股價格、產業相對表現、集保持股與新聞關注度</p></div>
           <button class="btn-analyze" id="btn-insights" onclick="fetchMarketInsights(true)">↻ 更新市場資料</button>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <span>🐋 大戶持股分析</span>
-            <span class="badge badge-blue">TDCC 官方資料</span>
+              <span>🧭 個股多訊號決策摘要</span>
+              <span class="badge badge-blue" id="stock-snapshot-status">輸入代號開始</span>
           </div>
           <div class="card-body">
             <div class="input-group" style="max-width:520px;margin-bottom:16px">
-              <input class="input" id="major-holder-ticker" value="2330" placeholder="輸入台股代號，例如 2330" onkeydown="if(event.key==='Enter')fetchMajorHolders()">
-              <button class="btn-outline" id="btn-major-holders" onclick="fetchMajorHolders()" style="flex-shrink:0">分析持股</button>
+              <input class="input" id="stock-snapshot-ticker" value="2330" placeholder="輸入 2330、2330.TW 或 6488.TWO" onkeydown="if(event.key==='Enter')fetchStockSnapshot()">
+              <button class="btn-outline" id="btn-stock-snapshot" onclick="fetchStockSnapshot()" style="flex-shrink:0">產生摘要</button>
             </div>
-            <div id="major-holder-result" style="color:var(--slate-500);font-size:13px">輸入股票代號後，可查看 400 張以上大戶的持股比例與各級距分布。</div>
+            <div id="stock-snapshot-result" style="color:var(--slate-500);font-size:13px">輸入股票代號後，一次查看價格、產業相對表現、大戶持股與最近 72 小時新聞關注度。</div>
+            <div class="reasoning-box" style="margin-top:16px;font-size:11px;line-height:1.7">
+              <strong style="color:var(--blue-400)">使用限制</strong>
+              <ol style="margin:7px 0 0 18px;padding:0">
+                <li>各資料來源更新頻率不同，日期不一定代表同一交易時點。</li>
+                <li>新聞關注度只計算最近 72 小時 RSS 提及，不代表搜尋量、成交量或投資建議。</li>
+                <li>400 張以上是集保級距統計，無法識別實際持有人；個股相對產業僅為單日等權比較。</li>
+              </ol>
+            </div>
           </div>
         </div>
 
@@ -2031,40 +2039,98 @@ async function fetchMarketInsights(force = false) {
   if (!marketInsightsLoaded) showToast(res.message || '市場洞察讀取失敗', 'error');
 }
 
-async function fetchMajorHolders() {
-  const input = document.getElementById('major-holder-ticker');
-  const button = document.getElementById('btn-major-holders');
-  const box = document.getElementById('major-holder-result');
-  const ticker = input.value.trim().toUpperCase().replace(/\.(TW|TWO)$/, '');
-  if (!/^[0-9A-Z]{4,10}$/.test(ticker)) {
-    showToast('請輸入有效的台股代號，例如 2330', 'warning');
+function snapshotMeta(section) {
+  return `<div style="font-size:10px;color:var(--slate-500);margin-top:12px;line-height:1.5">日期：${escapeRoutingText(section.as_of || '未提供')}<br>來源：${escapeRoutingText(section.source || '未提供')}<br>方法：${escapeRoutingText(section.methodology || '未提供')}</div>`;
+}
+
+function snapshotUnavailable(title, section) {
+  return `<div class="card" style="margin:0"><div class="card-header">${escapeRoutingText(title)}<span class="badge badge-red">暫缺</span></div><div class="card-body"><div style="color:var(--red-400)">此區資料目前不可用</div><div style="font-size:11px;color:var(--slate-500);margin-top:6px">代碼：${escapeRoutingText(section.code || 'section_unavailable')}</div>${snapshotMeta(section)}</div></div>`;
+}
+
+async function fetchStockSnapshot() {
+  const input = document.getElementById('stock-snapshot-ticker');
+  const button = document.getElementById('btn-stock-snapshot');
+  const box = document.getElementById('stock-snapshot-result');
+  const statusBadge = document.getElementById('stock-snapshot-status');
+  const ticker = input.value.trim().toUpperCase();
+  if (!/^[0-9A-Z]{4,10}(?:\.(?:TW|TWO))?$/.test(ticker)) {
+    showToast('請輸入有效的台股代號，例如 2330、2330.TW 或 6488.TWO', 'warning');
     return;
   }
   input.value = ticker;
   button.disabled = true;
-  box.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">正在讀取集保戶股權分散表...</div></div>';
-  const res = await apiCall(`/api/market-insights/major-holders/${encodeURIComponent(ticker)}`);
-  if (res.status !== 'success' || !res.data) {
-    box.innerHTML = `<span style="color:var(--red-400)">${escapeRoutingText(res.detail || res.message || '大戶持股資料讀取失敗')}</span>`;
+  statusBadge.className = 'badge badge-blue';
+  statusBadge.textContent = '資料彙整中';
+  box.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">正在彙整價格、產業、集保與新聞訊號...</div></div>';
+  const res = await apiCall(`/api/market-insights/stock-snapshot/${encodeURIComponent(ticker)}`);
+  if (!['success', 'partial'].includes(res.status) || !res.data) {
+    box.innerHTML = '<span style="color:var(--red-400)">個股決策摘要目前無法取得，請稍後再試。</span>';
+    statusBadge.className = 'badge badge-red';
+    statusBadge.textContent = '資料暫缺';
     button.disabled = false;
     return;
   }
-  const item = res.data;
-  const name = stockNames[ticker] || '';
-  box.innerHTML = `<div class="grid grid-3" style="margin-bottom:16px">
-    <div class="stat-card up"><div style="font-size:11px;color:var(--slate-500)">400 張以上持股</div><div style="font-size:30px;font-weight:800;color:var(--red-400);margin-top:5px">${Number(item.large_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500)">${insightNumber(item.large_holder_accounts)} 戶</div></div>
-    <div class="stat-card"><div style="font-size:11px;color:var(--slate-500)">10 張以下持股</div><div style="font-size:30px;font-weight:800;color:var(--blue-400);margin-top:5px">${Number(item.small_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500)">小額持股占比</div></div>
-    <div class="stat-card"><div style="font-size:11px;color:var(--slate-500)">${escapeRoutingText(ticker)} ${escapeRoutingText(name)}</div><div style="font-size:18px;font-weight:800;color:#fff;margin-top:10px">${escapeRoutingText(item.data_date)}</div><div style="font-size:11px;color:var(--slate-500)">總戶數 ${insightNumber(item.total_accounts)}</div></div>
-  </div>
-  <div style="display:grid;gap:9px">${(item.breakdown || []).map(group => {
-    const ratio = Math.max(0, Math.min(100, Number(group.ratio) || 0));
-    return `<div style="display:grid;grid-template-columns:95px 1fr 70px;gap:10px;align-items:center;font-size:12px">
-      <span style="color:var(--slate-300)">${escapeRoutingText(group.label)}</span>
-      <div style="height:8px;background:var(--slate-800);border-radius:5px;overflow:hidden"><div style="height:100%;width:${ratio}%;background:linear-gradient(90deg,var(--blue-600),var(--orange-500));border-radius:5px"></div></div>
-      <span style="text-align:right;color:#fff">${ratio.toFixed(2)}%</span>
-    </div>`;
-  }).join('')}</div>
-  <div style="font-size:11px;color:var(--slate-500);margin-top:15px">門檻：${escapeRoutingText(item.large_holder_threshold)} · 資料來源：${escapeRoutingText(item.source)}</div>`;
+
+  const identity = res.data.identity || {};
+  const price = res.data.price || {};
+  const industry = res.data.industry_context || {};
+  const ownership = res.data.ownership || {};
+  const news = res.data.news_attention || {};
+  const normalizedTicker = identity.ticker || res.ticker || ticker;
+  const displayName = identity.name || stockNames[normalizedTicker] || '';
+  const unavailableItems = [...(res.unavailable || []), ...(res.warnings || [])];
+  const partialText = unavailableItems.length
+    ? `<div style="margin-top:8px;color:var(--orange-400);font-size:11px">限制代碼：${unavailableItems.map(item => escapeRoutingText(item.code || '')).join('、')}</div>`
+    : '';
+
+  let priceHtml;
+  if (!price.available) {
+    priceHtml = snapshotUnavailable('📈 價格動能', price);
+  } else {
+    const change = Number(price.change);
+    const changePercent = Number(price.change_percent);
+    const priceColor = change >= 0 ? 'var(--red-400)' : 'var(--green-400)';
+    priceHtml = `<div class="card" style="margin:0"><div class="card-header">📈 價格動能<span class="badge badge-blue">單日</span></div><div class="card-body"><div style="font-size:28px;font-weight:800;color:#fff">${Number(price.close).toFixed(2)}</div><div style="color:${priceColor};font-weight:700;margin-top:5px">${change >= 0 ? '+' : ''}${change.toFixed(2)}（${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%）</div><div style="font-size:11px;color:var(--slate-500);margin-top:5px">前收 ${Number(price.previous_close).toFixed(2)}</div>${snapshotMeta(price)}</div></div>`;
+  }
+
+  let industryHtml;
+  if (!industry.available) {
+    industryHtml = snapshotUnavailable('🏭 產業相對表現', industry);
+  } else {
+    const delta = Number(industry.stock_minus_industry);
+    industryHtml = `<div class="card" style="margin:0"><div class="card-header">🏭 產業相對表現<span class="badge badge-blue">第 ${insightNumber(industry.rank)} / ${insightNumber(industry.total_industries)}</span></div><div class="card-body"><div style="font-size:18px;font-weight:800;color:#fff">${escapeRoutingText(industry.industry)}</div><div style="font-size:24px;font-weight:800;color:${delta >= 0 ? 'var(--red-400)' : 'var(--green-400)'};margin-top:8px">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-400)">個股減產業平均；平均 ${Number(industry.mean_change).toFixed(2)}%、中位 ${Number(industry.median_change).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500);margin-top:5px">上漲 ${insightNumber(industry.advancers)} / 樣本 ${insightNumber(industry.company_count)} · ${escapeRoutingText(industry.market_coverage || '')}</div>${snapshotMeta(industry)}</div></div>`;
+  }
+
+  let ownershipHtml;
+  if (!ownership.available) {
+    ownershipHtml = snapshotUnavailable('🐋 集保持股結構', ownership);
+  } else {
+    const breakdown = (ownership.breakdown || []).map(group => {
+      const ratio = Math.max(0, Math.min(100, Number(group.ratio) || 0));
+      return `<div style="display:grid;grid-template-columns:90px 1fr 58px;gap:8px;align-items:center;margin-top:7px"><span>${escapeRoutingText(group.label)}</span><div style="height:7px;background:var(--slate-800);border-radius:4px;overflow:hidden"><div style="height:100%;width:${ratio}%;background:linear-gradient(90deg,var(--blue-600),var(--orange-500))"></div></div><span style="text-align:right">${ratio.toFixed(2)}%</span></div>`;
+    }).join('');
+    ownershipHtml = `<div class="card" style="margin:0"><div class="card-header">🐋 集保持股結構<span class="badge badge-blue">400 張以上</span></div><div class="card-body"><div style="font-size:26px;font-weight:800;color:var(--red-400)">${Number(ownership.large_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-400)">${insightNumber(ownership.large_holder_accounts)} 戶 · 10 張以下 ${Number(ownership.small_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-300);margin-top:10px">${breakdown}</div>${snapshotMeta(ownership)}</div></div>`;
+  }
+
+  let newsHtml;
+  if (!news.available) {
+    newsHtml = snapshotUnavailable('📰 新聞關注度', news);
+  } else {
+    const articleHtml = (news.articles || []).map(article => {
+      const link = safeNewsUrl(article.link);
+      const title = escapeRoutingText(article.title || '未命名新聞');
+      const titleHtml = link
+        ? `<a href="${escapeRoutingText(link)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue-400);text-decoration:none">${title}</a>`
+        : `<span>${title}</span>`;
+      return `<div style="padding:7px 0;border-bottom:1px solid var(--glass-border)">${titleHtml}<div style="font-size:10px;color:var(--slate-500)">${escapeRoutingText(article.source || '')} ${escapeRoutingText(article.published || '')}</div></div>`;
+    }).join('');
+    const emptyNews = '<div style="color:var(--slate-400);margin-top:10px">最近 72 小時沒有偵測到明確個股提及。</div>';
+    newsHtml = `<div class="card" style="margin:0"><div class="card-header">📰 新聞關注度<span class="badge badge-orange">72 小時</span></div><div class="card-body"><div style="font-size:26px;font-weight:800;color:var(--orange-400)">${insightNumber(news.mention_count)} 則</div><div style="font-size:11px;color:var(--slate-400)">${insightNumber(news.source_count)} 個來源${news.cross_source ? ' · 跨來源提及' : ''}</div>${articleHtml || emptyNews}${snapshotMeta(news)}</div></div>`;
+  }
+
+  box.innerHTML = `<div style="margin-bottom:14px"><strong style="font-size:19px;color:#fff">${escapeRoutingText(identity.symbol || normalizedTicker)} ${escapeRoutingText(displayName)}</strong><span style="margin-left:8px;color:var(--slate-500)">${escapeRoutingText(identity.market || '')}</span>${partialText}</div><div class="grid grid-2">${priceHtml}${industryHtml}${ownershipHtml}${newsHtml}</div>`;
+  statusBadge.className = res.status === 'success' ? 'badge badge-green' : 'badge badge-orange';
+  statusBadge.textContent = res.status === 'success' ? '資料完整' : '部分資料可用';
   button.disabled = false;
 }
 

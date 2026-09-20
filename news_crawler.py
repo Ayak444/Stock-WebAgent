@@ -2,7 +2,7 @@ import feedparser
 import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
-import time
+import calendar
 
 # 增強 Headers 以減少被阻擋的機率
 HEADERS = {
@@ -23,7 +23,7 @@ RSS_SOURCES = {
 class NewsCrawler:
     
     @staticmethod
-    def fetch_rss(source_key: str, limit: int = 5) -> list:
+    def fetch_rss(source_key: str, limit: int = 5, timeout: int = 10) -> list:
         if source_key not in RSS_SOURCES:
             return []
             
@@ -31,22 +31,18 @@ class NewsCrawler:
         url = source_info["url"]
         
         try:
-            # 加入 Timeout 設定
-            feed = feedparser.parse(url)
+            # Always fetch with an explicit timeout before parsing.  Passing a
+            # URL directly to feedparser would perform an unbounded network call.
+            response = requests.get(url, headers=HEADERS, timeout=(3, timeout))
+            response.raise_for_status()
+            feed = feedparser.parse(response.content)
             
             # 檢查是否解析成功
             if feed.bozo and hasattr(feed.bozo_exception, 'getMessage'):
                  print(f"Warning parsing {source_key}: {feed.bozo_exception.getMessage()}")
                  
             if not feed.entries:
-                # 如果 feedparser 失敗，嘗試用 requests 抓取 XML 再給 feedparser 解析 (有時可繞過某些阻擋)
-                print(f"Direct parsing failed for {source_key}, trying with requests...")
-                response = requests.get(url, headers=HEADERS, timeout=10)
-                if response.status_code == 200:
-                    feed = feedparser.parse(response.content)
-                else:
-                    print(f"Failed to fetch {source_key} with requests: HTTP {response.status_code}")
-                    return []
+                return []
 
             result = []
             for entry in feed.entries[:limit]:
@@ -54,7 +50,9 @@ class NewsCrawler:
                 pub_time_str = ""
                 pub_ts = 0
                 if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                    pub_ts = time.mktime(entry.published_parsed)
+                    # feedparser exposes published_parsed as a UTC time tuple.
+                    # timegm keeps the epoch stable regardless of the host timezone.
+                    pub_ts = calendar.timegm(entry.published_parsed)
                     pub_time_str = datetime.fromtimestamp(pub_ts).strftime('%Y-%m-%d %H:%M')
                 
                 # 簡單清理 summary (移除 HTML 標籤)
