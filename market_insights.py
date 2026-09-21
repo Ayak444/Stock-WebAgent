@@ -515,7 +515,15 @@ class MarketInsightsService:
         return self._cached(
             "tdcc_holder_distribution",
             6 * 3600,
-            lambda: aggregate_holder_rows(self._json(TDCC_DISTRIBUTION_URL)),
+            lambda: aggregate_holder_rows(self.holder_rows()),
+        )
+
+    def holder_rows(self) -> List[Dict[str, Any]]:
+        """Return cached raw TDCC rows for snapshot and historical alert analysis."""
+        return self._cached(
+            "tdcc_holder_rows",
+            6 * 3600,
+            lambda: self._json(TDCC_DISTRIBUTION_URL),
         )
 
     def _recent_news(self) -> Dict[str, Any]:

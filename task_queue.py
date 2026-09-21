@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Callable, Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -248,7 +249,7 @@ class ScheduledTaskManager:
     
     def schedule_daily(self, task_id: str, name: str, handler: Callable,
                       hour: int = 14, minute: int = 0, args: tuple = (), 
-                      kwargs: dict = None) -> str:
+                      kwargs: dict = None, timezone_name: str = None) -> str:
         """
         安排每日定時任務
         """
@@ -257,6 +258,7 @@ class ScheduledTaskManager:
             "handler": handler,
             "hour": hour,
             "minute": minute,
+            "timezone_name": timezone_name,
             "args": args,
             "kwargs": kwargs or {}
         }
@@ -276,7 +278,8 @@ class ScheduledTaskManager:
         
         while True:
             # 計算下次執行時間
-            now = datetime.now()
+            timezone = ZoneInfo(definition["timezone_name"]) if definition.get("timezone_name") else None
+            now = datetime.now(timezone) if timezone else datetime.now()
             next_run = now.replace(
                 hour=definition["hour"],
                 minute=definition["minute"],
@@ -289,7 +292,8 @@ class ScheduledTaskManager:
                 next_run += timedelta(days=1)
             
             # 等待直到執行時間
-            delay = (next_run - datetime.now()).total_seconds()
+            current = datetime.now(timezone) if timezone else datetime.now()
+            delay = (next_run - current).total_seconds()
             logger.info(f"定時任務 {task_id} 將在 {delay:.1f} 秒後執行")
             await asyncio.sleep(delay)
             
@@ -340,9 +344,11 @@ class AsyncJobRunner:
         return await self.queue.submit(name, handler, args, kwargs, priority=2)
     
     def schedule_daily(self, task_id: str, name: str, handler: Callable,
-                      hour: int = 14, minute: int = 0) -> str:
+                      hour: int = 14, minute: int = 0, timezone_name: str = None) -> str:
         """安排每日定時任務"""
-        return self.scheduler.schedule_daily(task_id, name, handler, hour, minute)
+        return self.scheduler.schedule_daily(
+            task_id, name, handler, hour, minute, timezone_name=timezone_name
+        )
     
     def get_task_status(self, task_id: str) -> Optional[Dict]:
         """查詢任務狀態"""

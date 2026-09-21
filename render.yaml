@@ -14,6 +14,14 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: HOLDER_ALERT_ENABLED
+        value: "false"
+      - key: HOLDER_ALERT_DRY_RUN
+        value: "true"
+      - key: HOLDER_ALERT_TICKERS
+        value: "2330.TW"
       - key: TZ
         value: Asia/Taipei
       - key: PYTHON_VERSION

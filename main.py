@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from cache_layer import cache_manager
 from route_gateway import ai_gateway, audit, DEFAULT_GROQ_MODEL
 from async_data_provider import get_async_provider, close_async_provider
-from task_queue import job_runner, run_backtest_hydration_task
+from task_queue import job_runner
 from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
 import websocket_system
 # 原有模塊
@@ -37,10 +37,14 @@ from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
 from news_crawler import NewsCrawler
 from database import Database
-from backtest import Backtester
+from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
 from market_insights import market_insights
 from notifier import DiscordNotifier
+from holder_volume_alerts import (
+    HolderAlertConfig,
+    HolderVolumeAlertMonitor,
+)
 
 def extract_json_object(text: str) -> str:
     """Extracts the first valid JSON object from a string using brace counting."""
@@ -159,6 +163,19 @@ async def daily_analysis_task_async():
     desc = notifier.format_analysis(results)
     notifier.send(f"📊 每日投資組合與台股分析 {datetime.now().strftime('%Y-%m-%d')}", desc)
 
+
+async def _load_holder_alert_market(ticker: str):
+    provider = await get_async_provider()
+    return await provider.get_stock_history(ticker, days=60)
+
+
+async def run_holder_alert_monitor():
+    return await holder_alert_monitor.run(trigger="scheduled")
+
+
+async def run_holder_alert_startup_catchup():
+    return await holder_alert_monitor.run(trigger="startup_catchup")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 初始化資料庫連線與 WebSocket 系統 (需在任務隊列前完成)
@@ -179,16 +196,24 @@ async def lifespan(app: FastAPI):
         minute=0
     )
     
-    # 回測快取運算任務 (排在每日收盤後，如凌晨 2:00)
-    job_runner.schedule_daily(
-        "backtest_hydration",
-        "預先計算回測結果",
-        run_backtest_hydration_task,
-        hour=2,
-        minute=0
-    )
+    # 舊 backtest_results 不含窗口/成本/資料來源，不能用於可信回測。
+
+    if holder_alert_config.ready:
+        job_runner.schedule_daily(
+            "holder_volume_alerts",
+            "大戶增持與量能放大監控",
+            run_holder_alert_monitor,
+            hour=20,
+            minute=30,
+            timezone_name="Asia/Taipei",
+        )
+        if await holder_alert_monitor.needs_startup_catchup():
+            await job_runner.run_high_priority(
+                "大戶增持與量能放大監控（啟動補跑）",
+                run_holder_alert_startup_catchup,
+            )
     
-    logger.info("✓ 定時任務已排程（每日 22:00 與 02:00）")
+    logger.info("✓ 定時任務已排程（每日 22:00；監控視設定啟用）")
     
     yield
     
@@ -209,6 +234,14 @@ app.add_middleware(
 
 db = Database()
 notifier = DiscordNotifier()
+holder_alert_config = HolderAlertConfig.from_env()
+holder_alert_monitor = HolderVolumeAlertMonitor(
+    holder_alert_config,
+    db,
+    market_insights.holder_rows,
+    _load_holder_alert_market,
+    notifier,
+)
 
 async def _analyze_targets_async(targets, mode="quick"):
     """
@@ -615,9 +648,16 @@ def health():
             "cache": {
                 "usage_percent": cache_stats_data['usage_percent'],
                 "items": cache_stats_data['total_items']
-            }
+            },
+            "holder_alerts": holder_alert_monitor.health_summary(),
         }
     }
+
+
+@app.get("/api/holder-alerts/status")
+def holder_alert_status():
+    """Return in-memory configuration/run status without DB or network access."""
+    return holder_alert_monitor.status()
 
 
 @app.get("/health/auth")
@@ -916,31 +956,21 @@ def history_tickers():
 
 @app.post("/backtest")
 async def backtest(req: BacktestRequest):
-    """
-    修改為從資料庫讀取預先計算好的結果 (Database-Driven)
-    以達到毫秒級回應，不再即時運算
-    """
-    cached_result = db.get_backtest_results(req.ticker, strategy_name="default_ma_rsi")
-    if cached_result:
-        # 將 Supabase 回傳的資料結構轉為原本前端預期的格式
-        return {
-            "status": "success",
-            "ticker": cached_result.get("symbol", req.ticker),
-            "win_rate": cached_result.get("win_rate", 0),
-            "max_drawdown": cached_result.get("max_drawdown", 0),
-            "strategy_return": cached_result.get("total_return", 0),
-            "latest_signal": cached_result.get("latest_signal", "NEUTRAL"),
-            # 以下給予預設值以避免前端報錯
-            "buy_hold_return": 0,
-            "outperformance": 0,
-            "trade_count": 0,
-            "final_value": 0,
-            "trades": []
-        }
-    
-    # Fallback: 若資料庫還沒有預算資料，為了防止前端報錯，回傳等待中訊息或即時算一次
-    # 這裡選擇即時運算一次作為 fallback
-    return await asyncio.to_thread(Backtester.run, req.ticker, req.days)
+    """Calculate the requested window/cost assumptions from fresh daily data."""
+    if req.days not in SUPPORTED_BACKTEST_DAYS:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "code": "unsupported_window",
+                     "message": "回測僅支援 30、90、180 或 365 個交易日"},
+        )
+    return await asyncio.to_thread(
+        Backtester.run,
+        req.ticker,
+        req.days,
+        req.commission_rate,
+        req.min_commission,
+        req.sell_tax_rate,
+    )
 
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 

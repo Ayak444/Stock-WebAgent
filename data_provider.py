@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import time
 import re
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 # 台灣時區 UTC+8
 TW_TZ = timezone(timedelta(hours=8))
@@ -12,7 +13,97 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 }
 
+# Each supported backtest window includes 30 warmup bars. Yahoo is one bounded
+# request; the official fallback uses at most 24 distinct months / six workers.
+BACKTEST_HISTORY_PLAN = {
+    60: ('6mo', 6),
+    120: ('1y', 9),
+    210: ('1y', 14),
+    395: ('2y', 24),
+}
+BACKTEST_MAX_RESPONSE_BYTES = 500_000
+BACKTEST_MAX_SOURCE_SECONDS = 20  # 4s Yahoo + four 4s official waves
+
+
+def _bounded_json_get(url: str):
+    """Bound each history request by bytes and wall time, including slow streams."""
+    started = time.monotonic()
+    response = requests.get(url, headers=HEADERS, timeout=(1, 1.5), stream=True)
+    try:
+        chunks = bytearray()
+        # One-byte chunks ensure a trickling server cannot defer the deadline
+        # check while a large read waits to fill its buffer.
+        for chunk in response.iter_content(chunk_size=1):
+            if time.monotonic() - started > 2.5:
+                raise TimeoutError('history response deadline')
+            chunks.extend(chunk)
+            if len(chunks) > BACKTEST_MAX_RESPONSE_BYTES:
+                raise ValueError('history response too large')
+        return json.loads(chunks)
+    finally:
+        close = getattr(response, 'close', None)
+        if callable(close):
+            close()
+
 class DataProvider:
+    @staticmethod
+    def get_backtest_history(ticker: str, required_bars: int) -> pd.DataFrame:
+        if required_bars not in BACKTEST_HISTORY_PLAN:
+            raise ValueError('unsupported backtest window')
+        history_range, months = BACKTEST_HISTORY_PLAN[required_bars]
+        yahoo = pd.DataFrame()
+        try:
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range={history_range}&interval=1d"
+            result = _bounded_json_get(url)['chart']['result'][0]
+            quote = result['indicators']['quote'][0]
+            yahoo = pd.DataFrame({
+                'Date': pd.to_datetime(result['timestamp'], unit='s'),
+                'Open': quote['open'], 'High': quote['high'], 'Low': quote['low'],
+                'Close': quote['close'], 'Volume': quote['volume'],
+            }).dropna().set_index('Date').sort_index()
+            if len(yahoo) >= required_bars:
+                yahoo.attrs['route'] = {
+                    'source': 'yahoo', 'asof': yahoo.index[-1].date().isoformat(),
+                    'price_basis': 'unadjusted_daily',
+                }
+                return yahoo
+        except Exception:
+            pass
+
+        stock_id = ticker.split('.')[0]
+        fetch_month = DataProvider._fetch_tpex_month if ticker.upper().endswith('.TWO') else DataProvider._fetch_twse_month
+        first_month = pd.Timestamp.now(tz=TW_TZ).replace(day=1)
+        targets = [(first_month - pd.DateOffset(months=i)).to_pydatetime() for i in range(months)]
+
+        def load_month(target):
+            try:
+                return fetch_month(stock_id, target, bounded=True)
+            except Exception:
+                return []
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            month_rows = list(pool.map(load_month, targets))
+        rows = [row for group in month_rows for row in group]
+        official = pd.DataFrame()
+        if rows:
+            official = pd.DataFrame(rows, columns=['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
+            official['Date'] = pd.to_datetime(official['Date'])
+            official = official.drop_duplicates('Date').sort_values('Date').set_index('Date')
+            official.attrs['route'] = {
+                'source': 'tpex' if ticker.upper().endswith('.TWO') else 'twse',
+                'asof': official.index[-1].date().isoformat(),
+                'price_basis': 'unadjusted_daily',
+            }
+        if len(official) >= required_bars:
+            return official
+        if len(yahoo) > len(official):
+            yahoo.attrs['route'] = {
+                'source': 'yahoo', 'asof': yahoo.index[-1].date().isoformat(),
+                'price_basis': 'unadjusted_daily',
+            }
+            return yahoo
+        return official
+
     @staticmethod
     def is_market_open():
         now = datetime.now(TW_TZ)
@@ -56,12 +147,18 @@ class DataProvider:
         try:
             df = DataProvider._fetch_twse_history(ticker, days)
             if not df.empty:
+                df.attrs['route'] = {
+                    'source': 'tpex' if ticker.upper().endswith('.TWO') else 'twse',
+                    'asof': df.index[-1].date().isoformat(),
+                    'price_basis': 'unadjusted_daily',
+                }
                 return df
         except Exception:
             pass
 
         try:
-            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=1y&interval=1d"
+            history_range = '1y' if days <= 365 else '5y' if days <= 1825 else '10y' if days <= 3650 else 'max'
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range={history_range}&interval=1d"
             r = requests.get(url, headers=HEADERS, timeout=10)
             data = r.json()
             result = data['chart']['result'][0]
@@ -81,6 +178,11 @@ class DataProvider:
             df.index = df.index.tz_localize(None)
             df = df[df.index >= cutoff]
             if not df.empty:
+                df.attrs['route'] = {
+                    'source': 'yahoo',
+                    'asof': df.index[-1].date().isoformat(),
+                    'price_basis': 'unadjusted_daily',
+                }
                 return df
         except Exception:
             pass
@@ -115,11 +217,14 @@ class DataProvider:
         return df
 
     @staticmethod
-    def _fetch_twse_month(stock_id: str, date_obj: datetime):
+    def _fetch_twse_month(stock_id: str, date_obj: datetime, timeout=10, bounded=False):
         date_str = date_obj.strftime("%Y%m") + "01"
         url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date={date_str}&stockNo={stock_id}"
-        r = requests.get(url, headers=HEADERS, timeout=10)
-        data = r.json()
+        if bounded:
+            data = _bounded_json_get(url)
+        else:
+            r = requests.get(url, headers=HEADERS, timeout=timeout)
+            data = r.json()
         if data.get("stat") != "OK":
             return []
 
@@ -140,13 +245,16 @@ class DataProvider:
         return result
 
     @staticmethod
-    def _fetch_tpex_month(stock_id: str, date_obj: datetime):
+    def _fetch_tpex_month(stock_id: str, date_obj: datetime, timeout=10, bounded=False):
         roc_year = date_obj.year - 1911
         date_str = f"{roc_year}/{date_obj.strftime('%m')}"
         url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d={date_str}&stkno={stock_id}"
         try:
-            r = requests.get(url, headers=HEADERS, timeout=10)
-            data = r.json()
+            if bounded:
+                data = _bounded_json_get(url)
+            else:
+                r = requests.get(url, headers=HEADERS, timeout=timeout)
+                data = r.json()
         except Exception:
             return []
 

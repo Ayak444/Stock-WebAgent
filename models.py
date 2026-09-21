@@ -37,7 +37,10 @@ class NewsRequest(BaseModel):
 
 class BacktestRequest(BaseModel):
     ticker: str
-    days: int = Field(default=180, ge=30, le=3650)
+    days: int = 180
+    commission_rate: float = Field(default=0.001425, ge=0, lt=1)
+    min_commission: float = Field(default=20, ge=0, le=100000)
+    sell_tax_rate: float = Field(default=0.003, ge=0, lt=1)
 
 
 class NewsSourceRequest(BaseModel):

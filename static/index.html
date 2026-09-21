@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="股金往來 — 台股 AI 智能分析儀表板，提供即時行情、K線技術分析、策略回測、新聞情緒分析與 AI 關聯選股">
+<meta name="description" content="股金往來 — 台股日線、策略回測、新聞摘要與可降級的 AI 分析；資料與分析不構成投資建議">
 <title>股金往來 - 台股 AI 分析儀表板</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -313,7 +313,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
     <div class="hero-content">
       <div class="badge-pill hero-elem">✨ 智能分析儀表板 v3.2 上線</div>
       <h1 class="hero-title hero-elem">掌握台股脈動<br><span class="text-gradient">AI 驅動未來</span></h1>
-      <p class="hero-desc hero-elem">結合大語言模型與深度技術分析，為您提供最精準的市場洞察、策略回測與個股健診，打造機構級的看盤體驗。</p>
+      <p class="hero-desc hero-elem">整合台股日線、策略回測與新聞摘要，協助您檢視資料與假設。資料來源和 AI 服務可能暫時無法取得；內容不構成投資建議。</p>
       <div class="hero-actions hero-elem">
         <button class="btn-analyze hero-btn-main" onclick="startJourney()" id="hero-main-btn">立即開始使用 ➔</button>
       </div>
@@ -327,7 +327,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
     <div style="text-align:center; margin-bottom:80px; position:relative">
       <div class="badge-pill" style="margin-bottom:20px">🧩 核心功能總覽</div>
       <h2 class="feature-title" style="margin-bottom:20px">四大核心功能<br><span class="text-gradient">全方位投資輔助</span></h2>
-      <p style="color:var(--slate-400); font-size:18px; max-width:620px; margin:0 auto; line-height:1.8">結合 AI 深度分析與機構級數據，從盤面總覽到策略驗證，<br>為您打造一站式的專業投資決策平台。</p>
+      <p style="color:var(--slate-400); font-size:18px; max-width:620px; margin:0 auto; line-height:1.8">結合日線資料、新聞 RSS 與可降級的 AI 分析，<br>從盤面總覽到策略假設檢查。</p>
     </div>
 
     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 24px; position:relative">
@@ -342,10 +342,10 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
             <h3 style="color:#fff;font-size:20px;font-weight:700;margin-top:2px">盤面熱點與排行</h3>
           </div>
         </div>
-        <p style="color:var(--slate-400);font-size:15px;line-height:1.8;margin-bottom:18px">即時追蹤上市櫃成交量與漲跌幅榜單，市場資金流向一目了然。</p>
+        <p style="color:var(--slate-400);font-size:15px;line-height:1.8;margin-bottom:18px">檢視上市櫃成交量與漲跌幅榜單；資料更新時間依來源而異。</p>
         <div style="display:flex;flex-direction:column;gap:8px">
           <span style="color:var(--slate-300);font-size:13px">✦ 成交量 / 漲跌幅 TOP 排行</span>
-          <span style="color:var(--slate-300);font-size:13px">✦ 即時資金流向追蹤</span>
+          <span style="color:var(--slate-300);font-size:13px">✦ 成交量變化觀察</span>
           <span style="color:var(--slate-300);font-size:13px">✦ 主流題材板塊總覽</span>
         </div>
       </div>
@@ -455,7 +455,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <!-- ========== PAGE: Home ========== -->
       <div class="page active" id="page-war">
         <div class="page-header">
-          <div><h2>首頁</h2><p class="sub">AI 盤前摘要 × 即時新聞動態</p></div>
+          <div><h2>首頁</h2><p class="sub">AI 盤前摘要 × 新聞動態</p></div>
           <div class="quick-search">
             <span class="search-icon">🔍</span>
             <input class="input" id="quick-search-input" placeholder="快速查詢股票 (如 2330.TW)  按 Enter" style="width:280px;padding-left:36px" onkeydown="if(event.key==='Enter')quickSearch()">
@@ -480,39 +480,16 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           </div>
           <div class="card" style="margin-bottom:0;">
             <div class="card-header">📅 近期重點行事曆</div>
-            <div class="card-body" style="padding:16px;max-height:380px;overflow-y:auto">
-               <ul style="list-style:none;padding:0;margin:0;font-size:14px;line-height:1.8">
-                 <li style="border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;margin-bottom:12px">
-                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">明天</div>
-                   <div style="font-weight:600;font-size:15px;color:#fff">2330 台積電</div>
-                   <div style="color:var(--slate-400);font-size:13px">第二季法說會 (14:00)</div>
-                 </li>
-                 <li style="border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;margin-bottom:12px">
-                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">後天</div>
-                   <div style="font-weight:600;font-size:15px;color:#fff">2317 鴻海</div>
-                   <div style="color:var(--slate-400);font-size:13px">除息 5.4 元 (現金殖利率 ~2.6%)</div>
-                 </li>
-                 <li style="border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;margin-bottom:12px">
-                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">下週一</div>
-                   <div style="font-weight:600;font-size:15px;color:#fff">2603 長榮</div>
-                   <div style="color:var(--slate-400);font-size:13px">除息 10 元</div>
-                 </li>
-                 <li>
-                   <div style="font-size:12px;color:var(--orange-400);font-weight:700">下週三</div>
-                   <div style="font-weight:600;font-size:15px;color:#fff">聯準會 FOMC</div>
-                   <div style="color:var(--slate-400);font-size:13px">利率決議會議</div>
-                 </li>
-               </ul>
-            </div>
+            <div class="card-body" style="padding:16px;max-height:380px;overflow-y:auto;color:var(--slate-400)">目前未接入可驗證的交易行事曆，暫無可靠事件可顯示。</div>
           </div>
         </div>
 
-        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px;border-radius:12px;">⚡ 即時分析大盤重點摘要</button>
+        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px;border-radius:12px;">⚡ 更新大盤重點摘要</button>
 
         <div class="card">
           <div class="card-header">🤖 每日大盤摘要與 AI 觀點</div>
           <div class="card-body" id="war-ai-summary" style="font-size:15px;line-height:1.7;min-height:120px;">
-            <span style="color:var(--slate-500)">點擊上方即時更新以獲取最新 AI 解析...</span>
+            <span style="color:var(--slate-500)">點擊上方更新摘要；AI 或資料來源可能暫時無法取得。</span>
           </div>
         </div>
       </div>
@@ -640,14 +617,17 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
                 <input class="input" id="backtest-ticker" placeholder="如 2330.TW" value="2330.TW">
               </div>
               <div style="width:160px">
-                <label style="font-size:11px;color:var(--slate-500);display:block;margin-bottom:6px;font-weight:600">回測天數</label>
+                <label style="font-size:11px;color:var(--slate-500);display:block;margin-bottom:6px;font-weight:600">回測交易日數</label>
                 <select class="input" id="backtest-days">
-                  <option value="30">30 天</option>
-                  <option value="90">90 天</option>
-                  <option value="180" selected>180 天</option>
-                  <option value="365">365 天</option>
+                  <option value="30">30 個交易日</option>
+                  <option value="90">90 個交易日</option>
+                  <option value="180" selected>180 個交易日</option>
+                  <option value="365">365 個交易日</option>
                 </select>
               </div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">手續費率</label><input class="input" id="backtest-commission" type="number" min="0" max="0.999" step="0.000001" value="0.001425"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">最低手續費 NT$</label><input class="input" id="backtest-min-commission" type="number" min="0" step="1" value="20"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">賣出稅率</label><input class="input" id="backtest-sell-tax" type="number" min="0" max="0.999" step="0.000001" value="0.003"></div>
               <button class="btn-analyze" id="btn-backtest" onclick="runBacktest()">⚡ 執行回測</button>
             </div>
           </div>
@@ -658,7 +638,9 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
             <strong style="color:#fff">MA20 交叉 + RSI 過濾策略</strong><br>
             • <span style="color:var(--green-400)">買入條件</span>：收盤價突破 MA20 且 RSI &lt; 70 → 全額進場<br>
             • <span style="color:var(--red-400)">賣出條件</span>：收盤價跌破 MA20 或 RSI &gt; 75 → 全數出場<br>
-            • 初始資金：¥100,000 | 手續費：未計入
+            • 初始資金：NT$100,000；整數股、無融資或放空；t 日收盤訊號僅於下一交易日開盤模擬成交。<br>
+            • 預設成本為普通股示例：手續費 0.1425%（最低 NT$20）、賣出稅 0.3%；金額以 NT$1 四捨五入。<br>
+            • Buy &amp; Hold 同窗首日開盤買入、末日收盤估值；回測不含股利與實際滑價，不構成投資建議。
           </div>
         </div>
         <div id="backtest-result"></div>
@@ -680,7 +662,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <!-- ========== PAGE: Sentiment ========== -->
       <div class="page" id="page-sentiment">
         <div class="page-header">
-          <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 ⚡ 即時新聞情感分析</p></div>
+          <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 × 新聞情感分析</p></div>
           <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 啟動雷達分析</button>
         </div>
         <div class="grid grid-2">
@@ -1641,76 +1623,50 @@ async function runBacktest() {
   const btn = document.getElementById('btn-backtest');
   const resultDiv = document.getElementById('backtest-result');
   let ticker = document.getElementById('backtest-ticker').value.trim();
-  const days = parseInt(document.getElementById('backtest-days').value);
-
+  const days = parseInt(document.getElementById('backtest-days').value, 10);
+  const commission_rate = Number(document.getElementById('backtest-commission').value);
+  const min_commission = Number(document.getElementById('backtest-min-commission').value);
+  const sell_tax_rate = Number(document.getElementById('backtest-sell-tax').value);
   if (!ticker) { showToast('請輸入股票代號', 'warning'); return; }
+  if (![commission_rate, min_commission, sell_tax_rate].every(Number.isFinite) ||
+      commission_rate < 0 || commission_rate >= 1 || min_commission < 0 ||
+      sell_tax_rate < 0 || sell_tax_rate >= 1) {
+    showToast('請輸入有效的交易成本', 'warning'); return;
+  }
   ticker = normalizeTicker(ticker);
   document.getElementById('backtest-ticker').value = ticker;
-
   btn.disabled = true;
   resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">策略回測模擬中...</p></div>';
-
-  const res = await apiCall('/backtest', 'POST', { ticker, days });
-
+  const res = await apiCall('/backtest', 'POST', { ticker, days, commission_rate, min_commission, sell_tax_rate });
+  const numeric = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
+  const money = value => numeric(value) === null ? '—' : `NT$${numeric(value).toLocaleString('zh-TW', {maximumFractionDigits: 2})}`;
+  const percent = (value, unit = '%') => numeric(value) === null ? '—' : `${numeric(value) >= 0 ? '+' : ''}${numeric(value).toFixed(2)}${unit}`;
   if (res.status === 'success') {
-    const sr = res.strategy_return || 0;
-    const bhr = res.buy_hold_return || 0;
-    const outperf = res.outperformance || 0;
-    const trades = res.trades || [];
-    const tradeCount = res.trade_count || 0;
-    const wins = trades.filter(t => t.return_pct > 0).length;
-    const calculatedWinRate = tradeCount > 0 ? ((wins / tradeCount) * 100) : 0;
-    const winRate = res.win_rate !== undefined && res.win_rate !== null ? res.win_rate : calculatedWinRate;
-    const maxDrawdown = res.max_drawdown || 0;
-
+    const trades = Array.isArray(res.trades) ? res.trades : [];
+    const costs = res.costs || {};
+    const limitations = Array.isArray(res.limitations) ? res.limitations : [];
     resultDiv.innerHTML = `
       <div class="grid grid-4" style="margin-bottom:20px">
-        <div class="backtest-stat">
-          <div class="label">策略報酬率</div>
-          <div class="value" style="color:${sr >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${sr >= 0 ? '+' : ''}${fmt(sr)}%</div>
-        </div>
-        <div class="backtest-stat">
-          <div class="label">買入持有報酬率</div>
-          <div class="value" style="color:${bhr >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${bhr >= 0 ? '+' : ''}${fmt(bhr)}%</div>
-        </div>
-        <div class="backtest-stat">
-          <div class="label">超額報酬</div>
-          <div class="value" style="color:${outperf >= 0 ? 'var(--cyan-400)' : 'var(--orange-400)'}">${outperf >= 0 ? '+' : ''}${fmt(outperf)}%</div>
-        </div>
-        <div class="backtest-stat">
-          <div class="label">最大回撤 / 勝率</div>
-          <div class="value" style="color:var(--blue-400);font-size:22px">${fmt(maxDrawdown)}% / ${fmt(winRate, 0)}%</div>
-        </div>
+        <div class="backtest-stat"><div class="label">策略報酬率</div><div class="value">${percent(res.strategy_return)}</div></div>
+        <div class="backtest-stat"><div class="label">買入持有報酬率</div><div class="value">${percent(res.buy_hold_return)}</div></div>
+        <div class="backtest-stat"><div class="label">相對買入持有</div><div class="value">${percent(res.outperformance, ' %pt')}</div></div>
+        <div class="backtest-stat"><div class="label">最大回撤 / 已平倉勝率</div><div class="value" style="font-size:22px">${percent(res.max_drawdown)} / ${percent(res.win_rate)}</div></div>
       </div>
+      <div class="card"><div class="card-body" style="line-height:1.8;color:var(--slate-300)">
+        <strong>模擬條件</strong><br>
+        ${escapeRoutingText(res.window_start)} 至 ${escapeRoutingText(res.window_end)}，來源 ${escapeRoutingText(res.source)}，資料截至 ${escapeRoutingText(res.as_of)}；未還原日線。<br>
+        初始 ${money(res.initial_capital)}；期末策略資產 ${money(res.final_value)}（現金 ${money(res.ending_cash)}、持股 ${numeric(res.ending_shares) ?? '—'} 股）；買入持有期末 ${money(res.buy_hold_final_value)}。<br>
+        手續費率 ${percent(numeric(costs.commission_rate) === null ? null : costs.commission_rate * 100)}、最低 ${money(costs.min_commission)}；賣出稅率 ${percent(numeric(costs.sell_tax_rate) === null ? null : costs.sell_tax_rate * 100)}。共 ${trades.length} 筆成交、${numeric(res.closed_trade_count) ?? '—'} 筆已平倉交易。最後一日訊號 ${escapeRoutingText(res.latest_signal || 'NEUTRAL')}（尚未成交）。
+      </div></div>
       ${trades.length > 0 ? `
-      <div class="card">
-        <div class="card-header">📋 最近交易紀錄 (最近 ${trades.length} 筆)</div>
-        <table class="data-table">
-          <thead><tr>
-            <th>動作</th><th style="text-align:right">日期</th><th style="text-align:right">價格</th>
-            <th style="text-align:right">報酬</th>
-          </tr></thead>
-          <tbody>
-            ${trades.map(t => {
-              const isBuy = t.action === 'BUY' || t.action === '買入';
-              return `<tr>
-                <td><span class="badge ${isBuy ? 'badge-green' : 'badge-red'}">${t.action}</span></td>
-                <td style="text-align:right;font-family:monospace;font-size:12px;color:var(--slate-400)">${t.date || '-'}</td>
-                <td style="text-align:right;font-weight:600;color:#fff">NT$${fmt(t.price)}</td>
-                <td style="text-align:right;font-weight:700;color:${(t.return_pct || 0) >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${t.return_pct !== undefined && t.return_pct !== 0 ? ((t.return_pct >= 0 ? '+' : '') + fmt(t.return_pct) + '%') : '-'}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>` : `
-      <div style="margin-top:20px; padding:20px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); text-align:center; color:var(--slate-400);">
-        最新策略訊號: <span style="color:var(--cyan-400); font-weight:bold; font-size:18px;">${res.latest_signal || "無"}</span>
-      </div>
-      `}
-    `;
-    showToast(`${ticker} 回測完成`, 'success');
+      <div class="card"><div class="card-header">📋 交易紀錄（${trades.length} 筆）</div>
+        <table class="data-table"><thead><tr><th>動作</th><th>日期</th><th>股數</th><th>價格</th><th>手續費 / 稅</th><th>已平倉報酬</th></tr></thead><tbody>
+          ${trades.map(t => `<tr><td>${escapeRoutingText(t.action)}</td><td>${escapeRoutingText(t.date)}</td><td>${numeric(t.shares) ?? '—'}</td><td>${money(t.price)}</td><td>${money(t.commission)} / ${money(t.tax)}</td><td>${percent(t.return_pct)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="card"><div class="card-body">此窗口沒有成交；勝率不適用（—）。</div></div>'}
+      <div class="card"><div class="card-body" style="color:var(--slate-400)">${limitations.map(item => `<div>• ${escapeRoutingText(item)}</div>`).join('')}</div></div>`;
+    showToast('回測完成', 'success');
   } else {
-    resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">回測失敗：${res.message || '未知錯誤'}</p></div></div>`;
+    resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">回測失敗：${escapeRoutingText(res.message || '未知錯誤')}</p></div></div>`;
     showToast('回測執行失敗', 'error');
   }
   btn.disabled = false;

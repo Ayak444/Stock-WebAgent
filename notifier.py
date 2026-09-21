@@ -4,8 +4,9 @@ import requests
 from datetime import datetime
 
 class DiscordNotifier:
-    def __init__(self):
-        self.webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "")
+    def __init__(self, webhook_url=None, transport=None):
+        self.webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "") if webhook_url is None else webhook_url
+        self.transport = transport or requests.post
         self.enabled = bool(self.webhook_url)
 
     def _post(self, payload: dict) -> bool:
@@ -14,12 +15,24 @@ class DiscordNotifier:
             return False
             
         try:
-            resp = requests.post(self.webhook_url, json=payload)
-            resp.raise_for_status()
+            safe_payload = {**payload, "allowed_mentions": {"parse": []}}
+            resp = self.transport(
+                self.webhook_url,
+                json=safe_payload,
+                timeout=(3, 7),
+                allow_redirects=False,
+            )
+            if isinstance(resp, bool):
+                return resp
+            status_code = getattr(resp, "status_code", None)
+            if type(status_code) is not int or not 200 <= status_code < 300:
+                safe_status = status_code if type(status_code) is int else "invalid"
+                print(f"[Discord] 發送失敗: HTTP {safe_status}")
+                return False
             print("[Discord] 通知發送成功")
             return True
-        except Exception as e:
-            print(f"[Discord] 發送失敗: {e}")
+        except Exception as exc:
+            print(f"[Discord] 發送失敗: {type(exc).__name__}")
             return False
 
     def send(self, title: str, description: str = "", color: int = 0x3498db):
@@ -42,6 +55,25 @@ class DiscordNotifier:
         }
         color = colors.get(level.lower(), 0x3498db)
         return self.send(title, message, color)
+
+    def send_holder_volume_alert(self, result: dict, event_key: str) -> bool:
+        periods = result.get("holder_periods", [])
+        ratios = " → ".join(
+            f"{item.get('date')}: {float(item.get('ratio', 0)):.2f}%"
+            for item in periods
+        )
+        volume = result.get("volume", {})
+        route = volume.get("route", {})
+        message = "\n".join([
+            f"標的：{result.get('ticker', '')}",
+            f"大戶三期：{ratios}",
+            f"三期增幅：{float(result.get('holder_increase_pp', 0)):.2f} 個百分點",
+            f"量能倍數：{float(volume.get('volume_multiple', 0)):.2f}x（最新 {int(volume.get('latest_volume', 0)):,} / 前期中位數 {float(volume.get('baseline_median_volume', 0)):,.0f}）",
+            f"行情路由：{route.get('source') or 'unknown'}；行情日：{volume.get('market_date') or 'unknown'}；集保日：{result.get('holder_date') or 'unknown'}",
+            f"事件 ID：{event_key}",
+            "此訊息僅為資料監控，不構成投資建議。",
+        ])[:1800]
+        return self.send_alert("大戶增持 × 量能放大監控", message, "warning")
 
     def format_analysis(self, results: list) -> str:
         """格式化分析結果為 Discord Markdown 字串"""

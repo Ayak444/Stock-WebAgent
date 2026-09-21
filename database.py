@@ -66,6 +66,118 @@ class Database:
             print(f"Auth store health check failed: {type(exc).__name__}")
             return {"ok": False, "reason": "query_failed"}
 
+    def _require_holder_alert_store(self):
+        if not self.supabase:
+            raise RuntimeError("holder_alert_store_unavailable")
+        return self.supabase
+
+    def acquire_holder_alert_lock(self, owner: str, now: datetime) -> bool:
+        try:
+            result = self._require_holder_alert_store().rpc("claim_holder_alert_run", {
+                "p_owner": owner, "p_now": now.isoformat(), "p_lease_seconds": 900,
+            }).execute()
+            return bool(result.data)
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def release_holder_alert_lock(self, owner: str) -> bool:
+        try:
+            result = self._require_holder_alert_store().rpc(
+                "release_holder_alert_run", {"p_owner": owner}
+            ).execute()
+            return bool(result.data)
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def upsert_holder_alert_snapshot(self, snapshot: dict) -> None:
+        try:
+            self._require_holder_alert_store().table("holder_alert_snapshots").upsert(
+                snapshot, on_conflict="ticker,holder_date"
+            ).execute()
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def get_holder_alert_history(self, ticker: str, limit: int = 3) -> list:
+        try:
+            result = (
+                self._require_holder_alert_store().table("holder_alert_snapshots")
+                .select("holder_date,large_holder_ratio")
+                .eq("ticker", ticker).order("holder_date", desc=True)
+                .limit(max(1, min(int(limit), 3))).execute()
+            )
+            return list(result.data or [])
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def set_holder_alert_state(self, key: str, value: dict, now: datetime) -> None:
+        try:
+            self._require_holder_alert_store().table("holder_alert_state").upsert({
+                "state_key": key,
+                "state_value": value,
+                "updated_at": now.isoformat(),
+            }, on_conflict="state_key").execute()
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def get_holder_alert_state(self, key: str) -> dict:
+        try:
+            result = (
+                self._require_holder_alert_store().table("holder_alert_state")
+                .select("state_value").eq("state_key", key).limit(1).execute()
+            )
+            return dict(result.data[0].get("state_value") or {}) if result.data else {}
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def has_recent_sent_holder_alert(self, ticker: str, since: datetime) -> bool:
+        try:
+            result = (
+                self._require_holder_alert_store().table("holder_alert_events")
+                .select("event_key").eq("ticker", ticker).eq("status", "sent")
+                .gte("sent_at", since.isoformat()).limit(1).execute()
+            )
+            return bool(result.data)
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def claim_holder_alert_event(
+        self, event_key: str, ticker: str, holder_date: str, now: datetime
+    ) -> bool:
+        try:
+            result = self._require_holder_alert_store().rpc("claim_holder_alert_event", {
+                "p_event_key": event_key,
+                "p_ticker": ticker,
+                "p_holder_date": holder_date,
+                "p_now": now.isoformat(),
+            }).execute()
+            return bool(result.data)
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def mark_holder_alert_sent(self, event_key: str, now: datetime) -> None:
+        try:
+            result = self._require_holder_alert_store().table("holder_alert_events").update({
+                "status": "sent", "sent_at": now.isoformat(),
+                "retry_after": None, "updated_at": now.isoformat(),
+            }).eq("event_key", event_key).eq("status", "claimed").execute()
+            if not result.data:
+                raise RuntimeError("event_claim_lost")
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
+    def mark_holder_alert_failed(
+        self, event_key: str, now: datetime, retry_after: datetime
+    ) -> None:
+        try:
+            result = self._require_holder_alert_store().table("holder_alert_events").update({
+                "status": "failed", "retry_after": retry_after.isoformat(),
+                "updated_at": now.isoformat(),
+            }).eq("event_key", event_key).eq("status", "claimed").execute()
+            if not result.data:
+                raise RuntimeError("event_claim_lost")
+        except Exception as exc:
+            raise RuntimeError("holder_alert_store_unavailable") from exc
+
     def save_analysis(self, results: list):
         if not self.supabase: return
         records = []
