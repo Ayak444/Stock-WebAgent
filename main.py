@@ -41,6 +41,7 @@ from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
 from market_insights import market_insights
 from notifier import DiscordNotifier
+from volume_alerts import VolumeAlertConfig, VolumeAlertMonitor, should_startup_catchup
 from holder_volume_alerts import (
     HolderAlertConfig,
     HolderVolumeAlertMonitor,
@@ -176,6 +177,12 @@ async def run_holder_alert_monitor():
 async def run_holder_alert_startup_catchup():
     return await holder_alert_monitor.run(trigger="startup_catchup")
 
+async def run_volume_alert_monitor():
+    return await volume_alert_monitor.run(trigger="scheduled")
+
+async def run_volume_alert_startup_catchup():
+    return await volume_alert_monitor.run(trigger="startup_catchup")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 初始化資料庫連線與 WebSocket 系統 (需在任務隊列前完成)
@@ -213,6 +220,18 @@ async def lifespan(app: FastAPI):
                 run_holder_alert_startup_catchup,
             )
     
+    if volume_alert_config.ready:
+        job_runner.schedule_daily(
+            "daily_volume_alerts", "台股當日成交量放大監控",
+            run_volume_alert_monitor, hour=20, minute=30,
+            timezone_name="Asia/Taipei",
+        )
+        if should_startup_catchup():
+            await job_runner.run_high_priority(
+                "台股當日成交量放大監控（啟動補跑）",
+                run_volume_alert_startup_catchup,
+            )
+
     logger.info("✓ 定時任務已排程（每日 22:00；監控視設定啟用）")
     
     yield
@@ -242,6 +261,8 @@ holder_alert_monitor = HolderVolumeAlertMonitor(
     _load_holder_alert_market,
     notifier,
 )
+volume_alert_config = VolumeAlertConfig.from_env()
+volume_alert_monitor = VolumeAlertMonitor(volume_alert_config, _load_holder_alert_market, notifier)
 
 async def _analyze_targets_async(targets, mode="quick"):
     """
@@ -650,6 +671,7 @@ def health():
                 "items": cache_stats_data['total_items']
             },
             "holder_alerts": holder_alert_monitor.health_summary(),
+            "volume_alerts": volume_alert_monitor.status(),
         }
     }
 
@@ -658,6 +680,11 @@ def health():
 def holder_alert_status():
     """Return in-memory configuration/run status without DB or network access."""
     return holder_alert_monitor.status()
+
+@app.get("/api/volume-alerts/status")
+def volume_alert_status():
+    """Return in-memory volume-monitor status without market or secret reads."""
+    return volume_alert_monitor.status()
 
 
 @app.get("/health/auth")

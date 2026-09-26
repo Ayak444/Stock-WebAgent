@@ -75,6 +75,20 @@ class DiscordNotifier:
         ])[:1800]
         return self.send_alert("大戶增持 × 量能放大監控", message, "warning")
 
+    def send_volume_alert(self, ticker: str, volume: dict) -> bool:
+        """Report a completed trading day's volume expansion."""
+        source = volume.get("route", {}).get("source") or "unknown"
+        message = "\n".join([
+            f"股票：{ticker}",
+            f"交易日：{volume.get('market_date') or 'unknown'}",
+            f"當日成交量：{int(volume['latest_volume']):,}",
+            f"前 {int(volume['baseline_sessions'])} 個交易日成交量中位數：{float(volume['baseline_median_volume']):,.0f}",
+            f"量能倍數：{float(volume['volume_multiple']):.2f}x",
+            f"行情來源：{source}",
+            "此訊息僅為資料監控，不構成投資建議。",
+        ])
+        return self.send_alert("台股當日成交量放大通知", message, "warning")
+
     def format_analysis(self, results: list) -> str:
         """格式化分析結果為 Discord Markdown 字串"""
         lines = []
