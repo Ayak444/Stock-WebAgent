@@ -432,6 +432,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
       <button class="nav-btn" data-page="sentiment"><span class="icon">📡</span>市場情緒雷達</button>
       <button class="nav-btn" data-page="insights"><span class="icon">🔭</span>市場洞察</button>
       <button class="nav-btn" data-page="screener"><span class="icon">🎯</span>AI 關聯選股</button>
+      <button class="nav-btn" data-page="volume-settings"><span class="icon">🔔</span>成交量通知設定</button>
     </nav>
     <div class="sidebar-footer">
       <button class="nav-btn" onclick="checkHealth()"><span class="icon">⚙️</span>測試系統連線</button>
@@ -451,6 +452,22 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
     </header>
 
     <div class="content">
+
+      <div class="page" id="page-volume-settings">
+        <div class="page-header"><div><h2>成交量 Discord 通知</h2><p class="sub">每個帳號分別管理股票與接收頻道；每日收盤後檢查。</p></div></div>
+        <div class="card" style="max-width:720px;padding:24px">
+          <p id="volume-settings-state" style="margin-bottom:16px">正在確認登入狀態…</p>
+          <div id="volume-settings-form" style="display:none">
+            <label for="volume-tickers">股票代號（逗號分隔，最多 20 檔）</label>
+            <input class="input" id="volume-tickers" type="text" placeholder="2330.TW,6488.TWO" autocomplete="off" style="width:100%;margin:8px 0 18px">
+            <label for="volume-webhook">Discord Webhook（留空表示保留目前設定）</label>
+            <input class="input" id="volume-webhook" type="password" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" style="width:100%;margin:8px 0">
+            <p id="volume-webhook-state" style="font-size:12px;color:var(--slate-400);margin:4px 0 12px"></p>
+            <label style="display:flex;gap:8px;align-items:center;margin-bottom:16px"><input id="volume-remove-webhook" type="checkbox">移除現有 Webhook</label>
+            <button class="btn-analyze" id="volume-save-btn" onclick="saveVolumeSettings()">儲存通知設定</button>
+          </div>
+        </div>
+      </div>
 
       <!-- ========== PAGE: Home ========== -->
       <div class="page active" id="page-war">
@@ -851,15 +868,7 @@ let currentChatbotId = null;
 let screenerTargets = [];
 let positions = [];
 let currentUser = null;
-try {
-  const storedUser = localStorage.getItem('trade_user');
-  if (storedUser && storedUser !== 'undefined') {
-    currentUser = JSON.parse(storedUser);
-  }
-} catch (e) {
-  console.warn("Invalid trade_user in localStorage, clearing it.");
-  localStorage.removeItem('trade_user');
-}
+localStorage.removeItem('trade_user');
 let authMode = 'login';
 let klineDays = 180;
 let currentKlineTicker = '';
@@ -915,6 +924,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
   const opts = {
     method: m,
+    credentials: 'same-origin',
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
@@ -957,7 +967,13 @@ function showToast(message, type = 'info', duration = 4000) {
   const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span>${icons[type] || ''} ${message}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  const body = document.createElement('span');
+  body.textContent = `${icons[type] || ''} ${message}`;
+  const close = document.createElement('button');
+  close.className = 'toast-close';
+  close.textContent = '✕';
+  close.addEventListener('click', () => toast.remove());
+  toast.append(body, close);
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.animation = 'toastOut .3s ease forwards';
@@ -971,7 +987,8 @@ function showToast(message, type = 'info', duration = 4000) {
 const pageTitles = {
   war: '首頁', stress: '資產壓力測試', tech: '異質技術分析',
   kline: '個股 K 線圖', backtest: '策略回測', news: '新聞知識圖譜',
-  sentiment: '市場情緒雷達', insights: '市場洞察', screener: 'AI 關聯選股'
+  sentiment: '市場情緒雷達', insights: '市場洞察', screener: 'AI 關聯選股',
+  'volume-settings': '成交量通知設定'
 };
 
 let marketInsightsLoaded = false;
@@ -985,6 +1002,7 @@ function navigateTo(pageName) {
   if (target) target.classList.add('active');
   document.title = `${pageTitles[pageName] || ''} - 股金往來`;
   if (pageName === 'insights' && !marketInsightsLoaded) fetchMarketInsights();
+  if (pageName === 'volume-settings') loadVolumeSettings();
   // Close sidebar on mobile
   if (window.innerWidth <= 768) {
     document.getElementById('sidebar').classList.remove('open');
@@ -1121,10 +1139,10 @@ async function handleAuthSubmit() {
     const res = await apiCall('/auth/login', 'POST', { email, password });
     if (res.status === 'success') {
       currentUser = res.user;
-      localStorage.setItem('trade_user', JSON.stringify(res.user));
       closeModal('auth-modal');
       updateAuthUI();
       loadPositionsFromServer();
+      if (document.getElementById('page-volume-settings').classList.contains('active')) loadVolumeSettings();
       showToast(`歡迎回來，${res.user.name || res.user.email}！`, 'success');
       
       // Trigger dashboard transition if landing is still active
@@ -1140,22 +1158,99 @@ async function handleAuthSubmit() {
   }
 }
 
-function logout() {
+async function logout() {
+  const result = await apiCall('/auth/logout', 'POST');
+  if (result.status !== 'success') {
+    showToast(result.message || '登出失敗，請稍後再試', 'error');
+    return;
+  }
   currentUser = null;
-  localStorage.removeItem('trade_user');
   positions = [];
   renderPositions();
   updateAuthUI();
+  loadVolumeSettings();
   showToast('已成功登出', 'info');
 }
 
 function updateAuthUI() {
   const authSec = document.getElementById('auth-section');
+  authSec.replaceChildren();
   if (currentUser) {
-    authSec.innerHTML = `<span style="color:#fff;font-size:13px;font-weight:700">👤 ${currentUser.name || currentUser.email}</span>
-      <button class="btn-ghost" onclick="logout()" style="font-size:12px;color:var(--slate-400)">登出</button>`;
+    const label = document.createElement('span');
+    label.style.cssText = 'color:#fff;font-size:13px;font-weight:700';
+    label.textContent = `👤 ${currentUser.name || currentUser.email}`;
+    const button = document.createElement('button');
+    button.className = 'btn-ghost';
+    button.style.cssText = 'font-size:12px;color:var(--slate-400)';
+    button.textContent = '登出';
+    button.addEventListener('click', logout);
+    authSec.append(label, button);
   } else {
-    authSec.innerHTML = `<button class="btn-analyze" style="padding:6px 14px;font-size:12px" onclick="showAuthModal('login')">登入 / 註冊</button>`;
+    const button = document.createElement('button');
+    button.className = 'btn-analyze';
+    button.style.cssText = 'padding:6px 14px;font-size:12px';
+    button.textContent = '登入 / 註冊';
+    button.addEventListener('click', () => showAuthModal('login'));
+    authSec.append(button);
+  }
+}
+
+async function restoreAuth() {
+  const res = await apiCall('/auth/me');
+  currentUser = res.status === 'success' ? res.user : null;
+  updateAuthUI();
+  if (currentUser) loadPositionsFromServer();
+  if (document.getElementById('page-volume-settings').classList.contains('active')) loadVolumeSettings();
+}
+
+async function loadVolumeSettings() {
+  const state = document.getElementById('volume-settings-state');
+  const form = document.getElementById('volume-settings-form');
+  form.style.display = 'none';
+  document.getElementById('volume-webhook').value = '';
+  if (!currentUser) {
+    state.textContent = '請先登入，再設定專屬的股票與 Discord Webhook。';
+    return;
+  }
+  state.textContent = '正在讀取設定…';
+  const result = await apiCall('/api/account/volume-alerts');
+  if (result.status === 'error') {
+    state.textContent = result.message || '暫時無法讀取設定';
+    return;
+  }
+  document.getElementById('volume-tickers').value = (result.tickers || []).join(',');
+  document.getElementById('volume-webhook-state').textContent = result.webhook_configured
+    ? '目前已有 Webhook；伺服器不會回傳原始網址。' : '尚未設定 Webhook；可先儲存股票清單。';
+  document.getElementById('volume-remove-webhook').checked = false;
+  state.textContent = '設定已載入';
+  form.style.display = 'block';
+}
+
+async function saveVolumeSettings() {
+  const state = document.getElementById('volume-settings-state');
+  const button = document.getElementById('volume-save-btn');
+  const tickerText = document.getElementById('volume-tickers').value;
+  const webhookInput = document.getElementById('volume-webhook');
+  button.disabled = true;
+  state.textContent = '儲存中…';
+  try {
+    const result = await apiCall('/api/account/volume-alerts', 'PUT', {
+      tickers: tickerText.split(',').map(item => item.trim()).filter(Boolean),
+      webhook: webhookInput.value || null,
+      remove_webhook: document.getElementById('volume-remove-webhook').checked
+    });
+    webhookInput.value = '';
+    if (result.status === 'error') {
+      state.textContent = result.message || '儲存失敗';
+    } else {
+      state.textContent = '設定已儲存';
+      document.getElementById('volume-tickers').value = (result.tickers || []).join(',');
+      document.getElementById('volume-webhook-state').textContent = result.webhook_configured
+        ? 'Webhook 已設定；原始網址不會顯示。' : '尚未設定 Webhook。';
+      document.getElementById('volume-remove-webhook').checked = false;
+    }
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -2404,14 +2499,10 @@ function init() {
   fetchStockNames();
   checkHealth();
   updateAuthUI();
-  
-  if (currentUser) {
-    document.getElementById('hero-main-btn').innerText = '進入您的儀表板 ➔';
-  }
+  restoreAuth();
   
   initLanding();
 
-  loadPositionsFromServer();
   fetchRankings();
   fetchMarketStatus();
   updateClock();

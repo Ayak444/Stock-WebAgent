@@ -66,6 +66,89 @@ class Database:
             print(f"Auth store health check failed: {type(exc).__name__}")
             return {"ok": False, "reason": "query_failed"}
 
+    def _require_account_store(self):
+        if not self.supabase:
+            raise RuntimeError("account_alert_store_unavailable")
+        return self.supabase
+
+    def check_account_volume_store(self) -> bool:
+        try:
+            self._require_account_store().table("account_volume_alert_settings").select(
+                "user_id"
+            ).limit(1).execute()
+            return True
+        except Exception:
+            return False
+
+    def get_public_user(self, user_id: str) -> dict | None:
+        try:
+            result = self._require_account_store().table("users").select(
+                "id,name,email,virtual_balance,created_at"
+            ).eq("id", user_id).limit(1).execute()
+            return dict(result.data[0]) if result.data else None
+        except Exception as exc:
+            raise RuntimeError("account_alert_store_unavailable") from exc
+
+    def get_account_volume_settings(self, user_id: str) -> dict:
+        try:
+            result = self._require_account_store().table("account_volume_alert_settings").select(
+                "tickers,webhook_ciphertext"
+            ).eq("user_id", user_id).limit(1).execute()
+            return dict(result.data[0]) if result.data else {"tickers": [], "webhook_ciphertext": None}
+        except Exception as exc:
+            raise RuntimeError("account_alert_store_unavailable") from exc
+
+    def save_account_volume_settings(self, user_id: str, settings: dict) -> None:
+        try:
+            self._require_account_store().table("account_volume_alert_settings").upsert(
+                {"user_id": user_id, **settings}, on_conflict="user_id"
+            ).execute()
+        except Exception as exc:
+            raise RuntimeError("account_alert_store_unavailable") from exc
+
+    def list_account_volume_settings(self) -> list[dict]:
+        try:
+            client = self._require_account_store()
+            rows: list[dict] = []
+            page_size = 500
+            for start in range(0, 100000, page_size):
+                result = client.table("account_volume_alert_settings").select(
+                    "user_id,tickers,webhook_ciphertext"
+                ).range(start, start + page_size - 1).execute()
+                batch = list(result.data or [])
+                rows.extend(item for item in batch if item.get("webhook_ciphertext"))
+                if len(batch) < page_size:
+                    return rows
+            raise RuntimeError("account_alert_store_unavailable")
+        except Exception as exc:
+            raise RuntimeError("account_alert_store_unavailable") from exc
+
+    def claim_account_volume_event(self, user_id: str, ticker: str, market_date: str, now: datetime) -> bool:
+        try:
+            result = self._require_account_store().rpc("claim_account_volume_event", {
+                "p_user_id": user_id, "p_ticker": ticker,
+                "p_market_date": market_date, "p_now": now.isoformat(),
+            }).execute()
+            return bool(result.data)
+        except Exception as exc:
+            raise RuntimeError("account_alert_store_unavailable") from exc
+
+    def finish_account_volume_event(self, user_id: str, ticker: str, market_date: str,
+                                    status: str, now: datetime) -> None:
+        if status not in {"sent", "failed"}:
+            raise ValueError("invalid_event_status")
+        try:
+            result = self._require_account_store().table("account_volume_alert_events").update({
+                "status": status, "sent_at": now.isoformat() if status == "sent" else None,
+                "updated_at": now.isoformat(),
+            }).eq("user_id", user_id).eq("ticker", ticker).eq(
+                "market_date", market_date
+            ).eq("status", "claimed").execute()
+            if not result.data:
+                raise RuntimeError("event_claim_lost")
+        except Exception as exc:
+            raise RuntimeError("account_alert_store_unavailable") from exc
+
     def _require_holder_alert_store(self):
         if not self.supabase:
             raise RuntimeError("holder_alert_store_unavailable")

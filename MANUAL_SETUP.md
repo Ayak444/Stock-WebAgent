@@ -35,12 +35,14 @@
 
 本版不是自我學習最佳化演算法，也未完成全站權限改造、上櫃官方備援或正式環境連線驗收。登入根因仍須以實際部署的 `/health/auth`、登入 HTTP 回應和服務日誌確認。
 
-## 當日成交量放大 Discord 通知
+## 每帳號成交量放大 Discord 通知
 
-這項監控獨立於大戶與 Supabase。收盤日線成交量須達前 15–20 個交易日正成交量中位數的 `VOLUME_ALERT_MULTIPLIER` 倍（預設 1.5），且行情最後日期必須是台北時間當天，才發送通知。設定清單最多 20 檔，格式例如 `2330.TW,6488.TWO`。
+**目前 `/health/auth` 回傳 HTTP 503、`auth_store=not_configured`；在 Render 完成 Supabase 設定前，登入及每帳號通知不可用。** 收盤日線成交量須達前 15–20 個交易日正成交量中位數的 `VOLUME_ALERT_MULTIPLIER` 倍（預設 1.5），行情最後日期必須是台北時間當天才會發送。每帳號最多 20 檔。
 
-1. 在 Discord 頻道建立專用 Webhook，將完整 URL **只**填到 Render Environment 的 `DISCORD_WEBHOOK_URL`。請勿貼到對話、原始碼或前端。
-2. 在 Render Environment 設定 `VOLUME_ALERT_TICKERS`、`VOLUME_ALERT_ENABLED=true`；若要改倍數，設定大於 1 的 `VOLUME_ALERT_MULTIPLIER`（例如 `2.0`）。儲存後重新部署。`SUPABASE_*` 與大戶監控欄位不是此功能的必要條件。
-3. 開啟 `/api/volume-alerts/status` 查看 `configuration=ready`。每日 20:30 Asia/Taipei 執行，20:30–21:30 內每次啟動都可能補跑；若服務在同一交易日多次重啟，也可能重送 Discord。若資料還未更新到當天，該次不發送；可從 `last_summary` 查看執行筆數與寄送筆數。沒有符合條件的股票時不會發訊息。
+1. 在 Render 設定正確同一專案的 `SUPABASE_URL` 與後端 `SUPABASE_KEY`（service role / secret）。先確認 `/health/auth` 回傳 ready。
+2. 備份 Supabase，在 SQL Editor 執行 `migrations/003_account_volume_alerts.sql`。確認兩張新表 RLS 已開啟，且 anon/authenticated 無權讀寫。
+3. 在 Render 產生互相獨立的 `AUTH_SESSION_SECRET`（至少 32 字元）及 `ALERT_WEBHOOK_ENCRYPTION_KEY`（執行 `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` 取得，**不要把輸出貼到對話或提交到 Git**）。遺失 Fernet 金鑰後，先前儲存的 Webhook 無法解密，需用戶重新輸入。
+4. 設定 `VOLUME_ALERT_ENABLED=true`，視需求調整 `VOLUME_ALERT_MULTIPLIER`（大於 1），儲存並部署。`VOLUME_ALERT_TICKERS` 是舊全域設定，個人通知不再使用；`DISCORD_WEBHOOK_URL` 仍供其他全域任務使用，個人通知不會借用。
+5. 每位使用者登入網站，在「成交量通知設定」填入 `2330.TW,6488.TWO` 之類的股票代號，以及自己頻道的官方 HTTPS Discord Webhook。網址在伺服器加密保存，讀取設定只顯示是否存在，不顯示原文。
 
-同一程序中每檔每個交易日最多成功發送一次；服務重啟後記憶體去重會清空，即使在補跑窗口內仍可能重送。若要跨重啟嚴格去重，後續需加入持久儲存。Render Free 休眠時無法保證 20:30 排程執行；需要準時通知請採用不休眠的服務或外部排程喚醒。
+每日 20:30 Asia/Taipei 執行，20:30–21:30 內啟動可補跑。同一帳號、股票、交易日的成功發送由資料庫去重；發送失敗可重試。Discord 已接受訊息、但資料庫尚未記錄成功時，仍可能因重試重送。Render Free 休眠可能錯過排程；需要準時通知應使用常駐服務或外部排程。

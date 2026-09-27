@@ -12,7 +12,9 @@ import requests as http_requests
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 from uuid import uuid4
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Query, Request, Response, Depends
+from pydantic import BaseModel
+from urllib.parse import urlsplit
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -41,7 +43,10 @@ from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
 from market_insights import market_insights
 from notifier import DiscordNotifier
-from volume_alerts import VolumeAlertConfig, VolumeAlertMonitor, should_startup_catchup
+from volume_alerts import AccountVolumeAlertConfig, AccountVolumeAlertMonitor, should_startup_catchup
+from account_alert_security import (SESSION_COOKIE, SESSION_AGE_SECONDS, issue_session,
+                                    read_session, encrypt_webhook)
+from holder_volume_alerts import parse_alert_tickers
 from holder_volume_alerts import (
     HolderAlertConfig,
     HolderVolumeAlertMonitor,
@@ -261,8 +266,8 @@ holder_alert_monitor = HolderVolumeAlertMonitor(
     _load_holder_alert_market,
     notifier,
 )
-volume_alert_config = VolumeAlertConfig.from_env()
-volume_alert_monitor = VolumeAlertMonitor(volume_alert_config, _load_holder_alert_market, notifier)
+volume_alert_config = AccountVolumeAlertConfig.from_env()
+volume_alert_monitor = AccountVolumeAlertMonitor(volume_alert_config, db, _load_holder_alert_market)
 
 async def _analyze_targets_async(targets, mode="quick"):
     """
@@ -683,8 +688,13 @@ def holder_alert_status():
 
 @app.get("/api/volume-alerts/status")
 def volume_alert_status():
-    """Return in-memory volume-monitor status without market or secret reads."""
-    return volume_alert_monitor.status()
+    """Expose configuration and store availability without secrets or account data."""
+    status = volume_alert_monitor.status()
+    if status["configuration"] == "configured":
+        status["store"] = "ready" if db.check_account_volume_store() else "unavailable"
+        if status["store"] != "ready":
+            status["configuration"] = "store_unavailable"
+    return status
 
 
 @app.get("/health/auth")
@@ -1080,16 +1090,117 @@ def signup(req: AuthRequest):
         logger.exception("註冊服務發生錯誤")
         raise HTTPException(status_code=503, detail="註冊服務暫時無法使用，請稍後再試")
 
+def _require_same_origin(request: Request) -> None:
+    origin = request.headers.get("origin", "")
+    if not origin:
+        raise HTTPException(status_code=403, detail="請從本網站執行操作")
+    try:
+        parsed = urlsplit(origin)
+        host = request.headers.get("host", "")
+        scheme = request.headers.get("x-forwarded-proto", request.url.scheme).split(",", 1)[0].strip()
+        if parsed.scheme not in {"http", "https"} or parsed.netloc != host or parsed.scheme != scheme:
+            raise ValueError
+    except ValueError:
+        raise HTTPException(status_code=403, detail="跨網站操作遭拒絕")
+
+
+def _secure_session_cookie(request: Request) -> bool:
+    """Allow plain HTTP cookies only for direct loopback development."""
+    return not (request.url.hostname in {"localhost", "127.0.0.1"}
+                and request.url.scheme == "http")
+
+
+def _account_user(request: Request) -> dict:
+    try:
+        user_id = read_session(request.cookies.get(SESSION_COOKIE))
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="登入設定尚未完成")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="請先登入")
+    try:
+        user = db.get_public_user(user_id)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="帳號資料庫暫時無法使用")
+    if not user:
+        raise HTTPException(status_code=401, detail="登入狀態已失效")
+    return user
+
+
+class AccountVolumeSettingsRequest(BaseModel):
+    tickers: list[str]
+    webhook: str | None = None
+    remove_webhook: bool = False
+
+
 @app.post("/auth/login")
-def login(req: AuthRequest):
+def login(req: AuthRequest, request: Request, response: Response):
+    _require_same_origin(request)
     try:
         user = db.verify_user(req.email, req.password)
     except RuntimeError:
         logger.exception("登入資料庫查詢失敗")
         raise HTTPException(status_code=503, detail="登入服務暫時無法使用，請檢查資料庫設定")
     if user:
+        try:
+            token = issue_session(user["id"])
+        except RuntimeError:
+            raise HTTPException(status_code=503, detail="登入設定尚未完成")
+        response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_AGE_SECONDS,
+                            httponly=True, secure=_secure_session_cookie(request),
+                            samesite="lax", path="/")
         return {"status": "success", "user": user}
     raise HTTPException(status_code=401, detail="信箱或密碼錯誤")
+
+
+@app.get("/auth/me")
+def auth_me(user: dict = Depends(_account_user)):
+    return {"status": "success", "user": user}
+
+
+@app.post("/auth/logout")
+def auth_logout(request: Request, response: Response):
+    _require_same_origin(request)
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True,
+                           secure=_secure_session_cookie(request), samesite="lax")
+    return {"status": "success"}
+
+
+@app.get("/api/account/volume-alerts")
+def get_account_volume_alerts(user: dict = Depends(_account_user)):
+    try:
+        settings = db.get_account_volume_settings(user["id"])
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="通知設定資料庫暫時無法使用")
+    return {"tickers": settings.get("tickers") or [],
+            "webhook_configured": bool(settings.get("webhook_ciphertext"))}
+
+
+@app.put("/api/account/volume-alerts")
+def put_account_volume_alerts(payload: AccountVolumeSettingsRequest,
+                              request: Request, user: dict = Depends(_account_user)):
+    _require_same_origin(request)
+    try:
+        tickers = parse_alert_tickers(",".join(payload.tickers))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if payload.remove_webhook and payload.webhook:
+        raise HTTPException(status_code=422, detail="請選擇更換或移除 Webhook")
+    try:
+        current = db.get_account_volume_settings(user["id"])
+        ciphertext = current.get("webhook_ciphertext")
+        if payload.remove_webhook:
+            ciphertext = None
+        elif payload.webhook:
+            ciphertext = encrypt_webhook(payload.webhook)
+        db.save_account_volume_settings(user["id"], {
+            "tickers": list(tickers), "webhook_ciphertext": ciphertext,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Discord Webhook 格式不正確")
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="通知設定資料庫或加密設定暫時無法使用")
+    return {"tickers": list(tickers), "webhook_configured": bool(ciphertext)}
 
 @app.get("/api/sentiment", response_model=SentimentResponse)
 async def get_sentiment():
