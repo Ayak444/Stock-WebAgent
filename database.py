@@ -4,6 +4,8 @@ import base64
 import hashlib
 import hmac
 import secrets
+import logging
+import re
 from datetime import datetime
 import pandas as pd
 from supabase import create_client, Client
@@ -13,6 +15,15 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 PASSWORD_SCHEME = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 600_000
+logger = logging.getLogger(__name__)
+
+
+class DuplicateEmailError(ValueError):
+    """The email already belongs to an account."""
+
+
+class RegistrationStoreError(RuntimeError):
+    """Registration could not write to the account database."""
 
 
 def _hash_password(password: str) -> str:
@@ -447,8 +458,11 @@ class Database:
             return False
     
     def create_user(self, email, password, name):
-        if not self.supabase: 
-            raise Exception("Supabase 連線失敗：遺失 SUPABASE_URL 或 SUPABASE_KEY")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("請輸入名稱")
+        name = name.strip()
+        if not self.supabase:
+            raise RegistrationStoreError("not_configured")
             
         if len(password) < 8:
             raise ValueError("密碼至少需要 8 個字元")
@@ -463,11 +477,17 @@ class Database:
         try:
             res = self.supabase.table("users").insert(data).execute()
             if not res.data:
-                raise Exception("寫入成功但未回傳資料，請檢查 Supabase RLS 設定")
+                raise RegistrationStoreError("empty_insert_result")
             return _public_user(res.data[0])
-        except Exception as e:
-            print(f"\\n[⚠️ 註冊錯誤] {str(e)}\\n")
-            raise Exception(f"資料庫錯誤: {str(e)}")
+        except RegistrationStoreError:
+            raise
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code == "23505":
+                raise DuplicateEmailError("此電子郵件已註冊") from None
+            safe_code = code if isinstance(code, str) and re.fullmatch(r"[A-Z0-9]{5}", code) else "unknown"
+            logger.error("Registration insert failed: type=%s code=%s", type(exc).__name__, safe_code)
+            raise RegistrationStoreError("insert_failed") from None
 
     def verify_user(self, email, password):
         if not self.supabase:

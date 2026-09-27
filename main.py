@@ -38,7 +38,7 @@ from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
 from news_crawler import NewsCrawler
-from database import Database
+from database import Database, DuplicateEmailError, RegistrationStoreError
 from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
 from market_insights import market_insights
@@ -1081,14 +1081,20 @@ def execute_trade(req: TradeRequest):
 def signup(req: AuthRequest):
     try:
         user = db.create_user(req.email, req.password, req.name)
-        if user:
-            return {"status": "success", "user": user}
-        raise HTTPException(status_code=400, detail="註冊失敗")
+    except DuplicateEmailError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        logger.exception("註冊服務發生錯誤")
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    except RegistrationStoreError as exc:
+        logger.error("Registration store unavailable: reason=%s", exc)
+        raise HTTPException(status_code=503, detail="註冊服務暫時無法使用，請稍後再試") from None
+    except Exception as exc:
+        logger.error("Registration service failed: type=%s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="註冊服務暫時無法使用，請稍後再試") from None
+    if not user:
+        logger.error("Registration service returned no user")
         raise HTTPException(status_code=503, detail="註冊服務暫時無法使用，請稍後再試")
+    return {"status": "success", "user": user}
 
 def _require_same_origin(request: Request) -> None:
     origin = request.headers.get("origin", "")
