@@ -1271,14 +1271,40 @@ async function syncPositions() {
 
 function renderPositions() {
   const types = ['台股', 'ETF'];
-  document.getElementById('positions-list').innerHTML = positions.map((p, i) => `
-    <div class="position-grid" style="margin-bottom:8px">
-      <input class="input" value="${p.code}" onchange="positions[${i}].code=normalizeTicker(this.value);syncPositions();renderPositions();" placeholder="例如: 2330">
-      <select class="input" onchange="positions[${i}].type=this.value;syncPositions()">${types.map(t => `<option ${t === p.type ? 'selected' : ''}>${t}</option>`).join('')}</select>
-      <input class="input" type="number" value="${p.cost}" onchange="positions[${i}].cost=this.value;syncPositions()">
-      <input class="input" type="number" value="${p.shares}" onchange="positions[${i}].shares=this.value;syncPositions()">
-      <button class="btn-remove" onclick="removePosition(${i})">×</button>
-    </div>`).join('');
+  const list = document.getElementById('positions-list');
+  list.replaceChildren();
+  positions.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'position-grid';
+    row.style.marginBottom = '8px';
+    const code = document.createElement('input');
+    code.className = 'input';
+    code.value = p.code ?? '';
+    code.placeholder = '例如: 2330';
+    code.addEventListener('change', () => {
+      positions[i].code = normalizeTicker(code.value);
+      syncPositions(); renderPositions();
+    });
+    const type = document.createElement('select');
+    type.className = 'input';
+    types.forEach(label => {
+      const option = document.createElement('option');
+      option.value = label; option.textContent = label; option.selected = label === p.type;
+      type.appendChild(option);
+    });
+    type.addEventListener('change', () => { positions[i].type = type.value; syncPositions(); });
+    const cost = document.createElement('input');
+    cost.className = 'input'; cost.type = 'number'; cost.value = p.cost ?? '';
+    cost.addEventListener('change', () => { positions[i].cost = cost.value; syncPositions(); });
+    const shares = document.createElement('input');
+    shares.className = 'input'; shares.type = 'number'; shares.value = p.shares ?? '';
+    shares.addEventListener('change', () => { positions[i].shares = shares.value; syncPositions(); });
+    const remove = document.createElement('button');
+    remove.className = 'btn-remove'; remove.textContent = '×';
+    remove.addEventListener('click', () => removePosition(i));
+    row.append(code, type, cost, shares, remove);
+    list.appendChild(row);
+  });
 }
 
 function addPosition() {
@@ -1315,15 +1341,26 @@ function removeScreenerTarget(idx) { screenerTargets.splice(idx, 1); renderScree
 
 function renderScreenerTargets() {
   const list = document.getElementById('screener-target-list');
+  list.replaceChildren();
   if (screenerTargets.length === 0) {
-    list.innerHTML = '<span style="color:var(--slate-500);font-size:13px;line-height:30px">尚未設定目標標的...</span>';
+    const empty = document.createElement('span');
+    empty.style.cssText = 'color:var(--slate-500);font-size:13px;line-height:30px';
+    empty.textContent = '尚未設定目標標的...';
+    list.appendChild(empty);
     return;
   }
-  list.innerHTML = screenerTargets.map((t, i) => `
-    <div style="background:var(--slate-800);padding:5px 14px;border-radius:var(--radius-full);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;color:#fff;border:1px solid var(--slate-700)">
-      ${displayTicker(t)}
-      <button onclick="removeScreenerTarget(${i})" style="background:var(--slate-700);border:none;color:var(--slate-400);width:20px;height:20px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:.2s" onmouseover="this.style.background='var(--red-500)';this.style.color='#fff'" onmouseout="this.style.background='var(--slate-700)';this.style.color='var(--slate-400)'">✕</button>
-    </div>`).join('');
+  screenerTargets.forEach((ticker, i) => {
+    const chip = document.createElement('div');
+    chip.style.cssText = 'background:var(--slate-800);padding:5px 14px;border-radius:var(--radius-full);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;color:#fff;border:1px solid var(--slate-700)';
+    const label = document.createElement('span');
+    label.textContent = displayTicker(ticker);
+    const remove = document.createElement('button');
+    remove.style.cssText = 'background:var(--slate-700);border:none;color:var(--slate-400);width:20px;height:20px;border-radius:50%;cursor:pointer';
+    remove.textContent = '✕';
+    remove.addEventListener('click', () => removeScreenerTarget(i));
+    chip.append(label, remove);
+    list.appendChild(chip);
+  });
 }
 
 // ============================
@@ -1336,26 +1373,50 @@ async function fetchWarData() {
   document.getElementById('war-news').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   const aiRes = await apiCall('/auto_news');
+  const aiSummary = document.getElementById('war-ai-summary');
   if (aiRes.status === 'success') {
-    document.getElementById('war-ai-summary').innerHTML = `<div class="advice-box advice-blue" style="margin:0"><p class="desc">${aiRes.summary}</p></div>`;
+    const box = document.createElement('div');
+    box.className = 'advice-box advice-blue'; box.style.margin = '0';
+    const description = document.createElement('p');
+    description.className = 'desc'; description.textContent = aiRes.summary ?? '';
+    box.appendChild(description); aiSummary.replaceChildren(box);
   } else {
-    document.getElementById('war-ai-summary').innerHTML = `<p style="color:var(--red-400)">${aiRes.message}</p>`;
+    const error = document.createElement('p');
+    error.style.color = 'var(--red-400)'; error.textContent = aiRes.message || '摘要暫時無法取得';
+    aiSummary.replaceChildren(error);
   }
 
   const newsRes = await apiCall('/news?limit=10');
   if (newsRes.status === 'success') {
-    document.getElementById('war-news').innerHTML = newsRes.data.map(n => `
-      <details style="background:rgba(51,65,85,0.25);border:1px solid var(--glass-border);padding:14px;border-radius:var(--radius-md);margin-bottom:8px;transition:.3s">
-        <summary style="cursor:pointer;outline:none;display:flex;gap:10px;align-items:flex-start">
-          <span style="font-size:11px;color:var(--slate-600);width:100px;flex-shrink:0;font-family:monospace;font-weight:500">${n.published}</span>
-          <span class="badge badge-slate" style="flex-shrink:0">${n.source}</span>
-          <span style="font-size:14px;color:var(--slate-200);font-weight:600;flex:1;line-height:1.5">${n.title}</span>
-        </summary>
-        <div style="padding-top:12px;margin-top:12px;border-top:1px dashed var(--slate-700);color:var(--slate-300);font-size:13px;line-height:1.7">
-          ${n.summary}
-          <div style="margin-top:10px"><a href="${n.link}" target="_blank" style="color:var(--blue-400);text-decoration:none;font-weight:600;font-size:13px">閱讀全文 ⭧</a></div>
-        </div>
-      </details>`).join('');
+    const news = document.getElementById('war-news');
+    news.replaceChildren();
+    (newsRes.data || []).forEach(n => {
+      const details = document.createElement('details');
+      details.style.cssText = 'background:rgba(51,65,85,0.25);border:1px solid var(--glass-border);padding:14px;border-radius:var(--radius-md);margin-bottom:8px';
+      const summary = document.createElement('summary');
+      summary.style.cssText = 'cursor:pointer;display:flex;gap:10px;align-items:flex-start';
+      const published = document.createElement('span');
+      published.style.cssText = 'font-size:11px;color:var(--slate-600);width:100px;flex-shrink:0;font-family:monospace';
+      published.textContent = n.published ?? '';
+      const source = document.createElement('span');
+      source.className = 'badge badge-slate'; source.textContent = n.source ?? '';
+      const title = document.createElement('span');
+      title.style.cssText = 'font-size:14px;color:var(--slate-200);font-weight:600;flex:1;line-height:1.5';
+      title.textContent = n.title ?? '';
+      summary.append(published, source, title);
+      const body = document.createElement('div');
+      body.style.cssText = 'padding-top:12px;margin-top:12px;border-top:1px dashed var(--slate-700);color:var(--slate-300);font-size:13px;line-height:1.7';
+      body.appendChild(document.createTextNode(n.summary ?? ''));
+      const url = safeNewsUrl(n.link);
+      if (url) {
+        const linkBox = document.createElement('div'); linkBox.style.marginTop = '10px';
+        const link = document.createElement('a');
+        link.setAttribute('href', url); link.target = '_blank'; link.rel = 'noopener noreferrer';
+        link.style.cssText = 'color:var(--blue-400);text-decoration:none;font-weight:600;font-size:13px';
+        link.textContent = '閱讀全文 ⭧'; linkBox.appendChild(link); body.appendChild(linkBox);
+      }
+      details.append(summary, body); news.appendChild(details);
+    });
   }
   btn.disabled = false;
 }
@@ -1396,14 +1457,14 @@ async function runStressTest() {
       return `
         <div class="card" style="margin-bottom:0"><div class="card-body">
           <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-            <span style="font-size:18px;font-weight:800;color:#fff">${displayTicker(r.ticker)}</span>
+            <span style="font-size:18px;font-weight:800;color:#fff">${escapeRoutingText(displayTicker(r.ticker))}</span>
             <span style="font-weight:800;font-size:16px;color:${color}">${r.pl >= 0 ? '+' : ''}${fmt(r.pl)}%</span>
           </div>
-          <div style="font-size:13px;color:var(--slate-400);margin-bottom:12px">現價: $${fmt(r.price)} | 估值: ${r.valuation}</div>
-          <div style="margin-bottom:10px"><span class="badge ${adviceColor}" style="font-size:12px;padding:4px 12px">策略: ${r.advice} (分:${r.score})</span></div>
-          <div style="font-size:12px;color:var(--red-400);margin-bottom:14px">⚠ ${r.exit}</div>
+          <div style="font-size:13px;color:var(--slate-400);margin-bottom:12px">現價: $${fmt(r.price)} | 估值: ${escapeRoutingText(r.valuation)}</div>
+          <div style="margin-bottom:10px"><span class="badge ${adviceColor}" style="font-size:12px;padding:4px 12px">策略: ${escapeRoutingText(r.advice)} (分:${fmt(r.score, 0)})</span></div>
+          <div style="font-size:12px;color:var(--red-400);margin-bottom:14px">⚠ ${escapeRoutingText(r.exit)}</div>
           <div style="background:rgba(15,23,42,0.4);padding:12px;border-radius:var(--radius-sm)">
-            ${r.signals.map(s => `<div style="font-size:12px;color:var(--slate-300);margin-bottom:4px">• ${s}</div>`).join('') || '<span style="font-size:12px;color:var(--slate-500)">無特殊訊號</span>'}
+            ${(r.signals || []).map(s => `<div style="font-size:12px;color:var(--slate-300);margin-bottom:4px">• ${escapeRoutingText(s)}</div>`).join('') || '<span style="font-size:12px;color:var(--slate-500)">無特殊訊號</span>'}
           </div>
         </div></div>`;
     }).join('');
@@ -1413,7 +1474,7 @@ async function runStressTest() {
       <div class="card">
         <div class="card-header" style="font-size:16px">📊 投資組合總結</div>
         <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
-          <div><span style="color:var(--slate-400);font-size:13px">外匯狀態：</span><span style="color:#fff;font-size:15px;font-weight:600">${res.fx}</span></div>
+          <div><span style="color:var(--slate-400);font-size:13px">外匯狀態：</span><span style="color:#fff;font-size:15px;font-weight:600">${escapeRoutingText(res.fx)}</span></div>
           <div style="text-align:right">
             <div style="font-size:12px;color:var(--slate-500);margin-bottom:4px;font-weight:600">總未實現損益</div>
             <div style="font-size:36px;font-weight:800;color:${totalPL >= 0 ? 'var(--green-400)' : 'var(--red-400)'};letter-spacing:-1px">${totalPL >= 0 ? '+' : ''}${fmt(totalPL)}%</div>
@@ -1430,7 +1491,7 @@ async function runStressTest() {
       }
     });
   } else {
-    resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${res.message}</p></div></div>`;
+    resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${escapeRoutingText(res.message)}</p></div></div>`;
   }
   btn.disabled = false;
 }
@@ -1449,14 +1510,14 @@ async function fetchStressHistory() {
       const sign = rd.total_pl >= 0 ? '+' : '';
       const portHtml = (rd.portfolio || []).map(p => `
         <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--slate-300);margin-top:6px;border-bottom:1px dashed var(--slate-700);padding-bottom:6px">
-          <span>${displayTicker(p.ticker)} (${p.shares}股)</span>
+          <span>${escapeRoutingText(displayTicker(p.ticker))} (${escapeRoutingText(p.shares)}股)</span>
           <span style="color:${p.pl >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${p.pl >= 0 ? '+' : ''}${fmt(p.pl)}%</span>
         </div>`).join('');
       const ts = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : '';
       return `
         <div style="background:var(--slate-800);padding:20px;border-radius:var(--radius-md);border:1px solid var(--glass-border);margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <span style="color:var(--slate-400);font-family:monospace;font-size:13px">${ts} | ${r.scenario || '未知情境'}</span>
+            <span style="color:var(--slate-400);font-family:monospace;font-size:13px">${escapeRoutingText(ts)} | ${escapeRoutingText(r.scenario || '未知情境')}</span>
             <span style="font-weight:800;font-size:20px;color:${color}">${sign}${fmt(rd.total_pl || 0)}%</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:14px;color:#fff;font-weight:600">
@@ -1470,7 +1531,7 @@ async function fetchStressHistory() {
         </div>`;
     }).join('');
   } else {
-    content.innerHTML = `<p style="color:var(--red-400);padding:20px">${res.message}</p>`;
+    content.innerHTML = `<p style="color:var(--red-400);padding:20px">${escapeRoutingText(res.message)}</p>`;
   }
 }
 
@@ -1495,15 +1556,29 @@ async function fetchTechAnalysis() {
     techTableData = res.data;
     renderTechTable(res.data);
   } else {
-    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400);text-align:center">錯誤: ${res.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400);text-align:center">錯誤: ${escapeRoutingText(res.message)}</td></tr>`;
   }
   btn.disabled = false;
 }
 
 function escapeRoutingText(value) {
-  const node = document.createElement('span');
-  node.textContent = String(value ?? '');
-  return node.innerHTML;
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
+
+function bindSafeExternalLinks(root) {
+  root.querySelectorAll('a[data-safe-url]').forEach(link => {
+    const url = safeNewsUrl(link.dataset.safeUrl);
+    if (url) {
+      link.setAttribute('href', url);
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    } else {
+      link.replaceWith(document.createTextNode(link.textContent));
+    }
+    link.removeAttribute('data-safe-url');
+  });
 }
 
 function renderTechTable(data) {
@@ -1511,18 +1586,23 @@ function renderTechTable(data) {
     const scoreClass = s.score >= 70 ? 'high' : s.score >= 40 ? 'mid' : 'low';
     const scoreColor = s.score >= 70 ? 'var(--green-400)' : s.score >= 40 ? 'var(--yellow-400)' : 'var(--red-400)';
     const adviceBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
+    const scoreWidth = Math.max(0, Math.min(100, Number(s.score) || 0));
     return `
-      <tr style="cursor:pointer" onclick="document.getElementById('kline-ticker').value='${s.ticker}';navigateTo('kline');setTimeout(fetchKline,100)">
-        <td><span style="color:#fff;font-size:14px;font-weight:700">${displayTicker(s.ticker)}</span></td>
+      <tr style="cursor:pointer">
+        <td><span style="color:#fff;font-size:14px;font-weight:700">${escapeRoutingText(displayTicker(s.ticker))}</span></td>
         <td style="text-align:right;font-family:monospace;font-size:14px;font-weight:600">$${fmt(s.price)}</td>
-        <td style="text-align:center"><span style="font-size:12px;color:var(--slate-300)">${s.valuation}</span></td>
-        <td><div style="font-size:11px;color:var(--slate-400);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.signals.join(' | ')}</div></td>
-        <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px"><div class="score-bar-fill ${scoreClass}" style="width:${s.score}%"></div></div><span style="font-weight:800;font-size:14px;color:${scoreColor};width:32px;text-align:right">${s.score}</span></div></td>
+        <td style="text-align:center"><span style="font-size:12px;color:var(--slate-300)">${escapeRoutingText(s.valuation)}</span></td>
+        <td><div style="font-size:11px;color:var(--slate-400);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeRoutingText((s.signals || []).join(' | '))}</div></td>
+        <td style="text-align:right"><div class="score-bar" style="justify-content:flex-end"><div class="score-bar-track" style="width:40px"><div class="score-bar-fill ${scoreClass}" style="width:${scoreWidth}%"></div></div><span style="font-weight:800;font-size:14px;color:${scoreColor};width:32px;text-align:right">${fmt(s.score, 0)}</span></div></td>
         <td style="text-align:right"><span class="badge ${adviceBadge}" style="font-size:11px">${escapeRoutingText(s.advice)}</span></td>
       </tr>`;
   }).join('');
   document.querySelectorAll('#tech-table tr').forEach((row, index) => {
     const item = data[index];
+    row.addEventListener('click', () => {
+      document.getElementById('kline-ticker').value = item.ticker;
+      navigateTo('kline'); setTimeout(fetchKline, 100);
+    });
     const route = item.route || {};
     const ai = item.ai_route || {};
     const note = document.createElement('div');
@@ -1645,17 +1725,17 @@ async function fetchKline() {
     const advBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
     document.getElementById('kline-signals').innerHTML = `
       <div class="card">
-        <div class="card-header">🧠 ${displayName} 技術分析摘要</div>
+        <div class="card-header">🧠 ${escapeRoutingText(displayName)} 技術分析摘要</div>
         <div class="card-body">
           <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
             <span style="font-size:20px;font-weight:800;color:#fff">$${fmt(s.price)}</span>
-            <span class="badge ${advBadge}" style="font-size:13px;padding:5px 14px">${escapeRoutingText(s.advice)} (${s.score}分)</span>
-            <span style="font-size:13px;color:var(--slate-400)">估值：${s.valuation}</span>
+            <span class="badge ${advBadge}" style="font-size:13px;padding:5px 14px">${escapeRoutingText(s.advice)} (${fmt(s.score, 0)}分)</span>
+            <span style="font-size:13px;color:var(--slate-400)">估值：${escapeRoutingText(s.valuation)}</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${s.signals.map(sig => `<span class="badge badge-slate">${sig}</span>`).join('')}
+            ${(s.signals || []).map(sig => `<span class="badge badge-slate">${escapeRoutingText(sig)}</span>`).join('')}
           </div>
-          ${s.exit && s.exit !== '-' ? `<div style="margin-top:12px;font-size:13px;color:var(--red-400)">⚠ ${s.exit}</div>` : ''}
+          ${s.exit && s.exit !== '-' ? `<div style="margin-top:12px;font-size:13px;color:var(--red-400)">⚠ ${escapeRoutingText(s.exit)}</div>` : ''}
         </div>
       </div>`;
   }
@@ -1799,18 +1879,19 @@ async function fetchNewsAnalysis() {
       return `
         <div style="padding:18px 20px;border-bottom:1px solid rgba(51,65,85,.3)">
           <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
-            <span class="badge ${sBadge}" style="font-size:12px;padding:4px 12px">${n.sentiment}</span>
-            <span class="badge ${iBadge}" style="font-size:12px;padding:4px 12px">影響:${n.impact}</span>
-            <span style="font-size:11px;color:var(--slate-600);font-family:monospace">${n.source} | ${n.published}</span>
+            <span class="badge ${sBadge}" style="font-size:12px;padding:4px 12px">${escapeRoutingText(n.sentiment)}</span>
+            <span class="badge ${iBadge}" style="font-size:12px;padding:4px 12px">影響:${escapeRoutingText(n.impact)}</span>
+            <span style="font-size:11px;color:var(--slate-600);font-family:monospace">${escapeRoutingText(n.source)} | ${escapeRoutingText(n.published)}</span>
           </div>
-          <a href="${n.link}" target="_blank" style="display:block;font-size:15px;font-weight:700;color:#fff;text-decoration:none;margin-bottom:10px;line-height:1.5">${n.title}</a>
+          <a data-safe-url="${escapeRoutingText(n.link)}" style="display:block;font-size:15px;font-weight:700;color:#fff;text-decoration:none;margin-bottom:10px;line-height:1.5">${escapeRoutingText(n.title)}</a>
           <div style="font-size:13px;color:var(--blue-400);background:rgba(59,130,246,.06);padding:12px;border-radius:var(--radius-sm);line-height:1.7;border:1px solid rgba(59,130,246,0.1)">
-            🤖 AI 解析：${n.ai_reason || n.summary || '無特別說明'}
+            🤖 AI 解析：${escapeRoutingText(n.ai_reason || n.summary || '無特別說明')}
           </div>
         </div>`;
     }).join('');
+    bindSafeExternalLinks(list);
   } else {
-    list.innerHTML = `<p style="padding:20px;color:var(--red-400);font-size:15px">分析失敗：${res.message || '無資料'}</p>`;
+    list.innerHTML = `<p style="padding:20px;color:var(--red-400);font-size:15px">分析失敗：${escapeRoutingText(res.message || '無資料')}</p>`;
   }
   btn.disabled = false;
 }
@@ -1845,9 +1926,9 @@ async function fetchSentiment() {
         <div style="margin-top:16px"><div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:12px">📊 AI 推薦標的</div>
         <div class="recommendation-grid">${res.recommendations.map(r => `
           <div class="stock-card">
-            <div class="stock-card-header"><span style="font-size:16px;font-weight:700;color:#fff">${r.ticker || r.name}</span>
-            <span class="badge badge-green">${r.action || '觀察'}</span></div>
-            <div style="font-size:13px;color:var(--slate-400);line-height:1.6">${r.reason || ''}</div>
+            <div class="stock-card-header"><span style="font-size:16px;font-weight:700;color:#fff">${escapeRoutingText(r.ticker || r.name)}</span>
+            <span class="badge badge-green">${escapeRoutingText(r.action || '觀察')}</span></div>
+            <div style="font-size:13px;color:var(--slate-400);line-height:1.6">${escapeRoutingText(r.reason || '')}</div>
           </div>`).join('')}</div></div>`;
     }
 
@@ -1855,9 +1936,9 @@ async function fetchSentiment() {
       newsGrid.innerHTML = res.news_analysis.map(n => {
         const tagColor = n.sentiment === '多' ? 'var(--green-500)' : (n.sentiment === '空' ? 'var(--red-500)' : 'var(--slate-500)');
         return `<div class="news-tile">
-          <span class="sentiment-tag" style="background:${tagColor}">${n.sentiment}</span>
-          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:5px">${n.title}</div>
-          <div style="font-size:12px;color:var(--slate-400);line-height:1.5">${n.summary}</div>
+          <span class="sentiment-tag" style="background:${tagColor}">${escapeRoutingText(n.sentiment)}</span>
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:5px">${escapeRoutingText(n.title)}</div>
+          <div style="font-size:12px;color:var(--slate-400);line-height:1.5">${escapeRoutingText(n.summary)}</div>
         </div>`;
       }).join('');
     }
@@ -1873,26 +1954,26 @@ function renderStockListHTML(title, emoji, stocks) {
   return `
     <div style="margin-top:16px;background:rgba(15,23,42,0.3);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:16px">
       <div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px">
-        <span>${emoji}</span> ${title}
+        <span>${escapeRoutingText(emoji)}</span> ${escapeRoutingText(title)}
       </div>
       ${stocks.map(fs => `
         <div style="margin-bottom:10px;border-bottom:1px dashed var(--slate-700);padding-bottom:10px;display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
-            <span style="color:#fff;font-weight:700;font-size:14px;cursor:pointer" onclick="document.getElementById('kline-ticker').value='${fs.ticker}';navigateTo('kline');setTimeout(fetchKline,100)">${displayTicker(fs.ticker)} ${fs.name || ''}</span>
-            <span style="color:var(--slate-400);font-size:12px">現價：${fs.price} | 近5日：<span style="color:${fs.pct_5d >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${fs.pct_5d > 0 ? '+' : ''}${fs.pct_5d}%</span></span>
+            <span class="screener-stock-link" data-screener-ticker="${escapeRoutingText(fs.ticker)}" style="color:#fff;font-weight:700;font-size:14px;cursor:pointer">${escapeRoutingText(displayTicker(fs.ticker))} ${escapeRoutingText(fs.name || '')}</span>
+            <span style="color:var(--slate-400);font-size:12px">現價：${escapeRoutingText(fs.price)} | 近5日：<span style="color:${fs.pct_5d >= 0 ? 'var(--green-400)' : 'var(--red-400)'}">${fs.pct_5d > 0 ? '+' : ''}${escapeRoutingText(fs.pct_5d)}%</span></span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${(fs.tags || []).length > 0 ? fs.tags.map(t => `<span class="badge ${t.includes('買超') || t.includes('強勢') ? 'badge-green' : (t.includes('賣超') || t.includes('錯殺') ? 'badge-red' : 'badge-orange')}">${t}</span>`).join('') : '<span class="badge badge-slate">觀察中</span>'}
+            ${(fs.tags || []).length > 0 ? fs.tags.map(t => `<span class="badge ${t.includes('買超') || t.includes('強勢') ? 'badge-green' : (t.includes('賣超') || t.includes('錯殺') ? 'badge-red' : 'badge-orange')}">${escapeRoutingText(t)}</span>`).join('') : '<span class="badge badge-slate">觀察中</span>'}
           </div>
           ${fs.main_force ? `
           <div style="margin-top:6px;background:rgba(15,23,42,0.45);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:10px">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-              <span style="font-size:12px;color:var(--slate-300)">🧠 主力動向：${fs.main_force.bias || '無法判斷'}</span>
-              <span style="font-size:11px;color:var(--orange-400)">動能 ${fs.main_force.score ?? 0}/100</span>
+              <span style="font-size:12px;color:var(--slate-300)">🧠 主力動向：${escapeRoutingText(fs.main_force.bias || '無法判斷')}</span>
+              <span style="font-size:11px;color:var(--orange-400)">動能 ${escapeRoutingText(fs.main_force.score ?? 0)}/100</span>
             </div>
-            <div style="font-size:11px;color:var(--slate-500);line-height:1.5;margin-bottom:6px">${fs.main_force.summary || '無資料'}</div>
+            <div style="font-size:11px;color:var(--slate-500);line-height:1.5;margin-bottom:6px">${escapeRoutingText(fs.main_force.summary || '無資料')}</div>
             <div style="font-size:11px;color:var(--slate-300);line-height:1.6">
-              ${(fs.main_force.patterns || []).map(p => `• ${p}`).join('<br>')}
+              ${(fs.main_force.patterns || []).map(p => `• ${escapeRoutingText(p)}`).join('<br>')}
             </div>
           </div>` : ''}
         </div>`).join('')}
@@ -1921,37 +2002,37 @@ async function runScreener() {
       return;
     }
 
-    resBox.innerHTML = data.map(item => {
+    resBox.innerHTML = data.map((item, index) => {
       const ev = item.evaluated_stocks || [];
       const strongStocks = ev.filter(s => s.pct_5d >= 10 || (s.main_force && s.main_force.score >= 70));
       const weakStocks = ev.filter(s => s.pct_5d <= -10 || (s.main_force && s.main_force.score <= 30));
       const otherStocks = ev.filter(s => !strongStocks.includes(s) && !weakStocks.includes(s));
-      const graphId = 'graph-' + item.target.ticker.replace(/\./g, '-');
+      const graphId = 'graph-' + index;
 
       return `
         <details style="background:var(--glass-bg);border:1px solid var(--glass-border);padding:20px;border-radius:var(--radius-lg);margin-bottom:16px;backdrop-filter:blur(8px)" open>
           <summary style="cursor:pointer;outline:none;display:flex;align-items:center;font-size:17px;font-weight:800;color:#fff;gap:8px">
-            🎯 目標標的：${displayTicker(item.target.ticker)} ${item.target.name || ''}
+            🎯 目標標的：${escapeRoutingText(displayTicker(item.target.ticker))} ${escapeRoutingText(item.target.name || '')}
           </summary>
           <div style="margin-top:20px;display:grid;gap:14px">
             <div id="${graphId}" style="width:100%;height:420px;background:rgba(15,23,42,0.3);border:1px solid var(--glass-border);border-radius:var(--radius-md)"></div>
             <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm);border-left:4px solid var(--blue-500)">
               <div style="color:var(--slate-500);font-size:11px;margin-bottom:4px;font-weight:600">所屬產業族群</div>
-              <div style="color:var(--blue-400);font-size:15px;font-weight:700">${item.group}</div>
+              <div style="color:var(--blue-400);font-size:15px;font-weight:700">${escapeRoutingText(item.group)}</div>
             </div>
             <div class="grid grid-2">
               <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm)">
                 <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">🔗 相關概念</div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
-                  ${item.concepts.map(c => `<span class="badge badge-purple">${c}</span>`).join('')}
+                  ${(item.concepts || []).map(c => `<span class="badge badge-purple">${escapeRoutingText(c)}</span>`).join('')}
                 </div>
               </div>
               <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm)">
                 <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">⚙️ 供應鏈</div>
                 <div style="font-size:13px;color:var(--slate-300);line-height:1.8">
-                  上游：${(item.supply_chain.upstream || []).map(t => displayTicker(t)).join('、') || '無'}<br>
-                  中游：${(item.supply_chain.midstream || []).map(t => displayTicker(t)).join('、') || '無'}<br>
-                  下游：${(item.supply_chain.downstream || []).map(t => displayTicker(t)).join('、') || '無'}
+                  上游：${(item.supply_chain.upstream || []).map(t => escapeRoutingText(displayTicker(t))).join('、') || '無'}<br>
+                  中游：${(item.supply_chain.midstream || []).map(t => escapeRoutingText(displayTicker(t))).join('、') || '無'}<br>
+                  下游：${(item.supply_chain.downstream || []).map(t => escapeRoutingText(displayTicker(t))).join('、') || '無'}
                 </div>
               </div>
             </div>
@@ -1962,10 +2043,17 @@ async function runScreener() {
         </details>`;
     }).join('');
 
+    resBox.querySelectorAll('[data-screener-ticker]').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('kline-ticker').value = link.dataset.screenerTicker;
+        navigateTo('kline'); setTimeout(fetchKline, 100);
+      });
+    });
+
     // Draw force graphs
     setTimeout(() => {
-      data.forEach(item => {
-        const graphId = 'graph-' + item.target.ticker.replace(/\./g, '-');
+      data.forEach((item, index) => {
+        const graphId = 'graph-' + index;
         const chartDom = document.getElementById(graphId);
         if (!chartDom) return;
         const myChart = echarts.init(chartDom, 'dark');
@@ -1999,7 +2087,7 @@ async function runScreener() {
 
         myChart.setOption({
           backgroundColor: 'transparent',
-          tooltip: { trigger: 'item', formatter: '{b}', backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0' } },
+          tooltip: { trigger: 'item', renderMode: 'richText', formatter: params => String(params.name ?? ''), backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0' } },
           series: [{
             type: 'graph', layout: 'force', roam: true, draggable: true,
             edgeSymbol: ['none', 'arrow'], edgeSymbolSize: [4, 7],
@@ -2012,7 +2100,7 @@ async function runScreener() {
       });
     }, 150);
   } else {
-    resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${res.message}</div></div>`;
+    resBox.innerHTML = `<div class="card"><div class="card-body" style="color:var(--red-400)">分析發生錯誤：${escapeRoutingText(res.message)}</div></div>`;
   }
   btn.disabled = false;
 }
@@ -2071,7 +2159,7 @@ async function fetchMarketInsights(force = false) {
       const link = safeNewsUrl(item.latest_link);
       const headline = escapeRoutingText(item.latest_headline || '近期新聞提及');
       const headlineHtml = link
-        ? `<a href="${escapeRoutingText(link)}" target="_blank" rel="noopener noreferrer" style="color:var(--slate-400);text-decoration:none">${headline}</a>`
+        ? `<a data-safe-url="${escapeRoutingText(link)}" style="color:var(--slate-400);text-decoration:none">${headline}</a>`
         : `<span style="color:var(--slate-400)">${headline}</span>`;
       return `<div style="display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--glass-border)">
         <div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(249,115,22,.12);color:var(--orange-400);font-weight:800">${index + 1}</div>
@@ -2079,6 +2167,7 @@ async function fetchMarketInsights(force = false) {
         <div style="text-align:right"><strong style="color:var(--orange-400)">${insightNumber(item.mention_count)} 則</strong><br><span style="font-size:10px;color:var(--slate-500)">${insightNumber(item.source_count)} 個來源</span></div>
       </div>`;
     }).join('') + `<div style="font-size:11px;color:var(--slate-500);margin-top:12px">分析 ${insightNumber(trending.article_count)} 則新聞 · ${escapeRoutingText(trending.ranking_method || '')}</div>`;
+    bindSafeExternalLinks(trendingBox);
   } else {
     trendingBox.innerHTML = `<span style="color:var(--red-400)">${escapeRoutingText(trending.error || '近期新聞未偵測到明確個股提及')}</span>`;
   }
@@ -2171,7 +2260,7 @@ async function fetchStockSnapshot() {
       const link = safeNewsUrl(article.link);
       const title = escapeRoutingText(article.title || '未命名新聞');
       const titleHtml = link
-        ? `<a href="${escapeRoutingText(link)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue-400);text-decoration:none">${title}</a>`
+        ? `<a data-safe-url="${escapeRoutingText(link)}" style="color:var(--blue-400);text-decoration:none">${title}</a>`
         : `<span>${title}</span>`;
       return `<div style="padding:7px 0;border-bottom:1px solid var(--glass-border)">${titleHtml}<div style="font-size:10px;color:var(--slate-500)">${escapeRoutingText(article.source || '')} ${escapeRoutingText(article.published || '')}</div></div>`;
     }).join('');
@@ -2180,6 +2269,7 @@ async function fetchStockSnapshot() {
   }
 
   box.innerHTML = `<div style="margin-bottom:14px"><strong style="font-size:19px;color:#fff">${escapeRoutingText(identity.symbol || normalizedTicker)} ${escapeRoutingText(displayName)}</strong><span style="margin-left:8px;color:var(--slate-500)">${escapeRoutingText(identity.market || '')}</span>${partialText}</div><div class="grid grid-2">${priceHtml}${industryHtml}${ownershipHtml}${newsHtml}</div>`;
+  bindSafeExternalLinks(box);
   statusBadge.className = res.status === 'success' ? 'badge badge-green' : 'badge badge-orange';
   statusBadge.textContent = res.status === 'success' ? '資料完整' : '部分資料可用';
   button.disabled = false;
@@ -2207,7 +2297,7 @@ async function fetchRankings() {
           <div class="stat-card" style="border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:16px 20px; background:transparent; display:flex; flex-direction:column; justify-content:space-between; min-height:100px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:15px; color:var(--slate-300); font-weight:600;">${name}</span>
+                <span style="font-size:15px; color:var(--slate-300); font-weight:600;">${escapeRoutingText(name)}</span>
                 ${badgeHtml}
               </div>
               <div style="font-size:14px; color:${color}; font-weight:600;">${arrow} ${sign}${fmt(val.change)}</div>
@@ -2263,11 +2353,11 @@ async function fetchFundamentalsAndChips(ticker) {
       document.getElementById('chip-content').innerHTML = `
         <div style="margin-bottom:12px">
           <div style="font-size:12px;color:var(--slate-400);margin-bottom:4px">外資買賣超</div>
-          <div style="font-size:18px;font-weight:700;color:${forColor}">${data.Foreign > 0 ? '+' : ''}${data.Foreign.toLocaleString()} 張</div>
+          <div style="font-size:18px;font-weight:700;color:${forColor}">${data.Foreign > 0 ? '+' : ''}${fmt(data.Foreign, 0)} 張</div>
         </div>
         <div>
           <div style="font-size:12px;color:var(--slate-400);margin-bottom:4px">投信買賣超</div>
-          <div style="font-size:18px;font-weight:700;color:${truColor}">${data.Trust > 0 ? '+' : ''}${data.Trust.toLocaleString()} 張</div>
+          <div style="font-size:18px;font-weight:700;color:${truColor}">${data.Trust > 0 ? '+' : ''}${fmt(data.Trust, 0)} 張</div>
         </div>
       `;
     } else {
@@ -2293,8 +2383,8 @@ function clearChat() {
 }
 
 function renderMarkdown(text) {
-  // Basic markdown rendering for chat
-  return text
+  // Escape the entire model response before adding the few tags we control.
+  return escapeRoutingText(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -2364,24 +2454,37 @@ async function sendChat() {
   input.value = '';
   const messagesDiv = document.getElementById('chat-messages');
   const sendBtn = document.getElementById('chat-send-btn');
-  messagesDiv.innerHTML += `<div class="chat-msg user">${msg}</div>`;
+  const userMessage = document.createElement('div');
+  userMessage.className = 'chat-msg user'; userMessage.textContent = msg;
+  messagesDiv.appendChild(userMessage);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-  const typingId = 'typing-' + Date.now();
-  messagesDiv.innerHTML += `<div class="chat-msg bot" id="${typingId}"><div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></div>思考中...</div>`;
+  const typing = document.createElement('div');
+  typing.className = 'chat-msg bot';
+  const spinner = document.createElement('div');
+  spinner.className = 'spinner';
+  spinner.style.cssText = 'width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px';
+  typing.append(spinner, document.createTextNode('思考中...'));
+  messagesDiv.appendChild(typing);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
   sendBtn.disabled = true;
 
   const body = { message: msg };
   if (currentChatbotId) body.conversation_id = currentChatbotId;
   const res = await apiCall('/chat', 'POST', body);
-  document.getElementById(typingId).remove();
+  typing.remove();
 
   if (res.status === 'success') {
     if (res.conversation_id) currentChatbotId = res.conversation_id;
-    messagesDiv.innerHTML += `<div class="chat-msg bot">${renderMarkdown(res.reply)}</div>`;
+    const reply = document.createElement('div');
+    reply.className = 'chat-msg bot';
+    reply.innerHTML = renderMarkdown(res.reply);
+    messagesDiv.appendChild(reply);
   } else {
-    messagesDiv.innerHTML += `<div class="chat-msg bot" style="color:var(--red-400)">⚠️ ${res.message}</div>`;
+    const error = document.createElement('div');
+    error.className = 'chat-msg bot'; error.style.color = 'var(--red-400)';
+    error.textContent = `⚠️ ${res.message || '暫時無法回覆'}`;
+    messagesDiv.appendChild(error);
   }
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
   sendBtn.disabled = false;

@@ -225,6 +225,20 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
 
 
 class BrowserAndMigrationTests(unittest.TestCase):
+    def test_external_content_is_text_or_escaped_and_links_are_filtered(self):
+        html = Path("static/index.html").read_text(encoding="utf-8")
+        script = html.split("<script>", 1)[1].split("</script>", 1)[0]
+        rss = script.split("async function fetchWarData()", 1)[1].split("\nasync function ", 1)[0]
+        chat = script.split("function renderMarkdown(text)", 1)[1].split("\n}", 1)[0]
+        self.assertIn("description.textContent = aiRes.summary", rss)
+        self.assertIn("body.appendChild(document.createTextNode(n.summary", rss)
+        self.assertIn("safeNewsUrl(n.link)", rss)
+        self.assertIn("escapeRoutingText(text)", chat)
+        self.assertIn("escapeRoutingText(n.title)", script)
+        self.assertIn("escapeRoutingText(n.ai_reason", script)
+        self.assertNotIn("onclick=", script)
+        self.assertNotIn("innerHTML +=", script)
+
     def test_browser_uses_server_session_and_handles_logout_failure(self):
         html = Path("static/index.html").read_text(encoding="utf-8")
         self.assertIn("apiCall('/auth/me')", html)
