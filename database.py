@@ -17,6 +17,55 @@ PASSWORD_SCHEME = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 600_000
 logger = logging.getLogger(__name__)
 
+# Only these static labels may reach notification-store diagnostics. Never log
+# exception messages or PostgREST details: they can contain user settings.
+_ACCOUNT_STORE_CODES = {
+    "42P01": "missing_schema", "42703": "missing_schema",
+    "PGRST200": "missing_schema", "PGRST202": "missing_schema",
+    "PGRST204": "missing_schema", "PGRST205": "missing_schema",
+    "42501": "permission_auth", "28000": "permission_auth",
+    "28P01": "permission_auth", "PGRST301": "permission_auth",
+    "PGRST302": "permission_auth", "PGRST303": "permission_auth",
+    "401": "permission_auth", "403": "permission_auth",
+    "08000": "connectivity", "08001": "connectivity",
+    "08003": "connectivity", "08004": "connectivity",
+    "08006": "connectivity", "08007": "connectivity",
+    "08P01": "connectivity", "PGRST000": "connectivity",
+    "PGRST001": "connectivity", "PGRST002": "connectivity",
+    "PGRST003": "connectivity",
+}
+_ACCOUNT_STORE_EXCEPTION_TYPES = frozenset({
+    "APIError", "RuntimeError", "HTTPError", "HTTPStatusError",
+    "RequestException", "ConnectionError", "Timeout", "TimeoutException",
+    "ConnectError", "ConnectTimeout", "ReadTimeout", "WriteTimeout",
+    "PoolTimeout", "NetworkError", "ReadError", "WriteError",
+    "RemoteProtocolError",
+})
+_ACCOUNT_STORE_NETWORK_TYPES = _ACCOUNT_STORE_EXCEPTION_TYPES - {
+    "APIError", "RuntimeError", "HTTPError", "HTTPStatusError",
+}
+
+
+def _log_account_volume_store_failure(operation: str, exc: Exception) -> None:
+    operation = operation if operation in {"probe", "get", "save"} else "unknown"
+    exception_type = type(exc).__name__
+    exception_type = (exception_type if exception_type in
+                      _ACCOUNT_STORE_EXCEPTION_TYPES else "unknown")
+    code = getattr(exc, "code", None)
+    code = str(code) if isinstance(code, (str, int)) else "unknown"
+    code = code if code in _ACCOUNT_STORE_CODES else "unknown"
+    category = _ACCOUNT_STORE_CODES.get(code, "unknown")
+    if category == "unknown":
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status in (401, 403):
+            code, category = str(status), "permission_auth"
+        elif exception_type in _ACCOUNT_STORE_NETWORK_TYPES:
+            category = "connectivity"
+    logger.error(
+        "account_volume_store operation=%s exception_type=%s code=%s category=%s",
+        operation, exception_type, code, category,
+    )
+
 
 class DuplicateEmailError(ValueError):
     """The email already belongs to an account."""
@@ -85,10 +134,11 @@ class Database:
     def check_account_volume_store(self) -> bool:
         try:
             self._require_account_store().table("account_volume_alert_settings").select(
-                "user_id"
-            ).limit(1).execute()
+                "user_id,tickers,webhook_ciphertext,updated_at"
+            ).limit(0).execute()
             return True
-        except Exception:
+        except Exception as exc:
+            _log_account_volume_store_failure("probe", exc)
             return False
 
     def get_public_user(self, user_id: str) -> dict | None:
@@ -107,7 +157,8 @@ class Database:
             ).eq("user_id", user_id).limit(1).execute()
             return dict(result.data[0]) if result.data else {"tickers": [], "webhook_ciphertext": None}
         except Exception as exc:
-            raise RuntimeError("account_alert_store_unavailable") from exc
+            _log_account_volume_store_failure("get", exc)
+            raise RuntimeError("account_alert_store_unavailable") from None
 
     def save_account_volume_settings(self, user_id: str, settings: dict) -> None:
         try:
@@ -115,7 +166,8 @@ class Database:
                 {"user_id": user_id, **settings}, on_conflict="user_id"
             ).execute()
         except Exception as exc:
-            raise RuntimeError("account_alert_store_unavailable") from exc
+            _log_account_volume_store_failure("save", exc)
+            raise RuntimeError("account_alert_store_unavailable") from None
 
     def list_account_volume_settings(self) -> list[dict]:
         try:

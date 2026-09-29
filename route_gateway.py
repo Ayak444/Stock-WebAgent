@@ -11,12 +11,31 @@ logger = logging.getLogger('routing')
 counts = Counter()
 DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
 
+_AI_ERROR_MESSAGES = {
+    'ai_not_configured': 'AI 尚未設定，請聯絡管理員',
+    'ai_busy': 'AI 忙碌，請稍後再試',
+    'ai_circuit_open': 'AI 暫停呼叫，請稍後再試或聯絡管理員',
+    'ai_auth_failed': 'AI 驗證失敗，請聯絡管理員',
+    'ai_rate_limited': 'Groq 額度或速率受限，請稍後重試',
+    'ai_request_rejected': 'AI 請求未被接受，請聯絡管理員',
+    'ai_timeout': 'AI 回應逾時，請稍後再試',
+    'ai_network_error': 'AI 連線失敗，請稍後再試',
+    'ai_provider_error': 'AI 供應商服務暫時異常，請稍後再試',
+    'ai_malformed_response': 'AI 回傳格式異常，請稍後再試',
+    'ai_unavailable': 'AI 服務暫時無法使用，請稍後再試',
+}
+
 def audit(task, source, outcome):
     counts[(task, source, outcome)] += 1
     logger.info('route task=%s source=%s outcome=%s', task, source, outcome)
 
 class AIUnavailable(RuntimeError):
-    pass
+    """An allowlisted error code and static, credential-free public message."""
+
+    def __init__(self, code='ai_unavailable'):
+        self.code = code if code in _AI_ERROR_MESSAGES else 'ai_unavailable'
+        self.message = _AI_ERROR_MESSAGES[self.code]
+        super().__init__(self.message)
 
 class AIGateway:
     def __init__(self):
@@ -25,21 +44,28 @@ class AIGateway:
         self.blocked_until = 0
         self.failures = 0
 
+    def _failed(self, code):
+        self.failures += 1
+        if self.failures >= 3:
+            self.blocked_until = time.monotonic() + 60
+        audit('ai', 'groq', 'failed')
+        raise AIUnavailable(code) from None
+
     def complete(self, payload):
         key = os.getenv('GROQ_API_KEY') or os.getenv('MAIAGENT_API_KEY', '')
         model = os.getenv('GROQ_MODEL', DEFAULT_GROQ_MODEL).strip() or DEFAULT_GROQ_MODEL
         if not key:
-            raise AIUnavailable('尚未設定 GROQ_API_KEY')
+            raise AIUnavailable('ai_not_configured')
         fingerprint = hashlib.sha256(key.encode()).digest()
         # Serialize calls so concurrent requests cannot bypass an authentication failure.
         if not self.lock.acquire(timeout=2):
-            raise AIUnavailable('AI 忙碌，請稍後再試')
+            raise AIUnavailable('ai_busy')
         try:
             if fingerprint != self.fingerprint:
                 self.fingerprint, self.blocked_until, self.failures = fingerprint, 0, 0
             if time.monotonic() < self.blocked_until:
                 audit('ai', 'groq', 'circuit_open')
-                raise AIUnavailable('AI 暫停呼叫，請確認 API Key／額度或稍後再試')
+                raise AIUnavailable('ai_circuit_open')
             try:
                 response = requests.post(
                     'https://api.groq.com/openai/v1/chat/completions',
@@ -47,19 +73,17 @@ class AIGateway:
                     json={**payload, 'model': model, 'max_tokens': 1500}, timeout=(5, 30))
                 if response.status_code in (401, 403):
                     self.blocked_until = float('inf')
-                    raise AIUnavailable('Groq 驗證失敗，請更新部署環境的 GROQ_API_KEY')
+                    raise AIUnavailable('ai_auth_failed')
                 if response.status_code == 429:
                     try:
                         delay = min(300, max(30, float(response.headers.get('Retry-After', 60))))
                     except (TypeError, ValueError):
                         delay = 60
                     self.blocked_until = time.monotonic() + delay
-                    raise AIUnavailable('Groq 額度或速率限制，稍後重試')
+                    raise AIUnavailable('ai_rate_limited')
                 if response.status_code in (400, 404, 422):
                     audit('ai', 'groq', f'rejected_{response.status_code}')
-                    raise AIUnavailable(
-                        f'Groq 拒絕請求（HTTP {response.status_code}），請檢查 GROQ_MODEL 或請求格式'
-                    )
+                    raise AIUnavailable('ai_request_rejected')
                 response.raise_for_status()
                 content = response.json()['choices'][0]['message']['content']
                 if not isinstance(content, str) or not content.strip():
@@ -70,12 +94,16 @@ class AIGateway:
             except AIUnavailable:
                 audit('ai', 'groq', 'unavailable')
                 raise
-            except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
-                self.failures += 1
-                if self.failures >= 3:
-                    self.blocked_until = time.monotonic() + 60
-                audit('ai', 'groq', 'failed')
-                raise AIUnavailable('AI 連線或回傳格式異常，請稍後再試') from None
+            except requests.Timeout:
+                self._failed('ai_timeout')
+            except requests.HTTPError as exc:
+                status = getattr(exc.response, 'status_code', None)
+                self._failed('ai_provider_error' if isinstance(status, int) and
+                             500 <= status <= 599 else 'ai_request_rejected')
+            except (ValueError, KeyError, IndexError, TypeError):
+                self._failed('ai_malformed_response')
+            except requests.RequestException:
+                self._failed('ai_network_error')
         finally:
             self.lock.release()
 

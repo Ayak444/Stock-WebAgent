@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 # 新的核心模塊
 from cache_layer import cache_manager
-from route_gateway import ai_gateway, audit, DEFAULT_GROQ_MODEL
+from route_gateway import ai_gateway, audit, DEFAULT_GROQ_MODEL, AIUnavailable
 from async_data_provider import get_async_provider, close_async_provider
 from task_queue import job_runner
 from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
@@ -115,14 +115,15 @@ class MaiAgentClient:
                 "reply": reply,
                 "conversation_id": conversation_id
             }
-        except http_requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code if e.response is not None else 0
-            error_details = e.response.text if e.response is not None else str(e)
-            return {"status": "error", "message": f"API 錯誤 ({status_code}): {error_details}"}
+        except AIUnavailable as exc:
+            error = exc
         except http_requests.exceptions.Timeout:
-            return {"status": "error", "message": "AI 回覆逾時，請稍後再試"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)[:200]}
+            error = AIUnavailable("ai_timeout")
+        except http_requests.exceptions.RequestException:
+            error = AIUnavailable("ai_network_error")
+        except Exception:
+            error = AIUnavailable("ai_unavailable")
+        return {"status": "error", "code": error.code, "message": error.message}
 
     async def send_message_async(self, content: str, conversation_id: str = None) -> str:
         return await asyncio.to_thread(self.send_message, content, conversation_id)
@@ -880,7 +881,8 @@ async def analyze_news_batch(req: NewsSourceRequest):
 @app.get("/auto_news")
 async def auto_news():
     if not mai_client.enabled:
-        return {"status": "error", "message": "MaiAgent 未設定"}
+        error = AIUnavailable("ai_not_configured")
+        return {"status": "error", "code": error.code, "message": error.message}
     try:
         news = await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3)
         news = news[:10]
@@ -902,8 +904,10 @@ async def auto_news():
             }
         else:
             return result
-    except Exception as e:
-        return {"status": "error", "message": str(e)[:200]}
+    except Exception:
+        logger.warning("auto_news failure code=ai_unavailable")
+        error = AIUnavailable("ai_unavailable")
+        return {"status": "error", "code": error.code, "message": error.message}
 
 @app.get("/kline/{ticker}")
 async def get_kline(ticker: str, days: int = Query(default=180, ge=1, le=3650)):
@@ -1176,7 +1180,7 @@ def get_account_volume_alerts(user: dict = Depends(_account_user)):
     try:
         settings = db.get_account_volume_settings(user["id"])
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="通知設定資料庫暫時無法使用")
+        raise HTTPException(status_code=503, detail="通知設定暫時無法使用，請聯絡管理員")
     return {"tickers": settings.get("tickers") or [],
             "webhook_configured": bool(settings.get("webhook_ciphertext"))}
 
@@ -1205,7 +1209,7 @@ def put_account_volume_alerts(payload: AccountVolumeSettingsRequest,
     except ValueError:
         raise HTTPException(status_code=422, detail="Discord Webhook 格式不正確")
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="通知設定資料庫或加密設定暫時無法使用")
+        raise HTTPException(status_code=503, detail="通知設定暫時無法使用，請聯絡管理員")
     return {"tickers": list(tickers), "webhook_configured": bool(ciphertext)}
 
 @app.get("/api/sentiment", response_model=SentimentResponse)
