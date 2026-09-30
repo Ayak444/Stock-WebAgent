@@ -6,9 +6,10 @@ import hmac
 import secrets
 import logging
 import re
+import time
 from datetime import datetime
 import pandas as pd
-from supabase import create_client, Client
+from supabase import create_client, Client, ClientOptions
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
@@ -62,8 +63,8 @@ def _log_account_volume_store_failure(operation: str, exc: Exception) -> None:
         elif exception_type in _ACCOUNT_STORE_NETWORK_TYPES:
             category = "connectivity"
     logger.error(
-        "account_volume_store operation=%s exception_type=%s code=%s category=%s",
-        operation, exception_type, code, category,
+        "account_volume_store operation=%s exception_type=%s code=%s category=%s credential_kind=%s",
+        operation, exception_type, code, category, backend_credential_kind(SUPABASE_KEY),
     )
 
 
@@ -73,6 +74,49 @@ class DuplicateEmailError(ValueError):
 
 class RegistrationStoreError(RuntimeError):
     """Registration could not write to the account database."""
+
+
+def account_store_failure_category(exc):
+    if isinstance(exc, AccountAlertStoreError):
+        return exc.category
+    code = str(getattr(exc, "code", ""))
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if code in {"401", "PGRST301", "PGRST302", "PGRST303"}:
+        return "key_rejected"
+    category = _ACCOUNT_STORE_CODES.get(code, "unknown")
+    if category != "unknown":
+        return category
+    if status == 401:
+        return "key_rejected"
+    if category == "unknown" and status == 403:
+        return "permission_auth"
+    if category == "unknown" and (type(exc).__name__ in _ACCOUNT_STORE_NETWORK_TYPES or
+                                   status in {429, 500, 502, 503, 504}):
+        return "connectivity"
+    return category
+
+
+class AccountAlertStoreError(RuntimeError):
+    def __init__(self, category="unknown"):
+        self.category = category
+        super().__init__("account_alert_store_unavailable")
+
+
+def backend_credential_kind(value):
+    """Return an allowlisted label only; this is type detection, not validation."""
+    if not value:
+        return "not_configured"
+    if value.startswith("sb_secret_"):
+        return "backend_secret"
+    if value.startswith("sb_publishable_"):
+        return "public_key"
+    try:
+        segment = value.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+        return {"service_role": "legacy_service_role", "anon": "public_key"}.get(
+            claims.get("role"), "unknown")
+    except Exception:
+        return "unknown"
 
 
 def _hash_password(password: str) -> str:
@@ -112,7 +156,8 @@ class Database:
     def __init__(self):
         self.supabase: Client = None
         if SUPABASE_URL and SUPABASE_KEY:
-            self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+            self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY,
+                                          options=ClientOptions(postgrest_client_timeout=8))
         else:
             print("警告：未設定 SUPABASE_URL 或 SUPABASE_KEY")
 
@@ -128,7 +173,7 @@ class Database:
 
     def _require_account_store(self):
         if not self.supabase:
-            raise RuntimeError("account_alert_store_unavailable")
+            raise AccountAlertStoreError("not_configured")
         return self.supabase
 
     def check_account_volume_store(self) -> bool:
@@ -151,14 +196,20 @@ class Database:
             raise RuntimeError("account_alert_store_unavailable") from exc
 
     def get_account_volume_settings(self, user_id: str) -> dict:
-        try:
-            result = self._require_account_store().table("account_volume_alert_settings").select(
-                "tickers,webhook_ciphertext"
-            ).eq("user_id", user_id).limit(1).execute()
-            return dict(result.data[0]) if result.data else {"tickers": [], "webhook_ciphertext": None}
-        except Exception as exc:
-            _log_account_volume_store_failure("get", exc)
-            raise RuntimeError("account_alert_store_unavailable") from None
+        # Retry only an idempotent read, once, for transient transport failures.
+        for attempt in range(2):
+            try:
+                result = self._require_account_store().table("account_volume_alert_settings").select(
+                    "tickers,webhook_ciphertext"
+                ).eq("user_id", user_id).limit(1).execute()
+                return dict(result.data[0]) if result.data else {"tickers": [], "webhook_ciphertext": None}
+            except Exception as exc:
+                category = account_store_failure_category(exc)
+                if category == "connectivity" and attempt == 0:
+                    time.sleep(0.15)
+                    continue
+                _log_account_volume_store_failure("get", exc)
+                raise AccountAlertStoreError(category) from None
 
     def save_account_volume_settings(self, user_id: str, settings: dict) -> None:
         try:
@@ -167,7 +218,7 @@ class Database:
             ).execute()
         except Exception as exc:
             _log_account_volume_store_failure("save", exc)
-            raise RuntimeError("account_alert_store_unavailable") from None
+            raise AccountAlertStoreError(account_store_failure_category(exc)) from None
 
     def list_account_volume_settings(self) -> list[dict]:
         try:

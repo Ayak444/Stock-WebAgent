@@ -160,7 +160,7 @@ class NotificationStoreDiagnosticsTests(unittest.TestCase):
 
     def test_settings_endpoints_return_concise_sanitized_503(self):
         database = Mock()
-        environment = main_definitions({"get_account_volume_alerts", "put_account_volume_alerts"}, {
+        environment = main_definitions({"get_account_volume_alerts", "put_account_volume_alerts", "_alert_store_message"}, {
             "db": database, "HTTPException": HTTPException,
             "AccountVolumeSettingsRequest": object, "Request": object,
             "_require_same_origin": Mock(), "parse_alert_tickers": lambda text: ("2330.TW",),
@@ -176,7 +176,8 @@ class NotificationStoreDiagnosticsTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as raised:
                 invoke()
             self.assertEqual(raised.exception.status_code, 503)
-            self.assertEqual(raised.exception.detail, "通知設定暫時無法使用，請聯絡管理員")
+            self.assertIn("通知設定暫時無法使用", raised.exception.detail)
+            self.assertIn("account_volume_store", raised.exception.detail)
             self.assertNotIn(MARKER, raised.exception.detail)
         database.get_account_volume_settings.side_effect = None
         database.get_account_volume_settings.return_value = {"webhook_ciphertext": None}
@@ -186,7 +187,8 @@ class NotificationStoreDiagnosticsTests(unittest.TestCase):
                 SimpleNamespace(tickers=["2330.TW"], remove_webhook=False, webhook=None),
                 object(), {"id": "test-user"})
         self.assertEqual(raised.exception.status_code, 503)
-        self.assertEqual(raised.exception.detail, "通知設定暫時無法使用，請聯絡管理員")
+        self.assertIn("通知設定暫時無法使用", raised.exception.detail)
+        self.assertIn("account_volume_store", raised.exception.detail)
 
 
 class AIGatewayDiagnosticsTests(unittest.TestCase):

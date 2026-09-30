@@ -117,8 +117,8 @@ class TrendingAggregationTests(unittest.TestCase):
     def test_ambiguous_company_name_requires_ticker(self):
         companies = [{"公司代號": "5007", "公司簡稱": "三星"}]
         news = [
-            {"title": "韓國三星發表新手機", "source": "甲"},
-            {"title": "5007 三星公布財報", "source": "乙"},
+            {"title": "韓國三星發表新手機", "source": "甲", "published_ts": 1_999_000},
+            {"title": "5007 三星公布財報", "source": "乙", "published_ts": 1_999_000},
         ]
         result = rank_trending_stocks(news, companies, now_ts=2_000_000)
         self.assertEqual(result[0]["ticker"], "5007")

@@ -53,9 +53,12 @@ class MarketRouter:
         if len(months) > 13:
             raise ValueError('official range limit')
         rows = []
-        for month in months:
-            data = await fetch('https://www.twse.com.tw/exchangeReport/STOCK_DAY'
-                               f'?response=json&date={month.strftime("%Y%m")}01&stockNo={ticker[:-3]}')
+        semaphore = asyncio.Semaphore(3)
+        async def fetch_month(month):
+            async with semaphore:
+                return await fetch('https://www.twse.com.tw/exchangeReport/STOCK_DAY'
+                                   f'?response=json&date={month.strftime("%Y%m")}01&stockNo={ticker[:-3]}')
+        for data in await asyncio.gather(*(fetch_month(month) for month in months)):
             if not data or data.get('stat') != 'OK':
                 raise ValueError('official unavailable')
             for row in data.get('data', []):
@@ -83,7 +86,8 @@ class MarketRouter:
         failures = []
         for source, loader in sources:
             try:
-                frame = self.validate(await asyncio.wait_for(loader(fetch, ticker, days), timeout=20), days)
+                frame = self.validate(await asyncio.wait_for(loader(fetch, ticker, days),
+                                      timeout=12 if source == 'yahoo' else 20), days)
                 frame.attrs['route'] = {'source': source, 'asof': frame.index[-1].date().isoformat(),
                     'degraded': bool(failures), 'from_cache': False, 'failed_sources': list(failures),
                     'price_basis': 'unadjusted_daily'}

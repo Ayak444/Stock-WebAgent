@@ -14,12 +14,12 @@ import threading
 import time
 from collections import defaultdict
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor, wait
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
 import requests
 
-from news_crawler import NewsCrawler, RSS_SOURCES
+from news_crawler import NewsCrawler, RSS_SOURCES, NEWS_EXECUTOR
 
 
 TDCC_DISTRIBUTION_URL = "https://openapi.tdcc.com.tw/v1/opendata/1-5"
@@ -27,6 +27,8 @@ TWSE_DAILY_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 TWSE_COMPANY_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap03_L"
 TPEX_COMPANY_URL = "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O"
 TPEX_DAILY_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"
+TWSE_DIVIDEND_URL = "https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL"
+TWSE_HOLIDAY_URL = "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule"
 
 REQUEST_HEADERS = {
     "Accept": "application/json",
@@ -125,7 +127,73 @@ def _display_date(value: Any) -> str:
         return f"{int(raw[:3]) + 1911:04d}-{raw[3:5]}-{raw[5:7]}"
     if re.fullmatch(r"\d{8}", raw):
         return f"{int(raw[:4]):04d}-{raw[4:6]}-{raw[6:8]}"
+    if re.fullmatch(r"\d{2,3}/\d{2}/\d{2}", raw):
+        year, month, day = raw.split("/")
+        return f"{int(year) + 1911:04d}-{month}-{day}"
     return raw
+
+
+def same_date_market_rows(datasets, target_date=None):
+    """Select a single observed trading date and report excluded markets."""
+    dated = [(name, rows, max((_display_date(r.get("Date")) for r in rows), default=""))
+             for name, rows in datasets]
+    as_of = target_date or max((date for _, _, date in dated), default="")
+    selected, included, excluded = [], [], []
+    for name, rows, date in dated:
+        matching = [r for r in rows if _display_date(r.get("Date")) == as_of]
+        if matching:
+            selected.extend(matching)
+            included.append(name)
+        else:
+            excluded.append(name)
+    return selected, {"as_of": as_of, "included_markets": included,
+                      "excluded_markets": excluded, "market_dates": {n: d for n, _, d in dated}}
+
+
+def recent_unique_news(items, now_ts=None):
+    now_ts = datetime.now(timezone.utc).timestamp() if now_ts is None else now_ts
+    seen, result = set(), []
+    for item in sorted(items, key=lambda x: _number(x.get("published_ts")), reverse=True):
+        ts = _number(item.get("published_ts"))
+        title = str(item.get("title", "")).strip()
+        link = str(item.get("link", "")).strip()
+        key = (re.sub(r"\s+", "", title).casefold())
+        if not title or not ts or not 0 <= now_ts - ts <= 72 * 3600 or key in seen:
+            continue
+        if link and link in seen:
+            continue
+        seen.add(key)
+        if link:
+            seen.add(link)
+        result.append(dict(item))
+    return result
+
+
+def upcoming_calendar(dividends, holidays, now=None, limit=20):
+    today = (now or datetime.now(timezone(timedelta(hours=8)))).astimezone(
+        timezone(timedelta(hours=8))).date()
+    end = today + timedelta(days=60)
+    events, seen = [], set()
+    for kind, rows, source in (("除權息", dividends, TWSE_DIVIDEND_URL),
+                               ("市場休市", holidays, TWSE_HOLIDAY_URL)):
+        for row in rows:
+            raw = _display_date(row.get("Date"))
+            try:
+                date = datetime.strptime(raw, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if not today <= date <= end:
+                continue
+            title = (f"{row.get('Code', '')} {row.get('Name', '')} {row.get('Exdividend', '')}"
+                     if kind == "除權息" else str(row.get("Name") or row.get("Description") or "休市"))
+            if kind == "市場休市" and any(token in title for token in ("開始交易", "最後交易", "恢復交易")):
+                continue
+            key = (raw, title)
+            if key in seen:
+                continue
+            seen.add(key)
+            events.append({"date": raw, "title": title.strip(), "kind": kind, "source_url": source})
+    return sorted(events, key=lambda x: (x["date"], x["title"]))[:limit]
 
 
 def aggregate_holder_rows(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -200,7 +268,11 @@ def aggregate_industry_performance(
                 "industry_code": industry_code.zfill(2),
             }
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    daily_rows = list(daily_rows)
+    latest_date = max((_display_date(row.get("Date")) for row in daily_rows), default="")
     for row in daily_rows:
+        if _display_date(row.get("Date")) != latest_date:
+            continue
         code = str(row.get("Code", "")).strip()
         profile = companies.get(code)
         if not profile:
@@ -272,7 +344,7 @@ def rank_trending_stocks(
             profiles.append((code, name))
 
     stats: Dict[str, Dict[str, Any]] = {}
-    for article in news_items:
+    for article in recent_unique_news(news_items, now_ts):
         title = str(article.get("title", "")).strip()
         summary = str(article.get("summary", "")).strip()
         text = f"{title} {summary}"
@@ -362,7 +434,7 @@ def analyze_stock_news_attention(
     """Summarize one stock's unique article mentions from the last 72 hours."""
     now_ts = now_ts or datetime.now(timezone.utc).timestamp()
     articles = []
-    for article in news_items:
+    for article in recent_unique_news(news_items, now_ts):
         published_ts = _number(article.get("published_ts"), math.nan)
         if not math.isfinite(published_ts):
             continue
@@ -456,7 +528,8 @@ class MarketInsightsService:
 
             if is_loader:
                 break
-            flight.event.wait()
+            if not flight.event.wait(SNAPSHOT_DEADLINE_SECONDS):
+                raise TimeoutError("insight shared source deadline")
             if flight.error is not None:
                 raise flight.error
 
@@ -531,16 +604,23 @@ class MarketInsightsService:
             items = []
             successful_sources = []
             unavailable_sources = []
+            futures = {key: NEWS_EXECUTOR.submit(NewsCrawler.fetch_rss, key, 100, RSS_TIMEOUT_SECONDS)
+                       for key in RSS_SOURCES}
+            wait(futures.values(), timeout=RSS_TIMEOUT_SECONDS + 4)
+            fetched = {}
+            for key, future in futures.items():
+                if not future.done():
+                    future.cancel()
+                    future.add_done_callback(_consume_future_exception)
+                    fetched[key] = []
+                    continue
+                try:
+                    fetched[key] = future.result()
+                except Exception:
+                    fetched[key] = []
             for key, source_info in RSS_SOURCES.items():
                 source_name = str(source_info.get("name", key))
-                try:
-                    rows = NewsCrawler.fetch_rss(
-                        key,
-                        limit=30,
-                        timeout=RSS_TIMEOUT_SECONDS,
-                    )
-                except Exception:
-                    rows = []
+                rows = fetched.get(key, [])
                 if rows:
                     items.extend(rows)
                     successful_sources.append(source_name)
@@ -548,7 +628,7 @@ class MarketInsightsService:
                     unavailable_sources.append(source_name)
             items.sort(key=lambda item: _number(item.get("published_ts")), reverse=True)
             return {
-                "items": items,
+                "items": recent_unique_news(items),
                 "successful_sources": successful_sources,
                 "unavailable_sources": unavailable_sources,
             }
@@ -572,22 +652,80 @@ class MarketInsightsService:
         daily = self._twse_daily()
         companies = self._listed_companies()
         tpex_included = False
+        datasets = [("上市", daily)]
         try:
-            daily = daily + self._tpex_daily()
+            tpex_daily = self._tpex_daily()
             companies = companies + self._tpex_companies()
-            tpex_included = True
+            datasets.append(("上櫃", tpex_daily))
         except (requests.RequestException, ValueError):
             # Keep the listed-market ranking available during a TPEx outage.
             pass
+        daily, coverage = same_date_market_rows(datasets)
+        tpex_included = len(coverage["included_markets"]) == 2
         rows = aggregate_industry_performance(daily, companies, limit=limit)
         date = _display_date(daily[0].get("Date")) if daily else ""
         return {
             "as_of": date,
-            "market": "上市櫃普通股" if tpex_included else "上市普通股（櫃買資料暫缺）",
+            "coverage": coverage,
+            "market": "上市櫃普通股" if tpex_included else "、".join(coverage["included_markets"]) + "普通股（部分市場資料暫缺）",
             "ranking_method": "依各產業成分股單日漲跌幅等權平均排序",
             "items": rows,
-            "source": "臺灣證券交易所、證券櫃檯買賣中心 OpenAPI" if tpex_included else "臺灣證券交易所 OpenAPI",
+            "source": "、".join("臺灣證券交易所" if name == "上市" else "證券櫃檯買賣中心"
+                               for name in coverage["included_markets"]) + " OpenAPI",
         }
+
+    def calendar(self) -> Dict[str, Any]:
+        def load():
+            loaders = {"除權息": lambda: self._json(TWSE_DIVIDEND_URL),
+                       "市場休市": lambda: self._json(TWSE_HOLIDAY_URL)}
+            futures = {key: SNAPSHOT_EXECUTOR.submit(loader) for key, loader in loaders.items()}
+            wait(futures.values(), timeout=SNAPSHOT_DEADLINE_SECONDS)
+            data, unavailable = {}, []
+            for key, future in futures.items():
+                try:
+                    if not future.done():
+                        future.cancel()
+                        future.add_done_callback(_consume_future_exception)
+                        raise TimeoutError
+                    data[key] = future.result()
+                except Exception:
+                    data[key] = []
+                    unavailable.append(key)
+            return {"items": upcoming_calendar(data["除權息"], data["市場休市"]),
+                    "unavailable_sources": unavailable, "timezone": "Asia/Taipei",
+                    "source_urls": [TWSE_DIVIDEND_URL, TWSE_HOLIDAY_URL]}
+        data = self._cached("calendar", 3600, load)
+        today = datetime.now(timezone(timedelta(hours=8))).date().isoformat()
+        return {**data, "items": [item for item in data["items"] if item["date"] >= today]}
+
+    def overview(self):
+        resources = self._snapshot_resources(SNAPSHOT_DEADLINE_SECONDS, include_holders=False)
+        datasets, companies = [], []
+        for name, daily_key, profile_key in (("上市", "twse_daily", "listed_companies"),
+                                              ("上櫃", "tpex_daily", "tpex_companies")):
+            if resources[profile_key][0]:
+                companies.extend(resources[profile_key][1])
+            if resources[daily_key][0] and resources[profile_key][0]:
+                datasets.append((name, resources[daily_key][1]))
+        daily, coverage = same_date_market_rows(datasets)
+        coverage["excluded_markets"] = [name for name in ("上市", "上櫃")
+                                          if name not in coverage["included_markets"]]
+        news = resources["news"][1] or {}
+        industries = {"items": aggregate_industry_performance(daily, companies),
+                      "as_of": coverage["as_of"], "coverage": coverage,
+                      "market": "、".join(coverage["included_markets"]) or "資料暫缺",
+                      "ranking_method": "同一交易日普通股漲跌幅等權平均",
+                      "source": "臺灣證券交易所、證券櫃檯買賣中心 OpenAPI"}
+        trending = {"items": rank_trending_stocks(news.get("items", []), companies),
+                    "article_count": len(news.get("items", [])),
+                    "sources": news.get("successful_sources", []),
+                    "unavailable_sources": news.get("unavailable_sources", list(RSS_SOURCES)),
+                    "ranking_method": "最近 72 小時有效新聞去重提及次數與跨來源權重"}
+        errors = [key for key, value in (("industries", industries), ("trending", trending))
+                  if not value["items"]]
+        return {"status": "partial" if errors or coverage["excluded_markets"] or
+                trending["unavailable_sources"] else "success",
+                "data": {"industries": industries, "trending": trending}, "unavailable": errors}
 
     def trending_stocks(self, limit: int = 5) -> Dict[str, Any]:
         news_bundle = self._recent_news()
@@ -604,6 +742,7 @@ class MarketInsightsService:
     def _snapshot_resources(
         self,
         deadline_seconds: float,
+        include_holders: bool = True,
     ) -> Dict[str, tuple[bool, Any, bool]]:
         loaders = {
             "listed_companies": self._listed_companies,
@@ -613,6 +752,8 @@ class MarketInsightsService:
             "holders": self._holder_distribution,
             "news": self._recent_news,
         }
+        if not include_holders:
+            del loaders["holders"]
         futures = {
             key: SNAPSHOT_EXECUTOR.submit(loader)
             for key, loader in loaders.items()
@@ -780,7 +921,8 @@ class MarketInsightsService:
                 "industry_comparison_unavailable",
             )
         else:
-            combined_daily = list(twse_daily) + list(tpex_daily)
+            combined_daily, coverage = same_date_market_rows(
+                [("上市", twse_daily), ("上櫃", tpex_daily)], price_date)
             combined_companies = list(listed_companies) + list(tpex_companies)
             rankings = aggregate_industry_performance(
                 combined_daily,
@@ -808,11 +950,12 @@ class MarketInsightsService:
                         calculated_price["change_percent"] - industry["average_change"],
                         2,
                     ),
+                    coverage=coverage,
                 )
                 available_markets = []
-                if resources["twse_daily"][0] and resources["listed_companies"][0]:
+                if "上市" in coverage["included_markets"] and resources["listed_companies"][0]:
                     available_markets.append("臺灣證券交易所")
-                if resources["tpex_daily"][0] and resources["tpex_companies"][0]:
+                if "上櫃" in coverage["included_markets"] and resources["tpex_companies"][0]:
                     available_markets.append("證券櫃檯買賣中心")
                 industry_context["source"] = "、".join(available_markets) + " OpenAPI"
                 industry_context["market_coverage"] = (

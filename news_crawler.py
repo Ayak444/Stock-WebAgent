@@ -1,8 +1,11 @@
 import feedparser
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 import calendar
+from concurrent.futures import ThreadPoolExecutor, wait
+
+NEWS_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="rss-feed")
 
 # 增強 Headers 以減少被阻擋的機率
 HEADERS = {
@@ -14,6 +17,7 @@ HEADERS = {
 
 # 更新為更穩定的 RSS 來源
 RSS_SOURCES = {
+    "google_tw": {"name": "Google 新聞彙整（台股）", "url": "https://news.google.com/rss/search?q=%E5%8F%B0%E8%82%A1&hl=zh-TW&gl=TW&ceid=TW:zh-Hant", "emoji": "📰"},
     "yahoo_finance": {"name": "Yahoo 財經", "url": "https://tw.news.yahoo.com/rss/finance", "emoji": "📰"},
     "investing": {"name": "Investing", "url": "https://tw.investing.com/rss/news.rss", "emoji": "💹"},
     # 鉅亨網台股新聞 (如果原本的 API 失敗，可以考慮使用這個 RSS，但有時會被擋)
@@ -53,14 +57,16 @@ class NewsCrawler:
                     # feedparser exposes published_parsed as a UTC time tuple.
                     # timegm keeps the epoch stable regardless of the host timezone.
                     pub_ts = calendar.timegm(entry.published_parsed)
-                    pub_time_str = datetime.fromtimestamp(pub_ts).strftime('%Y-%m-%d %H:%M')
+                    pub_time_str = datetime.fromtimestamp(pub_ts, timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M 台北')
                 
                 # 簡單清理 summary (移除 HTML 標籤)
                 raw_summary = entry.get('summary', '')
                 clean_summary = BeautifulSoup(raw_summary, "html.parser").get_text(separator=' ', strip=True) if raw_summary else ""
                 
                 result.append({
-                    "source": source_info["name"],
+                    "source": ((str(entry.get("source", {}).get("title", "")) + "（Google 新聞彙整）")
+                               if source_key == "google_tw" and entry.get("source", {}).get("title")
+                               else source_info["name"]),
                     "emoji": source_info["emoji"],
                     "title": entry.get("title", "").strip(),
                     "link": entry.get("link", ""),
@@ -78,14 +84,34 @@ class NewsCrawler:
         all_news = []
         target_sources = sources if sources else list(RSS_SOURCES.keys())
         
-        for key in target_sources:
-            if key in RSS_SOURCES:
-                news_items = NewsCrawler.fetch_rss(key, limit=limit_per_source)
-                all_news.extend(news_items)
+        # Include a working aggregate feed even when legacy UI selects old feeds.
+        target_sources = list(dict.fromkeys([*target_sources, "google_tw"]))
+        futures = [NEWS_EXECUTOR.submit(NewsCrawler.fetch_rss, key, limit_per_source, 4)
+                   for key in target_sources if key in RSS_SOURCES]
+        done, pending = wait(futures, timeout=12)
+        for future in done:
+            try:
+                all_news.extend(future.result())
+            except Exception:
+                pass
+        for future in pending:
+            future.cancel()
                 
         # 依時間排序 (最新的在前面)
         all_news.sort(key=lambda x: x.get('published_ts', 0), reverse=True)
-        return all_news
+        now_ts = datetime.now(timezone.utc).timestamp()
+        result, seen = [], set()
+        for article in all_news:
+            ts = article.get('published_ts', 0)
+            title = article.get('title', '').strip()
+            link = article.get('link', '').strip()
+            if not ts or not 0 <= now_ts - ts <= 72 * 3600 or not title or title in seen or (link and link in seen):
+                continue
+            seen.add(title)
+            if link:
+                seen.add(link)
+            result.append(article)
+        return result
 
     @staticmethod
     def fetch_article_content(url: str, max_length: int = 3000):

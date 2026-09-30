@@ -2,7 +2,7 @@
 
 整合台股日線、技術分析、策略回測、市場洞察與條件式 AI 分析的網頁專案。資料與模型輸出供研究與展示使用，不構成投資建議。
 
-**[開啟線上網站](https://taiwan-stock-bot-urn9.onrender.com/)** · [查看 API 文件](https://taiwan-stock-bot-urn9.onrender.com/docs) · [GitHub 原始碼](https://github.com/Ayak444/Stock-WebAgent)
+**[開啟線上網站](https://ayak4-trading-strategy-bot-l4oa.onrender.com/)** · [查看 API 文件](https://ayak4-trading-strategy-bot-l4oa.onrender.com/docs) · [GitHub 原始碼](https://github.com/Ayak444/Stock-WebAgent)
 
 > 線上服務部署於 Render Free；閒置後首次開啟可能需要等待服務喚醒。
 
@@ -49,7 +49,7 @@ uvicorn main:app --reload
 
 選用的**全域大戶監控**另需 [`migrations/002_holder_volume_alerts.sql`](migrations/002_holder_volume_alerts.sql)、`HOLDER_ALERT_TICKERS` 與管理者的 `DISCORD_WEBHOOK_URL`。`HOLDER_ALERT_ENABLED` 預設為 `false`、`HOLDER_ALERT_DRY_RUN` 預設為 `true`；請先驗證 dry-run，再視需求開啟發送。這些全域變數不會取代個人通知設定。
 
-更多操作與排錯細節見 [`MANUAL_SETUP.md`](MANUAL_SETUP.md)。完成部署後，可檢查網站的 [`/health`](https://taiwan-stock-bot-urn9.onrender.com/health) 與 [`/health/auth`](https://taiwan-stock-bot-urn9.onrender.com/health/auth)。若登入查詢失敗，請確認 Supabase Data API 對後端角色開放、同專案金鑰及 `users` 表的後端權限；不要把 secret key 改成公開金鑰，或授權瀏覽器直接讀取使用者表。
+更多操作與排錯細節見 [`MANUAL_SETUP.md`](MANUAL_SETUP.md)。完成部署後，可檢查網站的 [`/health`](https://ayak4-trading-strategy-bot-l4oa.onrender.com/health) 與 [`/health/auth`](https://ayak4-trading-strategy-bot-l4oa.onrender.com/health/auth)。若登入查詢失敗，請確認 Supabase Data API 對後端角色開放、同專案金鑰及 `users` 表的後端權限；不要把 secret key 改成公開金鑰，或授權瀏覽器直接讀取使用者表。
 
 ## 驗證
 

@@ -497,7 +497,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           </div>
           <div class="card" style="margin-bottom:0;">
             <div class="card-header">📅 近期重點行事曆</div>
-            <div class="card-body" style="padding:16px;max-height:380px;overflow-y:auto;color:var(--slate-400)">目前未接入可驗證的交易行事曆，暫無可靠事件可顯示。</div>
+            <div class="card-body" id="market-calendar" style="padding:16px;max-height:380px;overflow-y:auto;color:var(--slate-400)">正在讀取官方除權息與休市行事曆…</div>
           </div>
         </div>
 
@@ -642,11 +642,13 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
                   <option value="365">365 個交易日</option>
                 </select>
               </div>
-              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">手續費率</label><input class="input" id="backtest-commission" type="number" min="0" max="0.999" step="0.000001" value="0.001425"></div>
-              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">最低手續費 NT$</label><input class="input" id="backtest-min-commission" type="number" min="0" step="1" value="20"></div>
-              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">賣出稅率</label><input class="input" id="backtest-sell-tax" type="number" min="0" max="0.999" step="0.000001" value="0.003"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">手續費率（%）</label><input class="input" id="backtest-commission" type="number" min="0" max="10" step="0.0001" value="0.1425"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">最低手續費 NT$</label><input class="input" id="backtest-min-commission" type="number" min="0" max="100000" step="1" value="20"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">賣出稅率（%）</label><input class="input" id="backtest-sell-tax" type="number" min="0" max="10" step="0.0001" value="0.3"></div>
+              <button class="btn-outline" onclick="resetBacktestCosts()">恢復預設成本</button>
               <button class="btn-analyze" id="btn-backtest" onclick="runBacktest()">⚡ 執行回測</button>
             </div>
+            <p style="font-size:11px;color:var(--slate-400);margin-top:10px">以百分比輸入，例如 0.1425 代表 0.1425%。一般股票賣出稅率 0.3%；股票型 ETF 通常 0.1%，其他商品請依實際規則調整。</p>
           </div>
         </div>
         <div class="card" style="border:1px dashed var(--glass-border);background:rgba(15,23,42,0.3)">
@@ -912,7 +914,7 @@ async function fetchStockNames() {
 // ============================
 // API HELPER
 // ============================
-async function apiCall(endpoint, method = 'GET', body = null) {
+async function apiCall(endpoint, method = 'GET', body = null, attempt = 0) {
   let m = 'GET';
   if (typeof method === 'string') {
     m = method.toUpperCase();
@@ -929,7 +931,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     },
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(['/analyze', '/backtest'].includes(endpoint) ? 65000 : 40000)
   };
 
   if (body) {
@@ -943,17 +945,25 @@ async function apiCall(endpoint, method = 'GET', body = null) {
       ? await res.json()
       : { message: (await res.text()).trim() };
     if (!res.ok) {
-      const detail = payload.detail || payload.message || res.statusText;
+      const retryableRead = m === 'GET' && attempt === 0 && [502,503,504].includes(res.status)
+        && !endpoint.startsWith('/api/account/') && !endpoint.startsWith('/auth/');
+      if (retryableRead) return apiCall(endpoint, m, body, attempt + 1);
+      const rawDetail = payload.detail || payload.message || res.statusText;
+      const detail = Array.isArray(rawDetail) ? rawDetail.map(x => x.msg || '輸入無效').join('；')
+        : typeof rawDetail === 'object' ? (rawDetail.message || '服務暫時無法使用') : rawDetail;
       return { status: 'error', detail, message: `HTTP ${res.status}: ${detail}` };
     }
     return payload;
   } catch (e) {
+    if (m === 'GET' && attempt === 0 && !endpoint.startsWith('/api/account/') && !endpoint.startsWith('/auth/')) {
+      return apiCall(endpoint, m, body, attempt + 1);
+    }
     const timedOut = e && e.name === 'TimeoutError';
     return {
       status: 'error',
       message: timedOut
-        ? `API 連線逾時 (${API_BASE})`
-        : `無法連線 API (${API_BASE})，請確認後端已啟動或網站設定正確`,
+        ? '伺服器啟動或資料讀取超時，請稍後按重新執行。'
+        : '暫時無法連線，請確認網路後重新執行。',
       detail: e?.message || 'Network Error'
     };
   }
@@ -1216,6 +1226,9 @@ async function loadVolumeSettings() {
   const result = await apiCall('/api/account/volume-alerts');
   if (result.status === 'error') {
     state.textContent = result.message || '暫時無法讀取設定';
+    const retry = document.createElement('button');
+    retry.className = 'btn-outline'; retry.textContent = '重新載入';
+    retry.addEventListener('click', loadVolumeSettings); state.appendChild(retry);
     return;
   }
   document.getElementById('volume-tickers').value = (result.tickers || []).join(',');
@@ -1367,6 +1380,7 @@ function renderScreenerTargets() {
 // HOME / WAR PAGE
 // ============================
 async function fetchWarData() {
+  fetchMarketCalendar();
   const btn = document.getElementById('btn-war');
   btn.disabled = true;
   document.getElementById('war-ai-summary').innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">MaiAgent 生成摘要中...</p></div>';
@@ -1419,6 +1433,23 @@ async function fetchWarData() {
     });
   }
   btn.disabled = false;
+}
+
+async function fetchMarketCalendar() {
+  const box = document.getElementById('market-calendar');
+  if (!box) return;
+  const res = await apiCall('/api/market-calendar');
+  const data = res.data || {};
+  const items = data.items || [];
+  box.innerHTML = items.map(event => `<div style="padding:10px 0;border-bottom:1px solid var(--glass-border)"><strong>${escapeRoutingText(event.date)}</strong> · ${escapeRoutingText(event.kind)}<br>${escapeRoutingText(event.title)} <a data-safe-url="${escapeRoutingText(event.source_url)}" style="color:var(--blue-400)">官方來源</a></div>`).join('')
+    || '<p>目前沒有可驗證的近期事件；官方資料可能尚未公告或暫時無法取得。</p>';
+  const note = document.createElement('div');
+  note.style.cssText = 'font-size:11px;margin-top:10px';
+  note.textContent = `台北日期 · 未來 60 天；範圍僅包含已公告的上市除權息與市場休市${(data.unavailable_sources || []).length ? '；部分來源暫缺' : ''}。`;
+  box.appendChild(note);
+  const retry = document.createElement('button'); retry.className = 'btn-outline';
+  retry.textContent = '更新行事曆'; retry.addEventListener('click', fetchMarketCalendar); box.appendChild(retry);
+  bindSafeExternalLinks(box);
 }
 
 // Quick Search
@@ -1542,7 +1573,7 @@ async function fetchTechAnalysis() {
   const btn = document.getElementById('btn-tech');
   const tbody = document.getElementById('tech-table');
   btn.disabled = true;
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto"></div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto"></div><p>正在取得行情；首次啟動可能需要約一分鐘…</p></td></tr>';
   const preset = [
     { id: '2330.TW', name: '台積電', type: '台股', cost: 0, shares: 0 },
     { id: '2317.TW', name: '鴻海', type: '台股', cost: 0, shares: 0 },
@@ -1557,6 +1588,10 @@ async function fetchTechAnalysis() {
     renderTechTable(res.data);
   } else {
     tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red-400);text-align:center">錯誤: ${escapeRoutingText(res.message)}</td></tr>`;
+    const retry = document.createElement('button');
+    retry.className = 'btn-outline'; retry.textContent = '重新分析';
+    retry.addEventListener('click', fetchTechAnalysis);
+    tbody.querySelector('td').appendChild(retry);
   }
   btn.disabled = false;
 }
@@ -1794,25 +1829,41 @@ function updateSubChart() {
 // ============================
 // BACKTEST (NEW)
 // ============================
+function resetBacktestCosts() {
+  document.getElementById('backtest-commission').value = '0.1425';
+  document.getElementById('backtest-min-commission').value = '20';
+  document.getElementById('backtest-sell-tax').value = '0.3';
+}
+
+function readBacktestCosts() {
+  const read = (id, label, max, unit) => {
+    const raw = document.getElementById(id).value.trim();
+    const value = Number(raw);
+    if (!raw || !Number.isFinite(value) || value < 0 || value > max) {
+      throw new Error(`${label}必須是 0 至 ${max}${unit}的有效數值`);
+    }
+    return value;
+  };
+  return {
+    commission_rate: read('backtest-commission', '手續費率', 10, '%') / 100,
+    min_commission: read('backtest-min-commission', '最低手續費', 100000, ' 元'),
+    sell_tax_rate: read('backtest-sell-tax', '賣出稅率', 10, '%') / 100
+  };
+}
+
 async function runBacktest() {
   const btn = document.getElementById('btn-backtest');
   const resultDiv = document.getElementById('backtest-result');
   let ticker = document.getElementById('backtest-ticker').value.trim();
   const days = parseInt(document.getElementById('backtest-days').value, 10);
-  const commission_rate = Number(document.getElementById('backtest-commission').value);
-  const min_commission = Number(document.getElementById('backtest-min-commission').value);
-  const sell_tax_rate = Number(document.getElementById('backtest-sell-tax').value);
   if (!ticker) { showToast('請輸入股票代號', 'warning'); return; }
-  if (![commission_rate, min_commission, sell_tax_rate].every(Number.isFinite) ||
-      commission_rate < 0 || commission_rate >= 1 || min_commission < 0 ||
-      sell_tax_rate < 0 || sell_tax_rate >= 1) {
-    showToast('請輸入有效的交易成本', 'warning'); return;
-  }
+  let costs;
+  try { costs = readBacktestCosts(); } catch (error) { showToast(error.message, 'warning'); return; }
   ticker = normalizeTicker(ticker);
   document.getElementById('backtest-ticker').value = ticker;
   btn.disabled = true;
-  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">策略回測模擬中...</p></div>';
-  const res = await apiCall('/backtest', 'POST', { ticker, days, commission_rate, min_commission, sell_tax_rate });
+  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">取得行情並計算成本中；首次啟動可能需要約一分鐘…</p></div>';
+  const res = await apiCall('/backtest', 'POST', { ticker, days, ...costs });
   const numeric = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
   const money = value => numeric(value) === null ? '—' : `NT$${numeric(value).toLocaleString('zh-TW', {maximumFractionDigits: 2})}`;
   const percent = (value, unit = '%') => numeric(value) === null ? '—' : `${numeric(value) >= 0 ? '+' : ''}${numeric(value).toFixed(2)}${unit}`;
@@ -1842,6 +1893,10 @@ async function runBacktest() {
     showToast('回測完成', 'success');
   } else {
     resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">回測失敗：${escapeRoutingText(res.message || '未知錯誤')}</p></div></div>`;
+    const retry = document.createElement('button');
+    retry.className = 'btn-outline'; retry.textContent = '重新執行';
+    retry.addEventListener('click', runBacktest);
+    resultDiv.querySelector('.card-body').appendChild(retry);
     showToast('回測執行失敗', 'error');
   }
   btn.disabled = false;
@@ -2174,6 +2229,10 @@ async function fetchMarketInsights(force = false) {
 
   const methodology = document.getElementById('insights-methodology');
   methodology.innerHTML = `<strong style="color:var(--blue-400)">計算說明：</strong> 產業排行範圍為 ${escapeRoutingText(industries.market || '資料暫缺')}，以成分股單日漲跌幅等權平均；熱門股取自 ${insightNumber(trending.article_count)} 則近期財經 RSS，代表新聞討論熱度，不代表成交量、搜尋量或買進建議。`;
+  const coverage = industries.coverage || {};
+  const coverageNote = document.createElement('div');
+  coverageNote.textContent = `採用交易日 ${coverage.as_of || '暫缺'}；來源日期 ${Object.entries(coverage.market_dates || {}).map(([market,date]) => `${market} ${date}`).join('、')}。${(coverage.excluded_markets || []).length ? `未納入：${coverage.excluded_markets.join('、')}（日期不同或來源暫缺）。` : ''} 可用新聞來源：${(trending.sources || []).join('、') || '暫缺'}；${(trending.unavailable_sources || []).length ? '部分來源暫缺，熱度只涵蓋可用來源。' : '僅涵蓋上述 RSS 來源。'}`;
+  methodology.appendChild(coverageNote);
   marketInsightsLoaded = res.status === 'success' || res.status === 'partial';
   button.disabled = false;
   if (!marketInsightsLoaded) showToast(res.message || '市場洞察讀取失敗', 'error');
@@ -2184,6 +2243,9 @@ function snapshotMeta(section) {
 }
 
 function snapshotUnavailable(title, section) {
+  if (section.code === 'industry_not_applicable') {
+    return `<div class="card" style="margin:0"><div class="card-header">${escapeRoutingText(title)}<span class="badge badge-slate">不適用</span></div><div class="card-body" style="color:var(--slate-400)">ETF 等商品不屬於單一普通股產業分類，因此不進行此項比較。${snapshotMeta(section)}</div></div>`;
+  }
   return `<div class="card" style="margin:0"><div class="card-header">${escapeRoutingText(title)}<span class="badge badge-red">暫缺</span></div><div class="card-body"><div style="color:var(--red-400)">此區資料目前不可用</div><div style="font-size:11px;color:var(--slate-500);margin-top:6px">代碼：${escapeRoutingText(section.code || 'section_unavailable')}</div>${snapshotMeta(section)}</div></div>`;
 }
 
@@ -2425,8 +2487,8 @@ const originalApiCall = window.apiCall || (async (url) => {
   return res.json();
 });
 
-window.apiCall = async function(endpoint, method = 'GET', body = null) {
-  const result = await originalApiCall(endpoint, method, body);
+window.apiCall = async function(endpoint, method = 'GET', body = null, attempt = 0) {
+  const result = await originalApiCall(endpoint, method, body, attempt);
   
   // 如果是股票分析結果，則通過 WebSocket 推送到其他連接
   if (typeof endpoint === 'string' && endpoint.includes('/analyze') && result && result.data && window.wsClient) {
@@ -2599,6 +2661,7 @@ document.addEventListener('keydown', (e) => {
 // INIT
 // ============================
 function init() {
+  fetchMarketCalendar();
   fetchStockNames();
   checkHealth();
   updateAuthUI();

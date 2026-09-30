@@ -26,6 +26,7 @@ from async_data_provider import get_async_provider, close_async_provider
 from task_queue import job_runner
 from websocket_system import ws_manager, msg_handler, initialize_websocket_system, shutdown_websocket_system
 import websocket_system
+_analysis_save_tasks = set()
 # 原有模塊
 from routing_policy import get_sentiment_analysis
 from models import (
@@ -38,7 +39,7 @@ from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
 from news_crawler import NewsCrawler
-from database import Database, DuplicateEmailError, RegistrationStoreError
+from database import Database, DuplicateEmailError, RegistrationStoreError, AccountAlertStoreError
 from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
 from market_insights import market_insights
@@ -729,8 +730,17 @@ async def analyze(req: AnalyzeRequest):
     targets = [StockTarget(t.id, t.name, t.type, t.cost, t.shares) for t in req.targets]
 
     try:
-        results, fx_note = await _analyze_targets_async(targets, req.mode)
-        db.save_analysis(results)
+        results, fx_note = await asyncio.wait_for(_analyze_targets_async(targets, req.mode), timeout=55)
+        # Persistence is best effort and never blocks the event loop or quote response.
+        async def persist():
+            try:
+                await asyncio.wait_for(asyncio.to_thread(db.save_analysis, results), timeout=8)
+            except Exception:
+                logger.warning("analysis_history_save unavailable")
+        if len(_analysis_save_tasks) < 4:
+            task = asyncio.create_task(persist())
+            _analysis_save_tasks.add(task)
+            task.add_done_callback(_analysis_save_tasks.discard)
 
         # 並行推送到 WebSocket 客戶端
         for result in results:
@@ -743,6 +753,8 @@ async def analyze(req: AnalyzeRequest):
             "fx": fx_note,
             "cached_at": datetime.now().isoformat()
         }
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="分析資料讀取逾時，請稍後重試或選擇快速分析") from None
     except Exception as e:
         logger.error(f"分析失敗: {e}")
         traceback.print_exc()
@@ -1004,14 +1016,13 @@ async def backtest(req: BacktestRequest):
             content={"status": "error", "code": "unsupported_window",
                      "message": "回測僅支援 30、90、180 或 365 個交易日"},
         )
-    return await asyncio.to_thread(
-        Backtester.run,
-        req.ticker,
-        req.days,
-        req.commission_rate,
-        req.min_commission,
-        req.sell_tax_rate,
-    )
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(
+            Backtester.run, req.ticker, req.days, req.commission_rate,
+            req.min_commission, req.sell_tax_rate,
+        ), timeout=55)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="回測行情讀取逾時，請稍後重新執行") from None
 
 DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -1179,10 +1190,21 @@ def auth_logout(request: Request, response: Response):
 def get_account_volume_alerts(user: dict = Depends(_account_user)):
     try:
         settings = db.get_account_volume_settings(user["id"])
-    except RuntimeError:
-        raise HTTPException(status_code=503, detail="通知設定暫時無法使用，請聯絡管理員")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=_alert_store_message(exc)) from None
     return {"tickers": settings.get("tickers") or [],
             "webhook_configured": bool(settings.get("webhook_ciphertext"))}
+
+
+def _alert_store_message(exc):
+    category = getattr(exc, "category", "unknown")
+    return {
+        "key_rejected": "通知資料庫拒絕存取，請管理員核對此 Render 服務的 Supabase 專案網址與後端金鑰並重新部署（key_rejected）",
+        "permission_auth": "通知資料庫權限不足，請管理員核對後端金鑰與 service_role 私有資料表權限（permission_auth）",
+        "missing_schema": "通知資料表或欄位不存在，請管理員核對此服務連線專案與通知資料表（missing_schema）",
+        "connectivity": "通知資料庫連線暫時不穩，已重試讀取；請稍後按重新載入（connectivity）",
+        "not_configured": "通知資料庫尚未設定，請管理員設定 SUPABASE_URL 與 SUPABASE_KEY（not_configured）",
+    }.get(category, "通知設定暫時無法使用，請管理員檢查 Render 的 account_volume_store 診斷分類（unknown）")
 
 
 @app.put("/api/account/volume-alerts")
@@ -1208,8 +1230,8 @@ def put_account_volume_alerts(payload: AccountVolumeSettingsRequest,
         })
     except ValueError:
         raise HTTPException(status_code=422, detail="Discord Webhook 格式不正確")
-    except RuntimeError:
-        raise HTTPException(status_code=503, detail="通知設定暫時無法使用，請聯絡管理員")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=_alert_store_message(exc)) from None
     return {"tickers": list(tickers), "webhook_configured": bool(ciphertext)}
 
 @app.get("/api/sentiment", response_model=SentimentResponse)
@@ -1255,26 +1277,13 @@ def get_stock_names():
 @app.get("/api/market-insights")
 async def get_market_insights():
     """Return industry leaders and the five most-mentioned recent stocks."""
-    industry, trending = await asyncio.gather(
-        asyncio.to_thread(market_insights.industry_performance, 10),
-        asyncio.to_thread(market_insights.trending_stocks, 5),
-        return_exceptions=True,
-    )
-    data = {}
-    errors = []
-    if isinstance(industry, Exception):
-        logger.exception("產業漲幅資料讀取失敗", exc_info=industry)
-        data["industries"] = {"items": [], "error": "產業排行目前無法取得"}
-        errors.append("industries")
-    else:
-        data["industries"] = industry
-    if isinstance(trending, Exception):
-        logger.exception("熱門股新聞資料讀取失敗", exc_info=trending)
-        data["trending"] = {"items": [], "error": "新聞熱度目前無法取得"}
-        errors.append("trending")
-    else:
-        data["trending"] = trending
-    return {"status": "partial" if errors else "success", "data": data, "unavailable": errors}
+    return await asyncio.to_thread(market_insights.overview)
+
+
+@app.get("/api/market-calendar")
+async def get_market_calendar():
+    data = await asyncio.to_thread(market_insights.calendar)
+    return {"status": "partial" if data["unavailable_sources"] else "success", "data": data}
 
 
 @app.get("/api/market-insights/major-holders/{ticker}")
