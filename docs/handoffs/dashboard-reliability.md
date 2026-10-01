@@ -24,7 +24,7 @@
 | --- | --- | --- | --- | --- | --- |
 | Product | /root/dashboard_fix_supervisor/product | Complete |  |  |  |
 | Developer | /root/dashboard_fix_supervisor/developer; /root authorized fixes | Complete |  |  | Lead fixed bounded retry propagation, synchronous SDK options, partial RSS, safe DOM writes, cost validation and news independent of price availability. |
-| Tester | /root (explicit user override) | Pass: 133 tests, one platform skip |  |  | Full offline gate plus real browser helpers in Node with fake DOM/network. |
+| Tester | /root (explicit user override) | Pass: 134 tests, one platform skip |  |  | Full offline gate plus real browser helpers in Node with fake DOM/network. |
 | Reviewer | /root (explicit user override) | Pass: zero blocking issues |  |  | Same Lead performs both stages under the explicit task-specific exception; not an independent review. |
 
 ## Explicit user workflow override
@@ -61,7 +61,7 @@ The staged hash covers `git diff --cached --binary`, and the unstaged hash cover
 | market_routing.py | Three concurrent official monthly technical history requests and bounded Yahoo/TWSE source attempts. |
 | static/index.html | Official calendar rendering, coverage explanations, neutral ETF comparison, percent fee/tax input with reset and precise validation, loading/manual retry states. |
 | README.md / MANUAL_SETUP.md | Primary host links and conditional safe credential/schema/network troubleshooting, limits and manual operations. |
-| tests/test_dashboard_reliability.py / tests/dashboard_browser_checks.js | Ten focused regressions for reported dashboard contracts, actual browser syntax/retries/fee conversion and SDK construction without networking. |
+| tests/test_dashboard_reliability.py / tests/dashboard_browser_checks.js | Eleven focused regressions for reported dashboard contracts, actual browser syntax/retries/fee conversion, bounded news regex work and SDK construction without networking. |
 | tests/test_market_insights.py / tests/test_notification_ai_diagnostics.py | Valid publication timestamps and inclusion of new safe diagnostic helper in existing test harness. |
 
 ### Commands and results
@@ -72,7 +72,8 @@ The staged hash covers `git diff --cached --binary`, and the unstaged hash cover
 | Temporary Python syntax command | 1 | Existing temp venv could not start its Python312 base executable. Tester/Lead must resolve runtime before quality gate. |
 | Same syntax command with approved elevated runtime access | 0 | AST parsing passed for all five edited Python modules. Default sandbox could not access base runtime; no runtime installation required. |
 | git diff --check | 0 | Preserved existing mixed line endings; no newly introduced whitespace defects. |
-| python scripts/quality_gate.py | 0 | 38 Python files compile; 133 tests pass, one Windows sendmsg capability skip. Node browser check runs without network. Final committed revision is rechecked before push. |
+| python scripts/quality_gate.py | 0 | 38 Python files compile; 134 tests pass, one Windows sendmsg capability skip. Node browser check runs without network. Final committed revision is rechecked before push. |
+| Synthetic news ranking: 2100 company profiles, 100 articles | 0 | 0.101 seconds on local runtime after compiling ticker patterns once per profile. No network or production inputs used. Live overview timeout after initial publication justified this bounded performance fix and full gate rerun. |
 
 ### Known limitations
 
@@ -88,7 +89,7 @@ The staged hash covers `git diff --cached --binary`, and the unstaged hash cover
 | AC-01 | test_calendar_uses_taipei_day_and_excludes_trading_markers; calendar implementation review | Pass | ROC dates, UTC-to-Taipei boundary, invalid/past exclusion, official URLs; partial loaders and future-only cache reviewed. |
 | AC-02 | test_read_retries_once_but_write_and_permission_failure_do_not; test_sync_supabase_options_construct_without_network; existing notification/volume tests | Pass | Transient read twice, writes once, SQLSTATE precedence, synchronous SDK creation; ownership, encryption, safe errors and private migration regression. |
 | AC-03 | test_market_dates_are_not_mixed; existing industry/snapshot tests; neutral ETF UI review | Pass | Excludes older market date, equal-weight output validated, not-applicable content escapes external fields. |
-| AC-04 | test_news_excludes_stale_future_undated_and_duplicates; test_slow_feed_does_not_discard_healthy_feed; test_price_outage_does_not_remove_company_names_from_news; existing RSS tests | Pass | Healthy feed survives slow feed; valid recent unique articles; profiles usable independently of prices; timezone stable. |
+| AC-04 | test_news_excludes_stale_future_undated_and_duplicates; test_slow_feed_does_not_discard_healthy_feed; test_price_outage_does_not_remove_company_names_from_news; test_large_profile_set_bounds_news_regex_work; existing RSS tests | Pass | Healthy feed survives slow feed; valid recent unique articles; profiles usable independently of prices; timezone stable; each ticker pattern compiled at most once per request despite 100 articles. |
 | AC-05 | test_analysis_timeout_returns_retryable_504; test_analysis_response_survives_history_save_failure; test_actual_browser_helpers_without_network; existing routing/backtest tests | Pass | Server 55-second deadline, best-effort save failure, public GET one retry, private/auth/POST none, quick/deep AI failure fallback. |
 | AC-06 | test_actual_browser_helpers_without_network; existing cost backtests; reset/default review | Pass | Real JS single percent conversion; 59.76, blank, negative, nonfinite rejection; configured fractional backend inputs unchanged. |
 | AC-07 | full quality_gate; exact committed identity and final diff review | Pass | Final gate and clean tested/reviewed source IDs recorded externally before push; manual operations below. |
@@ -97,7 +98,7 @@ The staged hash covers `git diff --cached --binary`, and the unstaged hash cover
 
 - Command: `python scripts/quality_gate.py`
 - Exit code: 0
-- Summary: 133 tests, one Windows sendmsg skip, 38 compiled files. Initial regressions and discovered SDK/retry issues were fixed and the full gate rerun. Final committed revision is validated again in the task transcript.
+- Summary: 134 tests, one Windows sendmsg skip, 38 compiled files. Initial regressions and discovered SDK/retry/news matching issues were fixed and the full gate rerun. Final committed revision is validated again in the task transcript.
 
 ## Review evidence
 

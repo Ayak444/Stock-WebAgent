@@ -341,7 +341,9 @@ def rank_trending_stocks(
         code = str(row.get("公司代號", "")).strip()
         name = str(row.get("公司簡稱", "")).strip()
         if re.fullmatch(r"\d{4,6}", code) and len(name) >= 2:
-            profiles.append((code, name))
+            # Official profiles exceed re's small global cache. Compile once per
+            # profile rather than recompiling every ticker for every article.
+            profiles.append((code, name, re.compile(rf"(?<!\d){re.escape(code)}(?!\d)")))
 
     stats: Dict[str, Dict[str, Any]] = {}
     for article in recent_unique_news(news_items, now_ts):
@@ -351,8 +353,8 @@ def rank_trending_stocks(
         if not text.strip():
             continue
         mentioned = []
-        for code, name in profiles:
-            code_match = re.search(rf"(?<!\d){re.escape(code)}(?!\d)", text)
+        for code, name, code_pattern in profiles:
+            code_match = code_pattern.search(text)
             if code_match or (name not in AMBIGUOUS_STOCK_NAMES and name in text):
                 mentioned.append((code, name))
         for code, name in set(mentioned):

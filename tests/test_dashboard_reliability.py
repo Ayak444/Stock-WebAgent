@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 from database import AccountAlertStoreError, Database, account_store_failure_category
-from market_insights import MarketInsightsService, recent_unique_news, same_date_market_rows, upcoming_calendar
+from market_insights import MarketInsightsService, rank_trending_stocks, recent_unique_news, same_date_market_rows, upcoming_calendar
 from supabase import ClientOptions, create_client
 
 
@@ -57,6 +57,17 @@ class DashboardReliabilityTests(unittest.TestCase):
             result = service.overview()
         self.assertEqual(result['status'], 'partial')
         self.assertEqual(result['data']['trending']['items'][0]['ticker'], '2330')
+
+    def test_large_profile_set_bounds_news_regex_work(self):
+        import re
+        companies = [{'公司代號': str(10000 + i), '公司簡稱': f'company{i}'} for i in range(2100)]
+        now = time.time()
+        news = [{'title': f'10000 update {i}', 'published_ts': now - i} for i in range(100)]
+        with patch('market_insights.re.compile', wraps=re.compile) as compile_pattern:
+            result = rank_trending_stocks(news, companies, now_ts=now)
+        self.assertEqual(result[0]['ticker'], '10000')
+        self.assertEqual(result[0]['mention_count'], 100)
+        self.assertLessEqual(compile_pattern.call_count, len(companies))
 
     def test_slow_feed_does_not_discard_healthy_feed(self):
         good, slow = Future(), Future()
