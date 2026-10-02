@@ -48,9 +48,15 @@ class StrategyEngine:
         # 籌碼面
         if chip:
             stock_id = ticker.split('.')[0]
-            if stock_id in chip:
-                foreign = chip[stock_id].get('Foreign', 0)
-                trust = chip[stock_id].get('Trust', 0)
+            institutional = chip.get(ticker) or chip.get(stock_id)
+            if institutional and institutional.get('as_of') == pd.Timestamp(df.index[-1]).date().isoformat():
+                foreign = institutional.get('Foreign')
+                trust = institutional.get('Trust')
+                if foreign is None or trust is None:
+                    institutional = None
+            else:
+                institutional = None
+            if institutional:
                 if foreign > 1000000:
                     score += 10
                     signals.append(f"💰 外資買超 {foreign/1000:.0f}張")
@@ -59,7 +65,10 @@ class StrategyEngine:
                     signals.append(f"💸 外資賣超 {abs(foreign)/1000:.0f}張")
                 if trust > 500000:
                     score += 5
-                    signals.append(f"📈 投信買超")
+                    signals.append(f"📈 投信買超 {trust/1000:.0f}張")
+                signals.append(f"法人資料日期 {institutional['as_of']}（單日，非連續買超）")
+            else:
+                signals.append("法人籌碼暫缺或日期與行情不同，未納入評分")
 
         # 匯率影響（出口股）
         if fx_status == -1:  # 台幣升值

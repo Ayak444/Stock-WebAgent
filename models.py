@@ -2,6 +2,8 @@
 from dataclasses import dataclass
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
+from decimal import Decimal
+import re
 
 
 @dataclass
@@ -55,20 +57,44 @@ class ScreenerAnalyzeRequest(BaseModel):
     filters: Optional[List[str]] = None
     
 class SyncPortfolioRequest(BaseModel):
-    user_id: str
-    portfolio: List[dict] = Field(default_factory=list)
+    user_id: Optional[str] = None  # Legacy clients may send it; server owns identity.
+    portfolio: List["PortfolioItem"] = Field(default_factory=list, max_length=100)
+
+
+class PortfolioItem(BaseModel):
+    code: str
+    type: Literal["台股", "ETF"]
+    cost: Decimal = Field(ge=0, le=1000000000, allow_inf_nan=False, max_digits=18, decimal_places=6)
+    shares: Decimal = Field(ge=0, le=1000000000, allow_inf_nan=False, max_digits=18, decimal_places=6)
+
+    @field_validator("code")
+    @classmethod
+    def ticker(cls, value):
+        value = value.strip().upper()
+        if re.fullmatch(r"[0-9][0-9A-Z]{3,9}", value):
+            value += ".TW"
+        if not re.fullmatch(r"[0-9][0-9A-Z]{3,9}\.(TW|TWO)", value):
+            raise ValueError("請輸入台股股票代號，例如 2330.TW")
+        return value
+
+SyncPortfolioRequest.model_rebuild()
 
 class StressTestRecordRequest(BaseModel):
-    user_id: str = "default_user"
-    scenario: str = "常規測試"
+    user_id: Optional[str] = None
+    scenario: str = Field(default="常規測試", max_length=200)
     result: dict = Field(default_factory=dict)
 
 class TradeRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     action: Literal["買入", "賣出"]
     ticker: str
-    amount: float = Field(gt=0)
-    price: float = Field(gt=0)
+    amount: Decimal = Field(gt=0, le=1000000000, allow_inf_nan=False, max_digits=18, decimal_places=6)
+    price: Decimal = Field(gt=0, le=1000000000, allow_inf_nan=False, max_digits=18, decimal_places=6)
+
+    @field_validator("ticker")
+    @classmethod
+    def supported_ticker(cls, value):
+        return PortfolioItem.ticker(value)
 
 class AuthRequest(BaseModel):
     email: str = Field(min_length=3, max_length=254)

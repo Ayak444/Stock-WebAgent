@@ -68,3 +68,22 @@
 回測手續費率與賣出稅率在頁面以**百分比**填寫，例如 `0.1425` 表示 `0.1425%`；最低手續費以 NT$ 填寫。頁面接受 0–10% 的費率與 NT$0–100,000 的最低手續費，這是輸入防呆範圍，不代表法定稅率。預設一般股票示例為 `0.1425% / NT$20 / 0.3%`，股票型 ETF 通常為 `0.1%` 賣出稅率，仍請依商品實際規則調整。錯誤輸入可按「恢復預設成本」。來源：[TWSE ETF 交易規則](https://www.twse.com.tw/zh/products/securities/etf/overview/rules.html)。
 
 技術分析與回測伺服器計算上限 55 秒，頁面等待上限 65 秒；若服務剛從休眠啟動，仍可能需要使用者再按一次重新執行。寫入、登入與通知設定儲存不會在瀏覽器自動重送；分析歷史存檔是背景最佳努力，資料庫暫時不可用時行情仍可回傳。
+
+## 私人資料與模擬交易的分階段部署
+
+這次有兩份**新增且可重複执行**的 SQL。先備份，依序執行；不要將舊表刪除，也不要把两份 SQL 當成同一個未經檢查的部署步驟：
+
+1. 先在同一 Supabase 專案執行 [`account_atomic_operations`](supabase/migrations/20261002125008_account_atomic_operations.sql)。它新增私有 `virtual_positions`、原子交易與持股清單替換 RPC，不改動舊資料列／餘額，也不撤銷既有表權限。
+2. 將這版程式部署到主要 Render 服務。核對 `/health/private`：必須 HTTP 200、`ready=true`，有效角色具備每一項需要的私有權限與 RPC EXECUTE；`/health/auth` 正常並不代表私有權限已通過。只回傳 `ready`、固定分類與 `credential_kind`；無正式憑證或使用者資料。
+3. 確認登入、讀取個人持股與通知設定都正常後，再執行 [`account_access_hardening`](supabase/migrations/20261002125014_account_access_hardening.sql)。它為 `users`、`portfolios`、`trades`、`stress_tests` 啟用 RLS，撤銷 public/anon/authenticated 存取，並將後端權限縮到實際所需。再次驗證登入與 `/health/private`。
+4. 若私有能力檢查未通過，先修正**對應主要網址服務**的同專案後端金鑰／Data API 設定並重新部署；不要先執行第二份 SQL，以免目前依賴公用角色的錯誤設定造成登入中斷。
+
+所有個人 API 都依登入 session 判定帳號，不再相信傳入的 `user_id`；未登入回 HTTP 401，跨站寫入回 HTTP 403。舊客戶端即使帶了其他 UUID，也不能切換資料主人。持股清單替換會先驗證全部資料再於單一資料庫交易替換；儲存失敗回 HTTP 503，原清單保留。
+
+手動持股清單是分析用的觀察清單，**不能作為模擬賣出的庫存**。只有經 `execute_virtual_trade` 的模擬買入才增加 `virtual_positions`；賣出須有足額模擬庫存，買入須有足額模擬餘額。帳戶、庫存、餘額、交易紀錄在單一 NUMERIC 交易完成或一起回滾。原有交易歷史與餘額會保留，舊手動清單與舊交易不會自動轉成新庫存。這是使用者指定價格的模擬記帳，不是券商下單，也未模擬實際成交成本。
+
+通知頁若顯示 `encryption_not_configured`，管理員須在對應 Render 服務核對 `ALERT_WEBHOOK_ENCRYPTION_KEY` 是否為有效 Fernet key，再部署；`encryption_unavailable` 表示既有 Webhook 無法用目前金鑰讀取，先確認金鑰是否更換／遺失。不要任意生成新金鑰覆蓋原金鑰。遺失原金鑰時，使用者必須重新輸入 Webhook；服務不會回傳網址原文。
+
+總經報價缺少來源、有效價格或日期時顯示「—」；只有一筆有效價格時不推算漲跌。法人資料採 TWSE／TPEx 已公告單日買賣超，回應內單位為股，頁面除以 1,000 顯示張，並標示各市場交易日期；並非連續買超。分析只將與個股行情同日的法人資料納入評分。
+
+AI 摘要的 `generated_at` 是本次生成完成的台北時間，與來源新聞發布日期範圍分開顯示；輸入限最近 72 小時的有效日期新聞，較早新聞不得冒稱今日事件。這條摘要路徑未快取 LLM 結果，因此 `from_cache=false`；新聞來源限制仍適用。

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Tuple
 import json
 from cache_layer import cache_manager
+from market_provenance import macro_quote, unavailable_quote, institutional_provider
 
 TW_TZ = timezone(timedelta(hours=8))
 
@@ -95,7 +96,7 @@ class AsyncDataProvider:
         responses = await asyncio.gather(*tasks, return_exceptions=True)
         
         for symbol, name in tickers.items():
-            result[name] = {"price": 0, "change": 0, "pct_change": 0}
+            result[name] = unavailable_quote()
         
         for idx, (symbol, name) in enumerate(tickers.items()):
             if idx < len(responses) and isinstance(responses[idx], dict):
@@ -111,26 +112,11 @@ class AsyncDataProvider:
             url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d"
             data = await self._get_json(url, timeout=8)
             
-            if data and 'chart' in data and data['chart']['result']:
-                result_data = data['chart']['result'][0]
-                quote = result_data['indicators']['quote'][0]
-                closes = [c for c in quote.get('close', []) if c is not None]
-                
-                if len(closes) >= 1:
-                    current = float(closes[-1])
-                    prev = float(closes[-2]) if len(closes) > 1 else current
-                    change = current - prev
-                    pct_change = (change / prev * 100) if prev else 0
-                    
-                    return {
-                        "price": round(current, 2),
-                        "change": round(change, 2),
-                        "pct_change": round(pct_change, 2)
-                    }
+            return macro_quote(data)
         except Exception as e:
             print(f"獲取 {symbol} 失敗: {e}")
         
-        return {"price": 0, "change": 0, "pct_change": 0}
+        return unavailable_quote()
     
     async def get_stock_history(self, ticker: str, days: int = 180) -> pd.DataFrame:
         from market_routing import market_router
@@ -198,12 +184,7 @@ class AsyncDataProvider:
         獲取籌碼面數據（外資、投信、自營商）
         注：此示例返回格式，實際需連接真實數據源
         """
-        # TODO: 連接真實籌碼面 API（例如 TWSE 或第三方服務）
-        cached = cache_manager.memory_cache.get("chip_data")
-        if cached:
-            return cached
-        
-        return {}
+        return await asyncio.to_thread(institutional_provider.get)
     
     async def close(self):
         """關閉 session"""

@@ -1272,14 +1272,17 @@ async function saveVolumeSettings() {
 // ============================
 async function loadPositionsFromServer() {
   if (!currentUser) { positions = []; renderPositions(); return; }
-  const res = await apiCall(`/portfolio?user_id=${currentUser.id}`);
-  positions = (res.status === 'success' && res.data.length > 0) ? res.data : [];
+  const res = await apiCall('/portfolio');
+  if (res.status !== 'success') { showToast(res.message || '持股讀取失敗，原資料仍保留', 'error'); return; }
+  positions = res.data || [];
   renderPositions();
 }
 
 async function syncPositions() {
   if (!currentUser) return;
-  await apiCall('/portfolio', 'POST', { user_id: currentUser.id, portfolio: positions });
+  const portfolio = positions.filter(item => item.code).map(item => ({...item, cost: item.cost === '' ? 0 : item.cost, shares: item.shares === '' ? 0 : item.shares}));
+  const result = await apiCall('/portfolio', 'POST', { portfolio });
+  if (result.status !== 'success') showToast(result.message || '儲存失敗；伺服器原持股仍保留', 'error');
 }
 
 function renderPositions() {
@@ -1394,6 +1397,10 @@ async function fetchWarData() {
     const description = document.createElement('p');
     description.className = 'desc'; description.textContent = aiRes.summary ?? '';
     box.appendChild(description); aiSummary.replaceChildren(box);
+    const provenance = document.createElement('p');
+    provenance.style.cssText = 'font-size:11px;color:var(--slate-400);margin-top:10px';
+    provenance.textContent = `產生於 ${aiRes.generated_at || '時間未提供'}（台北）；新聞發布 ${aiRes.news_published_from || '未提供'} 至 ${aiRes.news_published_to || '未提供'}。來源：${(aiRes.sources_used || []).join('、')}；${aiRes.from_cache ? '使用先前生成結果' : '本次生成'}。`;
+    box.appendChild(provenance);
   } else {
     const error = document.createElement('p');
     error.style.color = 'var(--red-400)'; error.textContent = aiRes.message || '摘要暫時無法取得';
@@ -1514,13 +1521,15 @@ async function runStressTest() {
       </div>
       <div class="grid grid-2">${cardsHtml}</div>`;
 
-    apiCall('/stress_test/save', 'POST', {
-      user_id: currentUser ? currentUser.id : '00000000-0000-0000-0000-000000000000',
+    if (currentUser) {
+    const saved = await apiCall('/stress_test/save', 'POST', {
       scenario: '常規壓力測試',
       result: { total_cost: totalCost, total_value: totalValue, total_pl: totalPL,
         portfolio: targets.map(t => { const r = res.data.find(d => d.ticker === t.id); return { ticker: t.id, cost: t.cost, shares: t.shares, price: r ? r.price : 0, pl: r ? r.pl : 0 }; })
       }
     });
+    if (saved.status !== 'success') showToast(saved.message || '分析已完成，但歷史紀錄儲存失敗', 'warning');
+    }
   } else {
     resultDiv.innerHTML = `<div class="card"><div class="card-body"><p style="color:var(--red-400)">分析失敗：${escapeRoutingText(res.message)}</p></div></div>`;
   }
@@ -1531,8 +1540,7 @@ async function fetchStressHistory() {
   openModal('stress-history-modal');
   const content = document.getElementById('stress-history-content');
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const uid = currentUser ? currentUser.id : '00000000-0000-0000-0000-000000000000';
-  const res = await apiCall(`/stress_test/history?user_id=${uid}`);
+  const res = await apiCall('/stress_test/history');
   if (res.status === 'success') {
     if (res.data.length === 0) { content.innerHTML = '<p style="color:var(--slate-500);padding:20px;text-align:center">尚無歷史紀錄</p>'; return; }
     content.innerHTML = res.data.map(r => {
@@ -2044,7 +2052,6 @@ async function runScreener() {
 
   const res = await apiCall('/screener/analyze', 'POST', {
     source: 'manual',
-    user_id: currentUser ? currentUser.id : null,
     targets: screenerTargets,
     filters: []
   });
@@ -2346,14 +2353,16 @@ async function fetchRankings() {
       const entries = Object.entries(res.data);
       if (entries.length > 0) {
         container.innerHTML = entries.map(([name, val]) => {
-          const isUp = val.change > 0;
-          const isDown = val.change < 0;
+          const priceValid = val.price !== null && val.price !== undefined && Number.isFinite(Number(val.price)) && Number(val.price) > 0;
+          const changeValid = val.change !== null && val.change !== undefined && Number.isFinite(Number(val.change));
+          const pctValid = val.pct_change !== null && val.pct_change !== undefined && Number.isFinite(Number(val.pct_change));
+          const isUp = changeValid && val.change > 0;
+          const isDown = changeValid && val.change < 0;
           const color = isUp ? 'var(--red-400)' : (isDown ? 'var(--green-400)' : 'var(--slate-400)');
           const sign = isUp ? '+' : (isDown ? '' : '');
           const arrow = isUp ? '↗' : (isDown ? '↘' : '→');
           
-          const hasFuturesBadge = ['台灣加權', '日經 225', '韓國綜合'].includes(name);
-          const badgeHtml = hasFuturesBadge ? `<span style="font-size:11px; background:#4f46e5; color:#fff; padding:2px 6px; border-radius:4px; font-weight:600;">期貨</span>` : '';
+          const badgeHtml = '';
 
           return `
           <div class="stat-card" style="border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:16px 20px; background:transparent; display:flex; flex-direction:column; justify-content:space-between; min-height:100px;">
@@ -2362,12 +2371,13 @@ async function fetchRankings() {
                 <span style="font-size:15px; color:var(--slate-300); font-weight:600;">${escapeRoutingText(name)}</span>
                 ${badgeHtml}
               </div>
-              <div style="font-size:14px; color:${color}; font-weight:600;">${arrow} ${sign}${fmt(val.change)}</div>
+              <div style="font-size:14px; color:${color}; font-weight:600;">${changeValid ? `${arrow} ${sign}${fmt(val.change)}` : '—'}</div>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-              <div style="font-size:28px; font-weight:700; color:#fff; letter-spacing:-0.5px; line-height:1;">${fmt(val.price)}</div>
-              <div style="font-size:14px; color:${color}; font-weight:500;">(${sign}${fmt(val.pct_change)}%)</div>
+              <div style="font-size:28px; font-weight:700; color:#fff; letter-spacing:-0.5px; line-height:1;">${priceValid ? fmt(val.price) : '—'}</div>
+              <div style="font-size:14px; color:${color}; font-weight:500;">${pctValid ? `(${sign}${fmt(val.pct_change)}%)` : '—'}</div>
             </div>
+            <div style="font-size:10px;color:var(--slate-500);margin-top:7px">${escapeRoutingText(val.source || '來源未提供')} · ${escapeRoutingText(val.as_of || '日期未提供')} ${val.reason ? (priceValid ? '；缺少可比較的前值' : '；行情暫時無法取得') : ''}</div>
           </div>
           `;
         }).join('');
@@ -2407,21 +2417,22 @@ async function fetchFundamentalsAndChips(ticker) {
 
   // Chips
   apiCall('/api/chips').then(res => {
-    const code = ticker.split('.')[0];
-    if(res.status === 'success' && res.data && res.data[code]) {
-      const data = res.data[code];
+    if(res.data && res.data[ticker]) {
+      const data = res.data[ticker];
       const forColor = data.Foreign > 0 ? 'var(--red-400)' : 'var(--green-400)';
       const truColor = data.Trust > 0 ? 'var(--red-400)' : 'var(--green-400)';
       document.getElementById('chip-content').innerHTML = `
         <div style="margin-bottom:12px">
           <div style="font-size:12px;color:var(--slate-400);margin-bottom:4px">外資買賣超</div>
-          <div style="font-size:18px;font-weight:700;color:${forColor}">${data.Foreign > 0 ? '+' : ''}${fmt(data.Foreign, 0)} 張</div>
+          <div style="font-size:18px;font-weight:700;color:${forColor}">${data.Foreign > 0 ? '+' : ''}${fmt(data.Foreign / 1000, 2)} 張</div>
         </div>
         <div>
           <div style="font-size:12px;color:var(--slate-400);margin-bottom:4px">投信買賣超</div>
-          <div style="font-size:18px;font-weight:700;color:${truColor}">${data.Trust > 0 ? '+' : ''}${fmt(data.Trust, 0)} 張</div>
+          <div style="font-size:18px;font-weight:700;color:${truColor}">${data.Trust > 0 ? '+' : ''}${fmt(data.Trust / 1000, 2)} 張</div>
         </div>
+        <p style="font-size:11px;color:var(--slate-400)">交易日 ${escapeRoutingText(data.as_of)} · ${escapeRoutingText(data.market)}官方單日資料（1 張 = 1,000 股），不代表連續買超。<a data-safe-url="${escapeRoutingText(data.source)}">官方來源</a></p>
       `;
+      bindSafeExternalLinks(document.getElementById('chip-content'));
     } else {
       document.getElementById('chip-content').innerHTML = '<span style="color:var(--slate-500)">無近期籌碼資料 (可能為盤後或假日無資料)</span>';
     }

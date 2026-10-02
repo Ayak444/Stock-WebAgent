@@ -76,6 +76,10 @@ class RegistrationStoreError(RuntimeError):
     """Registration could not write to the account database."""
 
 
+class VirtualTradeRejected(ValueError):
+    """Only pre-approved static virtual-trade validation messages."""
+
+
 def account_store_failure_category(exc):
     if isinstance(exc, AccountAlertStoreError):
         return exc.category
@@ -170,6 +174,16 @@ class Database:
         except Exception as exc:
             print(f"Auth store health check failed: {type(exc).__name__}")
             return {"ok": False, "reason": "query_failed"}
+
+    def check_private_account_store(self):
+        try:
+            response = self._require_account_store().rpc("private_account_capability", {}).execute()
+            return {"ready": response.data is True,
+                    "reason": "ready" if response.data is True else "permission_auth",
+                    "credential_kind": backend_credential_kind(SUPABASE_KEY)}
+        except Exception as exc:
+            return {"ready": False, "reason": account_store_failure_category(exc),
+                    "credential_kind": backend_credential_kind(SUPABASE_KEY)}
 
     def _require_account_store(self):
         if not self.supabase:
@@ -469,58 +483,47 @@ class Database:
             return pd.DataFrame()
 
     def save_portfolio(self, user_id: str, portfolio_list: list):
-        if not self.supabase: return
         try:
-            self.supabase.table("portfolios").delete().eq("user_id", user_id).execute()
-            records = []
-            for p in portfolio_list:
-                records.append({
-                    "user_id": user_id,
-                    "asset_name": p['code'],
-                    "asset_type": p['type'],
-                    "amount": float(p['shares'] or 0),
-                    "avg_price": float(p['cost'] or 0)
-                })
-            if records:
-                self.supabase.table("portfolios").insert(records).execute()
-        except Exception as e:
-            print(e)
+            response = self._require_account_store().rpc("replace_watch_portfolio", {
+                "p_user_id": user_id, "p_items": portfolio_list,
+            }).execute()
+            if response.data is not True:
+                raise RuntimeError("private_store_unavailable")
+        except Exception:
+            raise RuntimeError("private_store_unavailable") from None
 
     def get_portfolio(self, user_id: str):
-        if not self.supabase: return []
-        res = self.supabase.table("portfolios").select("*").eq("user_id", user_id).execute()
-        return [{"code": r['asset_name'], "type": r['asset_type'], "cost": str(r['avg_price']), "shares": str(r['amount'])} for r in res.data]
+        try:
+            res = self._require_account_store().table("portfolios").select("*").eq("user_id", user_id).execute()
+            return [{"code": r['asset_name'], "type": r['asset_type'], "cost": str(r['avg_price']), "shares": str(r['amount'])} for r in res.data]
+        except Exception:
+            raise RuntimeError("private_store_unavailable") from None
 
     def save_stress_test_record(self, user_id: str, scenario: str, result_data: dict):
-        if not self.supabase: return
         data = {
             "user_id": user_id,
             "scenario": scenario,
             "result": result_data
         }
         try:
-            self.supabase.table("stress_tests").insert(data).execute()
-        except Exception as e:
-            print(e)
+            self._require_account_store().table("stress_tests").insert(data).execute()
+        except Exception:
+            raise RuntimeError("private_store_unavailable") from None
 
     def get_stress_test_history(self, user_id: str, limit: int = 50):
-        if not self.supabase: return []
         try:
-            res = self.supabase.table("stress_tests").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+            res = self._require_account_store().table("stress_tests").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
             return res.data
-        except Exception as e:
-            print(e)
-            return []
+        except Exception:
+            raise RuntimeError("private_store_unavailable") from None
     
     def get_trade_history(self, user_id: str, limit: int = 50):
         """讀取交易歷史"""
-        if not self.supabase: return []
         try:
-            res = self.supabase.table("trades").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+            res = self._require_account_store().table("trades").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
             return res.data
-        except Exception as e:
-            print(f"Get trade history error: {e}")
-            return []
+        except Exception:
+            raise RuntimeError("private_store_unavailable") from None
 
     def get_or_create_user(self, email: str, name: str):
         if not self.supabase: return None
@@ -537,28 +540,24 @@ class Database:
             return None
     
     def record_trade(self, user_id: str, action: str, ticker: str, amount: float, price: float):
-        if not self.supabase: return False
         try:
-            total = amount * price
-            trade_data = {
-                "user_id": user_id,
-                "action": action,
-                "asset_name": ticker,
-                "amount": amount,
-                "price": price,
-                "total": total
-            }
-            self.supabase.table("trades").insert(trade_data).execute()
-
-            user_res = self.supabase.table("users").select("virtual_balance").eq("id", user_id).execute()
-            current_balance = float(user_res.data[0]['virtual_balance'])
-            new_balance = current_balance - total if action == '買入' else current_balance + total
-            
-            self.supabase.table("users").update({"virtual_balance": new_balance}).eq("id", user_id).execute()
-            return True
-        except Exception as e:
-            print(f"Trade Error: {e}")
-            return False
+            response = self._require_account_store().rpc("execute_virtual_trade", {
+                "p_user_id": user_id, "p_action": action, "p_ticker": ticker,
+                "p_amount": str(amount), "p_price": str(price),
+            }).execute()
+            data = response.data
+            if not isinstance(data, dict) or data.get("ok") is not True:
+                code = data.get("code") if isinstance(data, dict) else None
+                message = {"insufficient_balance": "模擬餘額不足", "insufficient_position": "模擬交易持股不足；手動持股清單不能用來賣出",
+                           "invalid_trade": "交易輸入無效", "account_missing": "帳號不存在"}.get(code)
+                if message:
+                    raise VirtualTradeRejected(message)
+                raise RuntimeError("private_store_unavailable")
+            return data
+        except VirtualTradeRejected:
+            raise
+        except Exception:
+            raise RuntimeError("private_store_unavailable") from None
     
     def create_user(self, email, password, name):
         if not isinstance(name, str) or not name.strip():

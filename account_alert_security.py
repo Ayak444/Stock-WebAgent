@@ -12,6 +12,12 @@ SESSION_AGE_SECONDS = 7 * 24 * 60 * 60
 DISCORD_HOSTS = frozenset({"discord.com", "discordapp.com"})
 
 
+class WebhookEncryptionError(RuntimeError):
+    def __init__(self, category):
+        self.category = category
+        super().__init__(category)
+
+
 def _session_serializer() -> URLSafeTimedSerializer:
     secret = os.environ.get("AUTH_SESSION_SECRET", "")
     if len(secret) < 32:
@@ -57,8 +63,8 @@ def _fernet() -> Fernet:
     key = os.environ.get("ALERT_WEBHOOK_ENCRYPTION_KEY", "")
     try:
         return Fernet(key.encode("ascii"))
-    except (ValueError, TypeError) as exc:
-        raise RuntimeError("alert_encryption_not_configured") from exc
+    except (ValueError, TypeError, UnicodeError):
+        raise WebhookEncryptionError("encryption_not_configured") from None
 
 
 def encrypt_webhook(url: str) -> str:
@@ -69,4 +75,4 @@ def decrypt_webhook(ciphertext: str) -> str:
     try:
         return validate_discord_webhook(_fernet().decrypt(ciphertext.encode("ascii")).decode("utf-8"))
     except (InvalidToken, UnicodeError, ValueError) as exc:
-        raise RuntimeError("alert_webhook_unavailable") from exc
+        raise WebhookEncryptionError("encryption_unavailable") from None

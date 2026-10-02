@@ -5,6 +5,7 @@ import time
 import re
 import json
 from concurrent.futures import ThreadPoolExecutor
+from market_provenance import macro_quote, unavailable_quote, institutional_provider
 
 # 台灣時區 UTC+8
 TW_TZ = timezone(timedelta(hours=8))
@@ -125,20 +126,11 @@ class DataProvider:
                 url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d"
                 r = requests.get(url, headers=HEADERS, timeout=5)
                 data = r.json()
-                if 'chart' in data and data['chart']['result']:
-                    result_data = data['chart']['result'][0]
-                    quote = result_data['indicators']['quote'][0]
-                    closes = [c for c in quote.get('close', []) if c is not None]
-                    if len(closes) >= 1:
-                        current = float(closes[-1])
-                        prev = float(closes[-2]) if len(closes) > 1 else current
-                        change = current - prev
-                        pct_change = (change / prev) * 100 if prev else 0
-                        result[name] = {"price": round(current, 2), "change": round(change, 2), "pct_change": round(pct_change, 2)}
-                        continue
+                result[name] = macro_quote(data)
+                continue
             except Exception:
                 pass
-            result[name] = {"price": 0, "change": 0, "pct_change": 0}
+            result[name] = unavailable_quote()
             
         return result
 
@@ -363,27 +355,6 @@ class DataProvider:
 
     @staticmethod
     def get_chip_data():
-        try:
-            for i in range(5):
-                date = (datetime.now() - timedelta(days=i)).strftime("%Y%m%d")
-                url = f"https://www.twse.com.tw/rwd/zh/fund/T86?date={date}&selectType=ALL&response=json"
-                r = requests.get(url, timeout=10, headers=HEADERS)
-                data = r.json()
-                if data.get("stat") == "OK" and data.get("data"):
-                    result = {}
-                    for row in data["data"]:
-                        try:
-                            sid = row[0].strip()
-                            foreign = int(row[4].replace(",", ""))
-                            trust = int(row[10].replace(",", ""))
-                            result[sid] = {"Foreign": foreign, "Trust": trust}
-                        except (ValueError, IndexError):
-                            continue
-                    if result:
-                        return result
-                time.sleep(0.3)
-        except Exception:
-            pass
-        return {}
+        return institutional_provider.get()
 
 MarketDataProvider = DataProvider

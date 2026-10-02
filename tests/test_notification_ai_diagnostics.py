@@ -5,7 +5,7 @@ import asyncio
 import logging
 import os
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -15,6 +15,7 @@ from fastapi import HTTPException
 
 from database import Database
 from route_gateway import AIGateway, AIUnavailable, DEFAULT_GROQ_MODEL
+from market_insights import recent_unique_news
 
 
 MARKER = "private-provider-and-settings-test-only-marker"
@@ -177,7 +178,7 @@ class NotificationStoreDiagnosticsTests(unittest.TestCase):
                 invoke()
             self.assertEqual(raised.exception.status_code, 503)
             self.assertIn("通知設定暫時無法使用", raised.exception.detail)
-            self.assertIn("account_volume_store", raised.exception.detail)
+            self.assertIn("unknown", raised.exception.detail)
             self.assertNotIn(MARKER, raised.exception.detail)
         database.get_account_volume_settings.side_effect = None
         database.get_account_volume_settings.return_value = {"webhook_ciphertext": None}
@@ -188,7 +189,7 @@ class NotificationStoreDiagnosticsTests(unittest.TestCase):
                 object(), {"id": "test-user"})
         self.assertEqual(raised.exception.status_code, 503)
         self.assertIn("通知設定暫時無法使用", raised.exception.detail)
-        self.assertIn("account_volume_store", raised.exception.detail)
+        self.assertIn("unknown", raised.exception.detail)
 
 
 class AIGatewayDiagnosticsTests(unittest.TestCase):
@@ -291,7 +292,10 @@ class AIClientAndSummaryDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
             "DEFAULT_GROQ_MODEL": DEFAULT_GROQ_MODEL, "ai_gateway": gateway,
             "ChatRequest": object, "_extract_screener_prompt_payload": lambda _: None,
             "NewsCrawler": SimpleNamespace(fetch_all=Mock(return_value=[{
-                "title": "test news", "source": "test source"}])),
+                "title": "test news", "source": "test source",
+                "published_ts": datetime.now(timezone.utc).timestamp() - 60}])),
+            "recent_unique_news": recent_unique_news, "datetime": datetime,
+            "timezone": timezone, "timedelta": timedelta,
             "logger": logging.getLogger("test-ai-summary"),
         })
         environment["mai_client"] = environment["MaiAgentClient"]("test-only-key", "", "")
@@ -340,9 +344,10 @@ class AIClientAndSummaryDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
         environment, _ = self.environment()
         self.assertEqual(environment["mai_client"].chat("hello"), {
             "status": "success", "reply": "safe summary", "conversation_id": "groq-session"})
-        self.assertEqual(await environment["auto_news"](), {
-            "status": "success", "summary": "safe summary", "news_count": 1,
-            "sources_used": ["test source"]})
+        result = await environment["auto_news"]()
+        self.assertEqual((result["status"], result["summary"], result["news_count"],
+                          result["sources_used"]), ("success", "safe summary", 1, ["test source"]))
+        self.assertIsNotNone(datetime.fromisoformat(result["generated_at"]).tzinfo)
 
 
 if __name__ == "__main__":

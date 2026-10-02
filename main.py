@@ -39,14 +39,15 @@ from data_provider import DataProvider
 from analyzer import TechnicalAnalyzer
 from strategy import StrategyEngine
 from news_crawler import NewsCrawler
-from database import Database, DuplicateEmailError, RegistrationStoreError, AccountAlertStoreError
+from database import Database, DuplicateEmailError, RegistrationStoreError, AccountAlertStoreError, VirtualTradeRejected
 from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
-from market_insights import market_insights
+from market_insights import market_insights, recent_unique_news
 from notifier import DiscordNotifier
 from volume_alerts import AccountVolumeAlertConfig, AccountVolumeAlertMonitor, should_startup_catchup
 from account_alert_security import (SESSION_COOKIE, SESSION_AGE_SECONDS, issue_session,
                                     read_session, encrypt_webhook)
+from account_alert_security import decrypt_webhook
 from holder_volume_alerts import parse_alert_tickers
 from holder_volume_alerts import (
     HolderAlertConfig,
@@ -145,8 +146,8 @@ except ImportError:
 
 async def daily_analysis_task_async():
     """非同步每日分析與資產配置報告任務"""
-    # 嘗試抓取預設使用者的資產配置
-    portfolio = db.get_portfolio(DEFAULT_USER_ID)
+    # Global summaries must not inspect any user's private watch portfolio.
+    portfolio = []
     
     targets = []
     if portfolio:
@@ -365,7 +366,10 @@ async def _analyze_targets_async(targets, mode="quick"):
                 "signals": eval_result['signals'],
                 "exit": eval_result['exit_note'],
                 "sl": eval_result['stop_loss'],
-                "route": df.attrs.get("route", {}), "ai_route": ai_route
+                "route": df.attrs.get("route", {}), "ai_route": ai_route,
+                "institutional": {"available": bool(chip.get(t.id)),
+                                  "used_in_score": bool(chip.get(t.id) and chip[t.id].get("as_of") == pd.Timestamp(df.index[-1]).date().isoformat()),
+                                  **(chip.get(t.id) or {"reason": "official_data_unavailable"})}
             })
             consecutive_errors = 0
 
@@ -897,12 +901,15 @@ async def auto_news():
         return {"status": "error", "code": error.code, "message": error.message}
     try:
         news = await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3)
-        news = news[:10]
+        news = recent_unique_news(news)[:10]
         if not news:
             return {"status": "error", "message": "無新聞資料"}
-        titles = "\n".join([f"- [{n['source']}] {n['title']}" for n in news])
+        request_time = datetime.now(timezone(timedelta(hours=8)))
+        published = [datetime.fromtimestamp(n['published_ts'], request_time.tzinfo).isoformat() for n in news]
+        titles = "\n".join([f"- [{n['source']}] 發布於 {stamp}: {n['title']}" for n, stamp in zip(news, published)])
         prompt = (
-            "根據以下今日財經新聞標題，撰寫一份 200 字內的台股每日摘要，\n"
+            f"目前台北時間 {request_time.isoformat()}。新聞發布範圍 {min(published)} 至 {max(published)}。\n"
+            "根據以下最近 72 小時財經新聞標題，撰寫一份 200 字內的台股摘要；不得將較早新聞說成今日發生。\n"
             "包含：(1) 今日大盤氛圍 (2) 主要利多利空 (3) 操作建議。用繁體中文。\n\n"
             f"新聞：\n{titles}"
         )
@@ -912,7 +919,10 @@ async def auto_news():
                 "status": "success",
                 "summary": result["reply"],
                 "news_count": len(news),
-                "sources_used": list(set(n['source'] for n in news))
+                "sources_used": sorted(set(n['source'] for n in news)),
+                "generated_at": datetime.now(timezone(timedelta(hours=8))).isoformat(),
+                "news_published_from": min(published), "news_published_to": max(published),
+                "news_window_hours": 72, "from_cache": False, "news_from_cache": False,
             }
         else:
             return result
@@ -1024,36 +1034,52 @@ async def backtest(req: BacktestRequest):
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="回測行情讀取逾時，請稍後重新執行") from None
 
-DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000"
+def _private_user(request: Request) -> dict:
+    return _account_user(request)
+
+
+def _private_store_call(method, *args):
+    try:
+        return method(*args)
+    except VirtualTradeRejected as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="個人資料暫時無法存取，請稍後再試或請管理員核對私有資料庫設定") from None
 
 @app.get("/portfolio")
-def get_user_portfolio(user_id: str):
-    data = db.get_portfolio(user_id)
+def get_user_portfolio(user: dict = Depends(_private_user)):
+    data = _private_store_call(db.get_portfolio, user["id"])
     return {"status": "success", "data": data}
 
 @app.post("/portfolio")
-def sync_user_portfolio(req: SyncPortfolioRequest):
-    user_id = req.user_id
-    if not user_id: return {"status": "error", "message": "Missing user_id"}
-    db.save_portfolio(user_id, req.portfolio)
+def sync_user_portfolio(req: SyncPortfolioRequest, request: Request, user: dict = Depends(_private_user)):
+    _require_same_origin(request)
+    portfolio = [item.model_dump(mode="json") for item in req.portfolio]
+    if len({item["code"] for item in portfolio}) != len(portfolio):
+        raise HTTPException(status_code=422, detail="持股清單不得有重複股票")
+    _private_store_call(db.save_portfolio, user["id"], portfolio)
     return {"status": "success"}
 
 @app.post("/stress_test/save")
-def save_stress_test_final(req: StressTestRecordRequest):
-    db.save_stress_test_record(
-        req.user_id, 
-        req.scenario, 
-        req.result
-    )
+def save_stress_test_final(req: StressTestRecordRequest, request: Request, user: dict = Depends(_private_user)):
+    _require_same_origin(request)
+    try:
+        serialized = json.dumps(req.result, allow_nan=False)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="壓力測試結果含無效數值") from None
+    if len(serialized) > 100000:
+        raise HTTPException(status_code=422, detail="壓力測試結果過大")
+    _private_store_call(db.save_stress_test_record, user["id"], req.scenario, req.result)
     return {"status": "success"}
 
 @app.post("/screener/analyze")
-def screener_analyze(req: ScreenerAnalyzeRequest):
+def screener_analyze(req: ScreenerAnalyzeRequest, request: Request):
     targets = req.targets or []
     source = req.source
     if source == "portfolio":
-        user_id = req.user_id or DEFAULT_USER_ID
-        portfolio = db.get_portfolio(user_id)
+        user = _account_user(request)
+        _require_same_origin(request)
+        portfolio = _private_store_call(db.get_portfolio, user["id"])
         targets = [p.get("code", "").strip() for p in portfolio if p.get("code")]
 
     targets = [t for t in targets if t]
@@ -1078,19 +1104,15 @@ def screener_analyze(req: ScreenerAnalyzeRequest):
     }
 
 @app.get("/stress_test/history")
-def get_stress_test_history_final(user_id: str = DEFAULT_USER_ID):
-    data = db.get_stress_test_history(user_id)
+def get_stress_test_history_final(user: dict = Depends(_private_user)):
+    data = _private_store_call(db.get_stress_test_history, user["id"])
     return {"status": "success", "data": data}
 
 @app.post("/trade")
-def execute_trade(req: TradeRequest):
-    success = db.record_trade(
-        req.user_id, req.action, req.ticker, 
-        float(req.amount), float(req.price)
-    )
-    if success:
-        return {"status": "success", "message": "交易已記錄"}
-    return {"status": "error", "message": "交易失敗"}
+def execute_trade(req: TradeRequest, request: Request, user: dict = Depends(_private_user)):
+    _require_same_origin(request)
+    data = _private_store_call(db.record_trade, user["id"], req.action, req.ticker, req.amount, req.price)
+    return {"status": "success", "message": "模擬交易已記錄", "data": data}
 
 @app.post("/auth/signup")
 def signup(req: AuthRequest):
@@ -1190,6 +1212,8 @@ def auth_logout(request: Request, response: Response):
 def get_account_volume_alerts(user: dict = Depends(_account_user)):
     try:
         settings = db.get_account_volume_settings(user["id"])
+        if settings.get("webhook_ciphertext"):
+            decrypt_webhook(settings["webhook_ciphertext"])
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=_alert_store_message(exc)) from None
     return {"tickers": settings.get("tickers") or [],
@@ -1199,12 +1223,21 @@ def get_account_volume_alerts(user: dict = Depends(_account_user)):
 def _alert_store_message(exc):
     category = getattr(exc, "category", "unknown")
     return {
-        "key_rejected": "通知資料庫拒絕存取，請管理員核對此 Render 服務的 Supabase 專案網址與後端金鑰並重新部署（key_rejected）",
-        "permission_auth": "通知資料庫權限不足，請管理員核對後端金鑰與 service_role 私有資料表權限（permission_auth）",
-        "missing_schema": "通知資料表或欄位不存在，請管理員核對此服務連線專案與通知資料表（missing_schema）",
+        "encryption_not_configured": "通知加密設定尚未完成，請聯絡管理員（encryption_not_configured）",
+        "encryption_unavailable": "既有通知網址無法讀取，請聯絡管理員確認後重新設定 Webhook（encryption_unavailable）",
+        "key_rejected": "通知服務授權失敗，請聯絡管理員（key_rejected）",
+        "permission_auth": "通知服務權限不足，請聯絡管理員（permission_auth）",
+        "missing_schema": "通知儲存結構尚未完成，請聯絡管理員（missing_schema）",
         "connectivity": "通知資料庫連線暫時不穩，已重試讀取；請稍後按重新載入（connectivity）",
-        "not_configured": "通知資料庫尚未設定，請管理員設定 SUPABASE_URL 與 SUPABASE_KEY（not_configured）",
-    }.get(category, "通知設定暫時無法使用，請管理員檢查 Render 的 account_volume_store 診斷分類（unknown）")
+        "not_configured": "通知服務尚未設定，請聯絡管理員（not_configured）",
+    }.get(category, "通知設定暫時無法使用，請稍後重試或聯絡管理員（unknown）")
+
+
+@app.get("/health/private")
+def private_account_health():
+    """Read-only deployment capability probe: only static labels and booleans."""
+    data = db.check_private_account_store()
+    return JSONResponse(status_code=200 if data["ready"] else 503, content=data)
 
 
 @app.put("/api/account/volume-alerts")
@@ -1266,7 +1299,9 @@ def get_fundamentals(ticker: str):
 @app.get("/api/chips")
 def get_chips():
     data = DataProvider.get_chip_data()
-    return {"status": "success", "data": data}
+    coverage = data.pop("_coverage", {})
+    return {"status": "success" if data else "unavailable", "data": data, "coverage": coverage,
+            "unit": "shares", "methodology": "官方單日外資與投信買賣超；不表示連續買超"}
 
 @app.get("/api/stock_names")
 def get_stock_names():
@@ -1331,8 +1366,8 @@ async def get_stock_snapshot(ticker: str):
     return snapshot
 
 @app.get("/trades")
-def get_trades(user_id: str):
-    data = db.get_trade_history(user_id)
+def get_trades(user: dict = Depends(_private_user)):
+    data = _private_store_call(db.get_trade_history, user["id"])
     return {"status": "success", "data": data}
 
 if os.path.isdir("static"):
