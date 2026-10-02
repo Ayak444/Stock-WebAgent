@@ -1232,10 +1232,15 @@ async function loadVolumeSettings() {
     return;
   }
   document.getElementById('volume-tickers').value = (result.tickers || []).join(',');
-  document.getElementById('volume-webhook-state').textContent = result.webhook_configured
+  const needsRecovery = result.webhook_readable === false;
+  document.getElementById('volume-webhook-state').textContent = needsRecovery
+    ? (result.recovery_reason === 'encryption_not_configured'
+      ? '目前無法讀取既有 Webhook；可勾選移除。若要更換，請先聯絡管理員恢復通知加密設定。'
+      : '既有 Webhook 無法讀取，通知暫停；請重新輸入網址，或勾選移除現有 Webhook。')
+    : result.webhook_configured
     ? '目前已有 Webhook；伺服器不會回傳原始網址。' : '尚未設定 Webhook；可先儲存股票清單。';
   document.getElementById('volume-remove-webhook').checked = false;
-  state.textContent = '設定已載入';
+  state.textContent = needsRecovery ? '設定已載入，但 Webhook 需要重新設定或移除。' : '設定已載入';
   form.style.display = 'block';
 }
 
@@ -1256,11 +1261,8 @@ async function saveVolumeSettings() {
     if (result.status === 'error') {
       state.textContent = result.message || '儲存失敗';
     } else {
-      state.textContent = '設定已儲存';
-      document.getElementById('volume-tickers').value = (result.tickers || []).join(',');
-      document.getElementById('volume-webhook-state').textContent = result.webhook_configured
-        ? 'Webhook 已設定；原始網址不會顯示。' : '尚未設定 Webhook。';
-      document.getElementById('volume-remove-webhook').checked = false;
+      await loadVolumeSettings();
+      showToast('通知設定已儲存', 'success');
     }
   } finally {
     button.disabled = false;

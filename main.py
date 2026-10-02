@@ -1212,12 +1212,20 @@ def auth_logout(request: Request, response: Response):
 def get_account_volume_alerts(user: dict = Depends(_account_user)):
     try:
         settings = db.get_account_volume_settings(user["id"])
-        if settings.get("webhook_ciphertext"):
-            decrypt_webhook(settings["webhook_ciphertext"])
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=_alert_store_message(exc)) from None
+    readable, recovery_reason = True, None
+    if settings.get("webhook_ciphertext"):
+        try:
+            decrypt_webhook(settings["webhook_ciphertext"])
+        except RuntimeError as exc:
+            category = getattr(exc, "category", "unknown")
+            if category not in {"encryption_unavailable", "encryption_not_configured"}:
+                raise HTTPException(status_code=503, detail=_alert_store_message(exc)) from None
+            readable, recovery_reason = False, category
     return {"tickers": settings.get("tickers") or [],
-            "webhook_configured": bool(settings.get("webhook_ciphertext"))}
+            "webhook_configured": bool(settings.get("webhook_ciphertext")),
+            "webhook_readable": readable, "recovery_reason": recovery_reason}
 
 
 def _alert_store_message(exc):

@@ -7,6 +7,7 @@ import unittest
 from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -129,15 +130,49 @@ class PrivateEndpointTests(unittest.TestCase):
 
     def test_real_encryption_errors_are_static_and_never_expose_ciphertext(self):
         self.login()
-        self.store.get_account_volume_settings.return_value = {'tickers': [], 'webhook_ciphertext': PRIVATE}
+        self.store.get_account_volume_settings.return_value = {'tickers': ['2330.TW'], 'webhook_ciphertext': PRIVATE}
         for key, category in [('not-a-key-測試', 'encryption_not_configured'),
                               (base64.urlsafe_b64encode(b't' * 32).decode(), 'encryption_unavailable')]:
             with patch.dict(os.environ, {'ALERT_WEBHOOK_ENCRYPTION_KEY': key}):
                 result = self.client.get('/api/account/volume-alerts')
-            self.assertEqual(result.status_code, 503)
-            self.assertIn(category, result.text)
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json(), {'tickers': ['2330.TW'], 'webhook_configured': True,
+                                            'webhook_readable': False, 'recovery_reason': category})
             self.assertNotIn(PRIVATE, result.text)
             self.assertNotIn(key, result.text)
+
+    def test_unreadable_webhook_can_be_removed_without_key_or_replaced_with_valid_key(self):
+        self.login()
+        self.store.get_account_volume_settings.return_value = {'tickers': ['2330.TW'], 'webhook_ciphertext': PRIVATE}
+        headers = {'origin': 'http://testserver'}
+        webhook = 'https://discord.com/api/webhooks/123456/test_only_webhook'
+        with patch.dict(os.environ, {'ALERT_WEBHOOK_ENCRYPTION_KEY': ''}):
+            removed = self.client.put('/api/account/volume-alerts', json={'tickers': ['2330.TW'], 'remove_webhook': True}, headers=headers)
+            self.assertEqual(removed.status_code, 200)
+            self.assertFalse(removed.json()['webhook_configured'])
+            self.assertIsNone(self.store.save_account_volume_settings.call_args.args[1]['webhook_ciphertext'])
+            self.store.save_account_volume_settings.reset_mock()
+            rejected = self.client.put('/api/account/volume-alerts', json={'tickers': ['2330.TW'], 'webhook': webhook}, headers=headers)
+            self.assertEqual(rejected.status_code, 503)
+            self.assertIn('encryption_not_configured', rejected.text)
+            self.store.save_account_volume_settings.assert_not_called()
+        with patch.dict(os.environ, {'ALERT_WEBHOOK_ENCRYPTION_KEY': base64.urlsafe_b64encode(b't' * 32).decode()}):
+            replaced = self.client.put('/api/account/volume-alerts', json={'tickers': ['2330.TW'], 'webhook': webhook}, headers=headers)
+        self.assertEqual(replaced.status_code, 200)
+        self.assertTrue(replaced.json()['webhook_configured'])
+        self.assertNotIn(webhook, replaced.text)
+        self.assertNotEqual(self.store.save_account_volume_settings.call_args.args[1]['webhook_ciphertext'], webhook)
+
+    def test_notification_recovery_ui_keeps_form_available_and_refreshes_after_save(self):
+        html = Path('static/index.html').read_text(encoding='utf-8')
+        load = html.split('async function loadVolumeSettings()', 1)[1].split('\nasync function ', 1)[0]
+        save = html.split('async function saveVolumeSettings()', 1)[1].split('\nasync function ', 1)[0]
+        self.assertIn('result.webhook_readable === false', load)
+        self.assertIn("result.recovery_reason === 'encryption_not_configured'", load)
+        self.assertIn('可勾選移除', load)
+        self.assertIn('請重新輸入網址', load)
+        self.assertLess(load.index('const needsRecovery'), load.index("form.style.display = 'block'"))
+        self.assertIn('await loadVolumeSettings()', save)
 
     def test_private_capability_probe_has_static_labels_and_no_payload(self):
         import database as database_module

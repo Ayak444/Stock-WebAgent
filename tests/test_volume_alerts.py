@@ -136,7 +136,8 @@ class EndpointTests(unittest.TestCase):
         self.assertNotIn(WEBHOOK_A, response.text)
         self.assertNotIn(WEBHOOK_A, self.a.get("/api/account/volume-alerts").text)
         self.assertEqual(self.b.get("/api/account/volume-alerts").json(),
-                         {"tickers": [], "webhook_configured": False})
+                         {"tickers": [], "webhook_configured": False,
+                          "webhook_readable": True, "recovery_reason": None})
         ciphertext = self.store.settings[A["id"]]["webhook_ciphertext"]
         self.assertNotEqual(ciphertext, WEBHOOK_A)
         self.assertEqual(decrypt_webhook(ciphertext), WEBHOOK_A)
