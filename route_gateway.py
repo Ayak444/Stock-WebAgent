@@ -10,6 +10,9 @@ import requests
 logger = logging.getLogger('routing')
 counts = Counter()
 DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
+GPT_OSS_MODELS = frozenset({'openai/gpt-oss-20b', 'openai/gpt-oss-120b'})
+GPT_OSS_COMPLETION_CAP = 4096
+STANDARD_COMPLETION_CAP = 1500
 
 _AI_ERROR_MESSAGES = {
     'ai_not_configured': 'AI 尚未設定，請聯絡管理員',
@@ -22,6 +25,7 @@ _AI_ERROR_MESSAGES = {
     'ai_network_error': 'AI 連線失敗，請稍後再試',
     'ai_provider_error': 'AI 供應商服務暫時異常，請稍後再試',
     'ai_malformed_response': 'AI 回傳格式異常，請稍後再試',
+    'ai_incomplete_response': 'AI 回覆尚未完成，請稍後再試',
     'ai_unavailable': 'AI 服務暫時無法使用，請稍後再試',
 }
 
@@ -67,10 +71,22 @@ class AIGateway:
                 audit('ai', 'groq', 'circuit_open')
                 raise AIUnavailable('ai_circuit_open')
             try:
+                # Completion budgets and reasoning settings are server-owned.
+                if not isinstance(payload, dict):
+                    raise TypeError('invalid payload')
+                request_payload = {name: value for name, value in payload.items() if name not in {
+                    'max_tokens', 'max_completion_tokens', 'reasoning_effort',
+                    'include_reasoning', 'reasoning_format'}}
+                request_payload['model'] = model
+                if model in GPT_OSS_MODELS:
+                    request_payload.update(max_completion_tokens=GPT_OSS_COMPLETION_CAP,
+                                           reasoning_effort='low', include_reasoning=False)
+                else:
+                    request_payload['max_tokens'] = STANDARD_COMPLETION_CAP
                 response = requests.post(
                     'https://api.groq.com/openai/v1/chat/completions',
                     headers={'Authorization': f'Bearer {key}'},
-                    json={**payload, 'model': model, 'max_tokens': 1500}, timeout=(5, 30))
+                    json=request_payload, timeout=(5, 30))
                 if response.status_code in (401, 403):
                     self.blocked_until = float('inf')
                     raise AIUnavailable('ai_auth_failed')
@@ -85,7 +101,12 @@ class AIGateway:
                     audit('ai', 'groq', f'rejected_{response.status_code}')
                     raise AIUnavailable('ai_request_rejected')
                 response.raise_for_status()
-                content = response.json()['choices'][0]['message']['content']
+                choice = response.json()['choices'][0]
+                if not isinstance(choice, dict):
+                    raise ValueError('invalid choice')
+                if choice.get('finish_reason') == 'length':
+                    self._failed('ai_incomplete_response')
+                content = choice['message']['content']
                 if not isinstance(content, str) or not content.strip():
                     raise ValueError('empty content')
                 self.failures = 0

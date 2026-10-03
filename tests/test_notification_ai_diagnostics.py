@@ -219,7 +219,8 @@ class AIGatewayDiagnosticsTests(unittest.TestCase):
 
     def test_malformed_json_and_content_return_static_code(self):
         malformed = (None, {}, {"choices": []}, {"choices": [{"message": {"content": ""}}]},
-                     {"choices": [{"message": {"content": [MARKER]}}]})
+                     {"choices": [{"message": {"content": [MARKER]}}]},
+                     {"choices": [None]}, {"choices": [[MARKER]]})
         for payload in malformed:
             with self.subTest(payload=payload):
                 response = Mock(status_code=200)
@@ -273,7 +274,8 @@ class AIGatewayDiagnosticsTests(unittest.TestCase):
     def test_success_keeps_model_tokens_timeout_and_resets_failures(self):
         with patch.dict(os.environ, {"GROQ_API_KEY": "test-only-key"}, clear=True), \
              patch("route_gateway.requests.post", return_value=Mock(status_code=200)) as post:
-            post.return_value.json.return_value = {"choices": [{"message": {"content": "OK"}}]}
+            post.return_value.json.return_value = {"choices": [{"finish_reason": "stop",
+                "message": {"content": "OK", "reasoning": MARKER}}]}
             gateway = AIGateway()
             gateway.complete({})
             gateway.failures = 2
@@ -281,7 +283,99 @@ class AIGatewayDiagnosticsTests(unittest.TestCase):
             self.assertEqual(gateway.failures, 0)
             self.assertEqual(post.call_args.kwargs["timeout"], (5, 30))
             self.assertEqual(post.call_args.kwargs["json"]["model"], DEFAULT_GROQ_MODEL)
-            self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 1500)
+            self.assertEqual(post.call_args.kwargs["json"]["max_completion_tokens"], 4096)
+            self.assertNotIn("max_tokens", post.call_args.kwargs["json"])
+            self.assertFalse(gateway.lock.locked())
+
+    def test_completion_policy_uses_exact_server_model_and_preserves_request(self):
+        payload = {"model": "caller-model", "max_tokens": 999999, "max_completion_tokens": 999999,
+                   "reasoning_effort": "high", "include_reasoning": True, "reasoning_format": "raw",
+                   "messages": [{"role": "user", "content": MARKER}],
+                   "response_format": {"type": "json_object"}, "temperature": 0.2}
+        before = dict(payload)
+        models = ("openai/gpt-oss-20b", " openai/gpt-oss-120b ", "llama-3.3-70b-versatile",
+                  "openai/gpt-oss-120b-lookalike", "   ")
+        for configured_model in models:
+            with self.subTest(model=configured_model), \
+                 patch.dict(os.environ, {"GROQ_API_KEY": "test-only-key", "GROQ_MODEL": configured_model}, clear=True), \
+                 patch("route_gateway.requests.post", return_value=Mock(status_code=200)) as post:
+                post.return_value.json.return_value = {"choices": [{"message": {"content": "{}"}}]}
+                with self.assertLogs("routing", "INFO") as captured:
+                    self.assertEqual(AIGateway().complete(payload), "{}")
+                post.assert_called_once()
+                sent = post.call_args.kwargs["json"]
+                model = configured_model.strip() or DEFAULT_GROQ_MODEL
+                self.assertEqual(sent["model"], model)
+                self.assertEqual(sent["messages"], payload["messages"])
+                self.assertEqual(sent["response_format"], {"type": "json_object"})
+                self.assertEqual(sent["temperature"], 0.2)
+                self.assertEqual(post.call_args.kwargs["timeout"], (5, 30))
+                self.assertNotIn("reasoning_format", sent)
+                if model in {"openai/gpt-oss-20b", "openai/gpt-oss-120b"}:
+                    self.assertEqual(sent["max_completion_tokens"], 4096)
+                    self.assertEqual(sent["reasoning_effort"], "low")
+                    self.assertIs(sent["include_reasoning"], False)
+                    self.assertNotIn("max_tokens", sent)
+                else:
+                    self.assertEqual(sent["max_tokens"], 1500)
+                    for exclusive in ("max_completion_tokens", "reasoning_effort", "include_reasoning"):
+                        self.assertNotIn(exclusive, sent)
+                self.assertEqual(payload, before)
+                self.assertNotIn(MARKER, " ".join(captured.output))
+                self.assertNotIn("test-only-key", " ".join(captured.output))
+
+    def test_reasoning_only_empty_and_truncated_replies_fail_once_without_leaks(self):
+        cases = (
+            ({"reasoning": MARKER}, "ai_malformed_response", "stop"),
+            ({"content": None, "reasoning": MARKER}, "ai_malformed_response", "stop"),
+            ({"content": " \n\t", "reasoning": MARKER}, "ai_malformed_response", "stop"),
+            ({"content": MARKER, "reasoning": MARKER}, "ai_incomplete_response", "length"),
+            ({"content": None, "reasoning": MARKER}, "ai_incomplete_response", "length"),
+        )
+        for message, code, finish_reason in cases:
+            with self.subTest(code=code, message=message), \
+                 patch.dict(os.environ, {"GROQ_API_KEY": "test-only-key"}, clear=True), \
+                 patch("route_gateway.requests.post", return_value=Mock(status_code=200)) as post:
+                post.return_value.json.return_value = {"choices": [{"finish_reason": finish_reason,
+                                                                      "message": message}]}
+                gateway = AIGateway()
+                with self.assertLogs("routing", "INFO") as captured, self.assertRaises(AIUnavailable) as raised:
+                    gateway.complete({"messages": [{"role": "user", "content": MARKER}]})
+                self.assertEqual(raised.exception.code, code)
+                self.assertEqual(gateway.failures, 1)
+                self.assertFalse(gateway.lock.locked())
+                post.assert_called_once()
+                output = str(raised.exception) + " ".join(captured.output)
+                for private in (MARKER, "test-only-key", "Traceback"):
+                    self.assertNotIn(private, output)
+                self.assertTrue(raised.exception.__suppress_context__)
+        with patch.dict(os.environ, {"GROQ_API_KEY": "test-only-key"}, clear=True), \
+             patch("route_gateway.time.monotonic", return_value=100), \
+             patch("route_gateway.requests.post", return_value=Mock(status_code=200)) as post:
+            post.return_value.json.return_value = {"choices": [{"finish_reason": "length",
+                "message": {"content": MARKER}}]}
+            gateway = AIGateway()
+            for _ in range(3):
+                with self.assertRaises(AIUnavailable) as raised:
+                    gateway.complete({})
+                self.assertEqual(raised.exception.code, "ai_incomplete_response")
+            with self.assertRaises(AIUnavailable) as raised:
+                gateway.complete({})
+            self.assertEqual(raised.exception.code, "ai_circuit_open")
+            self.assertEqual(post.call_count, 3)
+
+    def test_busy_gateway_does_not_call_provider_or_release_another_owner(self):
+        with patch.dict(os.environ, {"GROQ_API_KEY": "test-only-key"}, clear=True), \
+             patch("route_gateway.requests.post") as post:
+            gateway = AIGateway()
+            gateway.lock = Mock()
+            gateway.lock.acquire.return_value = False
+            with self.assertRaises(AIUnavailable) as raised:
+                gateway.complete({})
+            self.assertEqual(raised.exception.code, "ai_busy")
+            gateway.lock.acquire.assert_called_once_with(timeout=2)
+            gateway.lock.release.assert_not_called()
+            post.assert_not_called()
 
 
 class AIClientAndSummaryDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
@@ -303,7 +397,8 @@ class AIClientAndSummaryDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_client_chat_and_summary_forward_all_static_gateway_codes(self):
         codes = ("ai_timeout", "ai_network_error", "ai_provider_error", "ai_malformed_response",
-                 "ai_auth_failed", "ai_rate_limited", "ai_request_rejected", "ai_busy", "ai_circuit_open")
+                 "ai_auth_failed", "ai_rate_limited", "ai_request_rejected", "ai_busy", "ai_circuit_open",
+                 "ai_incomplete_response")
         for code in codes:
             with self.subTest(code=code):
                 environment, gateway = self.environment()
