@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import re
+import socket
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -15,6 +16,38 @@ TPEX_INSTITUTIONAL_URL = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_t
 TWSE_INSTITUTIONAL_URL = "https://www.twse.com.tw/rwd/zh/fund/T86"
 TWSE_CHIP_EXECUTOR = ThreadPoolExecutor(max_workers=3, thread_name_prefix="twse-institutional")
 ORDINARY_OR_ETF_CODE = r"(?:[1-9][0-9]{3}|00[0-9]{3,4}[A-Z]?)"
+INSTITUTIONAL_SUCCESS_TTL = 300
+INSTITUTIONAL_FAILURE_TTL = 20
+
+
+def institutional_failure_reason(exc):
+    """Return a fixed category only; never serialize provider exception text."""
+    pending, seen, causes = [exc], set(), set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, socket.gaierror) or type(current).__name__ == "NameResolutionError":
+            return "dns"
+        if isinstance(current, requests.exceptions.ReadTimeout) or type(current).__name__ == "ReadTimeoutError":
+            causes.add("read")
+        if isinstance(current, requests.exceptions.ConnectTimeout) or type(current).__name__ == "ConnectTimeoutError":
+            causes.add("connect")
+        if isinstance(current, BaseException):
+            pending.extend(value for value in current.args if isinstance(value, BaseException))
+            pending.extend(value for value in (current.__cause__, current.__context__,
+                                               getattr(current, "reason", None))
+                           if isinstance(value, BaseException))
+    if "read" in causes:
+        return "read"
+    if "connect" in causes:
+        return "connect"
+    if isinstance(exc, TimeoutError):
+        return "deadline"
+    if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.HTTPError)):
+        return "connect"
+    return "schema"
 
 
 def finite_number(value, positive=False):
@@ -109,8 +142,7 @@ def normalize_tpex_institutional(rows):
 class InstitutionalProvider:
     def __init__(self):
         self._lock = threading.Lock()
-        self._cache = None
-        self._expires = 0
+        self._market_cache = {}
         self._pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="institutional")
 
     @staticmethod
@@ -120,43 +152,76 @@ class InstitutionalProvider:
         return response.json()
 
     def _twse(self):
+        # Keep the historical rows-only interface for callers of this helper.
+        return self._twse_result()[0]
+
+    def _twse_result(self):
         def load(offset):
             date = (datetime.now(TW_TZ) - timedelta(days=offset)).strftime("%Y%m%d")
             try:
-                return normalize_twse_institutional(self._json(
-                    f"{TWSE_INSTITUTIONAL_URL}?date={date}&selectType=ALL&response=json"))
-            except Exception:
-                return {}
+                payload = self._json(
+                    f"{TWSE_INSTITUTIONAL_URL}?date={date}&selectType=ALLBUT0999&response=json")
+                if not isinstance(payload, dict) or not isinstance(payload.get("stat"), str):
+                    return {}, "schema"
+                if payload["stat"] != "OK":
+                    return {}, "no_data"
+                if not isinstance(payload.get("data"), list) or not isinstance(payload.get("fields"), list):
+                    return {}, "schema"
+                rows = normalize_twse_institutional(payload)
+                return rows, None if rows else ("no_data" if not payload["data"] else "schema")
+            except Exception as exc:
+                return {}, institutional_failure_reason(exc)
         futures = [TWSE_CHIP_EXECUTOR.submit(load, offset) for offset in range(8)]
         done, pending = wait(futures, timeout=8)
         for future in pending:
             future.cancel()
-        candidates = [future.result() for future in done]
-        candidates = [rows for rows in candidates if rows]
-        return max(candidates, key=lambda rows: max(row['as_of'] for row in rows.values()), default={})
+        outcomes = [future.result() for future in done]
+        candidates = [rows for rows, reason in outcomes if rows]
+        if candidates:
+            return max(candidates, key=lambda rows: max(row['as_of'] for row in rows.values())), None
+        reasons = {reason for rows, reason in outcomes}
+        if pending:
+            reasons.add("deadline")
+        reason = next((value for value in ("dns", "connect", "read", "deadline", "schema", "no_data")
+                       if value in reasons), "no_data")
+        return {}, reason
+
+    def _tpex_result(self):
+        try:
+            payload = self._json(TPEX_INSTITUTIONAL_URL)
+            if not isinstance(payload, list):
+                return {}, "schema"
+            rows = normalize_tpex_institutional(payload)
+            return rows, None if rows else ("no_data" if not payload else "schema")
+        except Exception as exc:
+            return {}, institutional_failure_reason(exc)
 
     def get(self):
         with self._lock:
-            if self._cache is not None and time.monotonic() < self._expires:
-                return dict(self._cache)
-            futures = {"上市": self._pool.submit(self._twse),
-                       "上櫃": self._pool.submit(lambda: normalize_tpex_institutional(self._json(TPEX_INSTITUTIONAL_URL)))}
+            now = time.monotonic()
+            loaders = {"上市": self._twse_result, "上櫃": self._tpex_result}
+            futures = {market: self._pool.submit(loader) for market, loader in loaders.items()
+                       if market not in self._market_cache or now >= self._market_cache[market]["expires"]}
             wait(futures.values(), timeout=12)
-            result, coverage = {}, {}
             for market, future in futures.items():
                 try:
                     if not future.done():
                         future.cancel()
                         raise TimeoutError
-                    rows = future.result()
-                except Exception:
-                    rows = {}
-                result.update(rows)
+                    rows, reason = future.result()
+                except Exception as exc:
+                    rows, reason = {}, institutional_failure_reason(exc)
+                ttl = INSTITUTIONAL_SUCCESS_TTL if rows else INSTITUTIONAL_FAILURE_TTL
+                self._market_cache[market] = {"rows": rows, "reason": reason,
+                                              "expires": time.monotonic() + ttl}
+            result, coverage = {}, {}
+            for market, cached in self._market_cache.items():
+                rows = cached["rows"]
+                result.update({ticker: dict(row) for ticker, row in rows.items()})
                 coverage[market] = {"available": bool(rows), "as_of": max((r["as_of"] for r in rows.values()), default=None),
-                                    "reason": None if rows else "official_source_unavailable"}
+                                    "reason": None if rows else cached["reason"]}
             result["_coverage"] = coverage
-            self._cache, self._expires = result, time.monotonic() + 300
-            return dict(result)
+            return result
 
 
 institutional_provider = InstitutionalProvider()
