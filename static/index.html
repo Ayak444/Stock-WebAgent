@@ -291,11 +291,115 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
   .feature-row { flex-direction: column; text-align: center; gap: 40px; padding-top: 40px; }
   .scroll-section { padding: 60px 20px; }
 }
+
+/* ===== Shared dashboard reading and layout ===== */
+.app{--slate-500:#a1adc0;--slate-600:#72829b;font-size:15px;line-height:1.6}
+.app .content{overflow-x:hidden;scrollbar-gutter:stable}
+.app .page{max-width:1440px;width:100%;margin-inline:auto;padding:32px}
+.app .page-header{gap:16px;margin-bottom:28px}
+.app .page-header h2{font-size:26px;line-height:1.4;letter-spacing:-.5px}
+.app .page-header .sub{font-size:14px;line-height:1.7;margin-top:6px}
+.app .card,.app .stat-card,.app .sentiment-card,.app .backtest-stat{background:#0d1628;border-color:rgba(148,163,184,.2);box-shadow:0 8px 28px rgba(0,0,0,.15)}
+.app .card{margin-bottom:24px}
+.app .card-header{padding:20px 24px;font-size:17px;line-height:1.5;gap:12px;flex-wrap:wrap}
+.app .card-body{padding:24px}
+.app .grid{gap:24px}
+.app .grid>*,.app .card-body>*{min-width:0}
+.app .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.app .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.app .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.app .grid-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.home-reading-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:start;margin-bottom:28px}
+.app .home-reading-grid .card{margin:0}
+.app .nav-btn{font-size:14px;min-height:46px}
+.app .nav-section{font-size:12px;color:var(--slate-400)}
+.app .nav-btn.active{background:rgba(249,115,22,.13);box-shadow:inset 3px 0 var(--orange-400);color:#fff}
+.app .input,.app select{font-size:15px;min-height:44px;max-width:100%}
+.app label{font-size:13px;line-height:1.6}
+.app .btn-analyze,.app .btn-outline{font-size:14px;min-height:44px;justify-content:center;white-space:normal;line-height:1.5}
+.app .btn-analyze{background:linear-gradient(135deg,#bd4b09,#9a3412);letter-spacing:0}
+.app .input-group{min-width:0;gap:12px}
+.app .input-group .input{min-width:0;flex:1}
+.app .position-grid{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr)) auto;gap:12px}
+.app .position-grid>*{min-width:0}
+.app .advice-box{padding:24px}
+.app .prose,.app .advice-box .desc,.app #sentiment-reasoning{font-size:18px;line-height:1.9;color:var(--slate-200);max-width:74ch;white-space:pre-wrap;overflow-wrap:anywhere}
+.app .read-meta{font-size:12px;line-height:1.75;color:var(--slate-400);overflow-wrap:anywhere;margin-top:16px}
+.app .news-entry{padding:20px;border:1px solid var(--glass-border);border-radius:12px;background:rgba(30,41,59,.25);margin-bottom:16px}
+.app .news-entry:last-child{margin-bottom:0}
+.app .news-entry summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:10px}
+.app .news-entry summary::after{content:'展開摘要 ＋';font-size:12px;color:var(--blue-400)}
+.app .news-entry[open] summary::after{content:'收合摘要 −'}
+.app .news-entry summary::-webkit-details-marker{display:none}
+.app .news-meta{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:12px;line-height:1.7;color:var(--slate-400)}
+.app .news-headline{display:block;font-size:18px;font-weight:700;color:var(--slate-200);line-height:1.7;overflow-wrap:anywhere;text-decoration:none}
+.app .news-body{border-top:1px solid var(--glass-border);margin-top:16px;padding-top:16px}
+.app .news-tile{padding:20px;background:#101c30}
+.app .news-tile .prose{font-size:16px;line-height:1.85}
+.app .news-tile .news-headline{font-size:17px;margin-bottom:12px}
+.app #war-news,.app #market-calendar{max-height:none;overflow:visible;padding:24px}
+.calendar-list{list-style:none}
+.calendar-event{display:grid;grid-template-columns:88px minmax(0,1fr);gap:16px;padding:20px 0;border-bottom:1px solid var(--glass-border)}
+.calendar-event:first-child{padding-top:0}
+.calendar-event time{font-size:14px;font-weight:700;color:var(--slate-200);font-variant-numeric:tabular-nums;line-height:1.7}
+.calendar-event-body{min-width:0;border-left:2px solid rgba(249,115,22,.35);padding-left:16px}
+.calendar-event h3{font-size:16px;line-height:1.8;color:var(--slate-200);margin:8px 0;overflow-wrap:anywhere}
+.calendar-source{font-size:13px;line-height:1.7;color:var(--blue-400);text-underline-offset:4px}
+.calendar-note{margin:20px 0 16px;font-size:12px;line-height:1.8;color:var(--slate-400)}
+.calendar-more{margin-top:16px}
+.calendar-more summary{cursor:pointer;color:var(--blue-400);font-size:14px;padding:12px 0}
+.calendar-more .calendar-list{margin-top:16px}
+.calendar-collapse-label,.calendar-more[open] .calendar-expand-label{display:none}
+.calendar-more[open] .calendar-collapse-label{display:inline}
+.table-scroll{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+.app .data-table{font-size:14px;min-width:560px}
+.app .data-table th{font-size:12px;line-height:1.6}
+.app .data-table td{line-height:1.7}
+.app .badge{font-size:12px}
+.app .recommendation-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.app .news-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:24px}
+.app .quick-search{max-width:100%}
+.app .quick-search .input{max-width:100%}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--orange-400);outline-offset:4px}
+@media(max-width:1100px){
+  .app .grid-3,.app .grid-4,.app .grid-5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-reading-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:768px){
+  .app .page{padding:24px 16px}
+  .app .page-header h2{font-size:22px}
+  .app .grid-2,.app .grid-3,.app .grid-4,.app .grid-5{grid-template-columns:minmax(0,1fr)}
+  .app .grid>[style*="grid-column"]{grid-column:auto!important}
+  .app .card-header{padding:18px;font-size:16px}
+  .app .card-body,.app #war-news,.app #market-calendar,.app .advice-box{padding:18px}
+  .app .prose,.app .advice-box .desc,.app #sentiment-reasoning{font-size:17px;line-height:1.9}
+  .app .news-headline{font-size:17px}
+  .app .input{font-size:16px}
+  .app .input-group{flex-direction:column;align-items:stretch;width:100%}
+  .app .input-group .input{width:100%;flex:auto}
+  .app .position-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app .top-bar{flex-wrap:wrap;gap:8px 12px}
+  .app .top-bar-left{flex:1 1 100%;gap:8px;margin-right:0;min-width:0}
+  .app .clock{font-size:12px;overflow-wrap:anywhere}
+  .app .page-header>div[style*="display:flex"]{flex-wrap:wrap;gap:12px}
+  .app .kline-toolbar>div{max-width:100%;flex-wrap:wrap;margin-left:0!important}
+  .toast-container{left:16px;right:16px;bottom:16px}
+  .toast{max-width:100%;overflow-wrap:anywhere}
+  .calendar-event{grid-template-columns:88px minmax(0,1fr);gap:10px}
+  .calendar-event time{white-space:nowrap}
+  .calendar-event-body{padding-left:12px}
+  .landing-nav .nav-links{gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .landing-nav .logo{font-size:16px}
+  .scroll-section>[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
 </style>
 </head>
 <body>
 
-<button class="mobile-toggle" id="mobile-toggle" onclick="toggleSidebar()">☰</button>
+<button class="mobile-toggle" id="mobile-toggle" aria-label="開啟或關閉功能選單" onclick="toggleSidebar()">☰</button>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <!-- ===== Landing Page ===== -->
@@ -475,7 +579,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           <div><h2>首頁</h2><p class="sub">AI 盤前摘要 × 新聞動態</p></div>
           <div class="quick-search">
             <span class="search-icon">🔍</span>
-            <input class="input" id="quick-search-input" placeholder="快速查詢股票 (如 2330.TW)  按 Enter" style="width:280px;padding-left:36px" onkeydown="if(event.key==='Enter')quickSearch()">
+            <input class="input" id="quick-search-input" aria-label="快速查詢股票代號" placeholder="快速查詢股票 (如 2330.TW)  按 Enter" style="width:280px;padding-left:36px" onkeydown="if(event.key==='Enter')quickSearch()">
           </div>
         </div>
 
@@ -488,25 +592,25 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           </div>
         </div>
 
-        <div class="grid grid-3" style="margin-bottom:24px; gap:24px;">
-          <div class="card" style="grid-column: span 2; margin-bottom:0;">
+        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px;border-radius:12px;">⚡ 更新大盤重點摘要</button>
+
+        <div class="card">
+          <div class="card-header">🤖 每日大盤摘要與 AI 觀點</div>
+          <div class="card-body prose" id="war-ai-summary" style="min-height:120px;">
+            <span style="color:var(--slate-500)">點擊上方更新摘要；AI 或資料來源可能暫時無法取得。</span>
+          </div>
+        </div>
+
+        <div class="grid home-reading-grid">
+          <div class="card">
             <div class="card-header">📰 各大財經頭條 (最新 10 則)</div>
-            <div class="card-body" id="war-news" style="padding:16px;max-height:380px;overflow-y:auto">
+            <div class="card-body" id="war-news">
               <span style="color:var(--slate-500);display:block">無最新新聞</span>
             </div>
           </div>
           <div class="card" style="margin-bottom:0;">
             <div class="card-header">📅 近期重點行事曆</div>
-            <div class="card-body" id="market-calendar" style="padding:16px;max-height:380px;overflow-y:auto;color:var(--slate-400)">正在讀取官方除權息與休市行事曆…</div>
-          </div>
-        </div>
-
-        <button class="btn-analyze" id="btn-war" onclick="fetchWarData()" style="width:100%;margin-bottom:24px;padding:14px;font-size:15px;justify-content:center;letter-spacing:2px;border-radius:12px;">⚡ 更新大盤重點摘要</button>
-
-        <div class="card">
-          <div class="card-header">🤖 每日大盤摘要與 AI 觀點</div>
-          <div class="card-body" id="war-ai-summary" style="font-size:15px;line-height:1.7;min-height:120px;">
-            <span style="color:var(--slate-500)">點擊上方更新摘要；AI 或資料來源可能暫時無法取得。</span>
+            <div class="card-body" id="market-calendar">正在讀取官方除權息與休市行事曆…</div>
           </div>
         </div>
       </div>
@@ -546,7 +650,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
         </div>
         <div class="card">
           <div class="card-header">熱門權值股技術分析總覽 <span style="font-weight:400;font-size:11px;color:var(--slate-500)">點擊欄位可排序</span></div>
-          <table class="data-table" id="tech-data-table">
+          <div class="table-scroll" tabindex="0" role="region" aria-label="技術分析表格，可左右捲動"><table class="data-table" id="tech-data-table">
             <thead><tr>
               <th onclick="sortTechTable(0)">標的</th>
               <th style="text-align:right" onclick="sortTechTable(1)">收盤價</th>
@@ -556,7 +660,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
               <th style="text-align:right" onclick="sortTechTable(5)">建議</th>
             </tr></thead>
             <tbody id="tech-table"></tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
@@ -567,13 +671,13 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
         </div>
         <div class="kline-toolbar">
           <div class="input-group" style="flex:1;max-width:400px">
-            <input class="input" id="kline-ticker" placeholder="輸入股票代號 (如 2330.TW)" onkeydown="if(event.key==='Enter')fetchKline()">
+            <input class="input" id="kline-ticker" aria-label="K 線股票代號" placeholder="輸入股票代號 (如 2330.TW)" onkeydown="if(event.key==='Enter')fetchKline()">
             <button class="btn-analyze" onclick="fetchKline()" style="flex-shrink:0">📊 載入圖表</button>
           </div>
           
           <div style="display:flex; align-items:center; gap:10px;">
             <label style="color:var(--slate-400); font-size:14px; font-weight:600;">副圖指標:</label>
-            <select id="sub-indicator-select" class="input" style="width:120px; padding:6px 12px;" onchange="updateSubChart()">
+            <select id="sub-indicator-select" aria-label="副圖指標" class="input" style="width:120px; padding:6px 12px;" onchange="updateSubChart()">
               <option value="volume">成交量</option>
               <option value="macd">MACD</option>
               <option value="kd">KD 指標</option>
@@ -631,20 +735,20 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
               <div style="flex:1;min-width:200px">
                 <label style="font-size:11px;color:var(--slate-500);display:block;margin-bottom:6px;font-weight:600">股票代號</label>
-                <input class="input" id="backtest-ticker" placeholder="如 2330.TW" value="2330.TW">
+                <input class="input" id="backtest-ticker" aria-label="回測股票代號" placeholder="如 2330.TW" value="2330.TW">
               </div>
               <div style="width:160px">
                 <label style="font-size:11px;color:var(--slate-500);display:block;margin-bottom:6px;font-weight:600">回測交易日數</label>
-                <select class="input" id="backtest-days">
+                <select class="input" id="backtest-days" aria-label="回測交易日數">
                   <option value="30">30 個交易日</option>
                   <option value="90">90 個交易日</option>
                   <option value="180" selected>180 個交易日</option>
                   <option value="365">365 個交易日</option>
                 </select>
               </div>
-              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">手續費率（%）</label><input class="input" id="backtest-commission" type="number" min="0" max="10" step="0.0001" value="0.1425"></div>
-              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">最低手續費 NT$</label><input class="input" id="backtest-min-commission" type="number" min="0" max="100000" step="1" value="20"></div>
-              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">賣出稅率（%）</label><input class="input" id="backtest-sell-tax" type="number" min="0" max="10" step="0.0001" value="0.3"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">手續費率（%）</label><input class="input" id="backtest-commission" aria-label="手續費率，百分比" type="number" min="0" max="10" step="0.0001" value="0.1425"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">最低手續費 NT$</label><input class="input" id="backtest-min-commission" aria-label="最低手續費，新台幣" type="number" min="0" max="100000" step="1" value="20"></div>
+              <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">賣出稅率（%）</label><input class="input" id="backtest-sell-tax" aria-label="賣出稅率，百分比" type="number" min="0" max="10" step="0.0001" value="0.3"></div>
               <button class="btn-outline" onclick="resetBacktestCosts()">恢復預設成本</button>
               <button class="btn-analyze" id="btn-backtest" onclick="runBacktest()">⚡ 執行回測</button>
             </div>
@@ -734,7 +838,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
           </div>
           <div class="card-body">
             <div class="input-group" style="max-width:520px;margin-bottom:16px">
-              <input class="input" id="stock-snapshot-ticker" value="2330" placeholder="輸入 2330、2330.TW 或 6488.TWO" onkeydown="if(event.key==='Enter')fetchStockSnapshot()">
+              <input class="input" id="stock-snapshot-ticker" aria-label="市場洞察股票代號" value="2330" placeholder="輸入 2330、2330.TW 或 6488.TWO" onkeydown="if(event.key==='Enter')fetchStockSnapshot()">
               <button class="btn-outline" id="btn-stock-snapshot" onclick="fetchStockSnapshot()" style="flex-shrink:0">產生摘要</button>
             </div>
             <div id="stock-snapshot-result" style="color:var(--slate-500);font-size:13px">輸入股票代號後，一次查看價格、產業相對表現、大戶持股與最近 72 小時新聞關注度。</div>
@@ -782,8 +886,8 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
         <div class="card" style="margin-bottom:16px">
           <div class="card-header">設定目標核心標的</div>
           <div class="card-body">
-            <div style="display:flex;gap:8px;margin-bottom:16px">
-              <input class="input" id="screener-target-input" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
+            <div class="input-group" style="margin-bottom:16px">
+              <input class="input" id="screener-target-input" aria-label="關聯選股核心標的" placeholder="輸入代號名稱 (如: 2330 台積電)" onkeydown="if(event.key==='Enter')addScreenerTarget()">
               <button class="btn-outline" onclick="addScreenerTarget()" style="flex-shrink:0">加入</button>
               <button class="btn-outline" onclick="importFromPortfolio()" style="flex-shrink:0;color:var(--blue-400);border-color:rgba(59,130,246,0.4)">從部位匯入</button>
             </div>
@@ -819,9 +923,9 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
     </div>
     <div class="card-body">
       <div id="auth-error" style="color:var(--red-400);font-size:13px;margin-bottom:12px;display:none;background:rgba(239,68,68,0.08);padding:10px;border-radius:var(--radius-sm)"></div>
-      <input id="auth-email" class="input" type="email" placeholder="信箱" style="margin-bottom:12px">
-      <input id="auth-name" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px;display:none">
-      <input id="auth-password" class="input" type="password" placeholder="密碼" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
+      <input id="auth-email" aria-label="電子郵件信箱" class="input" type="email" placeholder="信箱" style="margin-bottom:12px">
+      <input id="auth-name" aria-label="註冊暱稱" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px;display:none">
+      <input id="auth-password" aria-label="登入或註冊密碼" class="input" type="password" placeholder="密碼" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
       <button id="auth-submit-btn" class="btn-analyze" style="width:100%;justify-content:center" onclick="handleAuthSubmit()">登入</button>
       <div style="text-align:center;margin-top:14px;font-size:13px">
         <a href="#" id="auth-toggle-link" style="color:var(--blue-400);text-decoration:none;font-weight:500" onclick="toggleAuthMode();return false">還沒有帳號？點此註冊</a>
@@ -845,7 +949,7 @@ kbd{font-size:10px;padding:2px 6px;border:1px solid var(--slate-600);border-radi
     <div class="chat-msg bot">您好！我是股金往來的 AI 投資助理，已連線至您的後端分析引擎。有什麼可以幫您的？🚀</div>
   </div>
   <div class="chat-input-wrap">
-    <input class="chat-input" id="chat-input" placeholder="輸入問題..." onkeydown="if(event.key==='Enter')sendChat()">
+    <input class="chat-input" id="chat-input" aria-label="投資助理問題" placeholder="輸入問題..." onkeydown="if(event.key==='Enter')sendChat()">
     <button class="chat-send" onclick="sendChat()" id="chat-send-btn">發送</button>
   </div>
 </div>
@@ -1297,6 +1401,7 @@ function renderPositions() {
     row.style.marginBottom = '8px';
     const code = document.createElement('input');
     code.className = 'input';
+    code.setAttribute('aria-label', `第 ${i + 1} 筆持股的股票代號`);
     code.value = p.code ?? '';
     code.placeholder = '例如: 2330';
     code.addEventListener('change', () => {
@@ -1305,6 +1410,7 @@ function renderPositions() {
     });
     const type = document.createElement('select');
     type.className = 'input';
+    type.setAttribute('aria-label', `第 ${i + 1} 筆持股的資產類型`);
     types.forEach(label => {
       const option = document.createElement('option');
       option.value = label; option.textContent = label; option.selected = label === p.type;
@@ -1313,12 +1419,15 @@ function renderPositions() {
     type.addEventListener('change', () => { positions[i].type = type.value; syncPositions(); });
     const cost = document.createElement('input');
     cost.className = 'input'; cost.type = 'number'; cost.value = p.cost ?? '';
+    cost.setAttribute('aria-label', `第 ${i + 1} 筆持股的平均成本`);
     cost.addEventListener('change', () => { positions[i].cost = cost.value; syncPositions(); });
     const shares = document.createElement('input');
     shares.className = 'input'; shares.type = 'number'; shares.value = p.shares ?? '';
+    shares.setAttribute('aria-label', `第 ${i + 1} 筆持股的持有股數`);
     shares.addEventListener('change', () => { positions[i].shares = shares.value; syncPositions(); });
     const remove = document.createElement('button');
     remove.className = 'btn-remove'; remove.textContent = '×';
+    remove.setAttribute('aria-label', `移除第 ${i + 1} 筆持股`);
     remove.addEventListener('click', () => removePosition(i));
     row.append(code, type, cost, shares, remove);
     list.appendChild(row);
@@ -1400,7 +1509,7 @@ async function fetchWarData() {
     description.className = 'desc'; description.textContent = aiRes.summary ?? '';
     box.appendChild(description); aiSummary.replaceChildren(box);
     const provenance = document.createElement('p');
-    provenance.style.cssText = 'font-size:11px;color:var(--slate-400);margin-top:10px';
+    provenance.className = 'read-meta';
     provenance.textContent = `產生於 ${aiRes.generated_at || '時間未提供'}（台北）；新聞發布 ${aiRes.news_published_from || '未提供'} 至 ${aiRes.news_published_to || '未提供'}。來源：${(aiRes.sources_used || []).join('、')}；${aiRes.from_cache ? '使用先前生成結果' : '本次生成'}。`;
     box.appendChild(provenance);
   } else {
@@ -1415,27 +1524,28 @@ async function fetchWarData() {
     news.replaceChildren();
     (newsRes.data || []).forEach(n => {
       const details = document.createElement('details');
-      details.style.cssText = 'background:rgba(51,65,85,0.25);border:1px solid var(--glass-border);padding:14px;border-radius:var(--radius-md);margin-bottom:8px';
+      details.className = 'news-entry';
       const summary = document.createElement('summary');
-      summary.style.cssText = 'cursor:pointer;display:flex;gap:10px;align-items:flex-start';
+      const metadata = document.createElement('span');
+      metadata.className = 'news-meta';
       const published = document.createElement('span');
-      published.style.cssText = 'font-size:11px;color:var(--slate-600);width:100px;flex-shrink:0;font-family:monospace';
       published.textContent = n.published ?? '';
       const source = document.createElement('span');
       source.className = 'badge badge-slate'; source.textContent = n.source ?? '';
       const title = document.createElement('span');
-      title.style.cssText = 'font-size:14px;color:var(--slate-200);font-weight:600;flex:1;line-height:1.5';
+      title.className = 'news-headline';
       title.textContent = n.title ?? '';
-      summary.append(published, source, title);
+      metadata.append(source, published);
+      summary.append(title, metadata);
       const body = document.createElement('div');
-      body.style.cssText = 'padding-top:12px;margin-top:12px;border-top:1px dashed var(--slate-700);color:var(--slate-300);font-size:13px;line-height:1.7';
+      body.className = 'news-body prose';
       body.appendChild(document.createTextNode(n.summary ?? ''));
       const url = safeNewsUrl(n.link);
       if (url) {
         const linkBox = document.createElement('div'); linkBox.style.marginTop = '10px';
         const link = document.createElement('a');
         link.setAttribute('href', url); link.target = '_blank'; link.rel = 'noopener noreferrer';
-        link.style.cssText = 'color:var(--blue-400);text-decoration:none;font-weight:600;font-size:13px';
+        link.className = 'calendar-source';
         link.textContent = '閱讀全文 ⭧'; linkBox.appendChild(link); body.appendChild(linkBox);
       }
       details.append(summary, body); news.appendChild(details);
@@ -1444,16 +1554,30 @@ async function fetchWarData() {
   btn.disabled = false;
 }
 
+function calendarReadableSourceUrl(value) {
+  const safe = safeNewsUrl(value);
+  if (!safe) return '';
+  const url = new URL(safe);
+  if (url.username || url.password) return '';
+  const readablePages = {
+    'https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL': 'https://www.twse.com.tw/zh/announcement/ex-right/twt48u.html',
+    'https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule': 'https://www.twse.com.tw/zh/trading/holiday.html'
+  };
+  return readablePages[url.origin + url.pathname] || safe;
+}
+
 async function fetchMarketCalendar() {
   const box = document.getElementById('market-calendar');
   if (!box) return;
   const res = await apiCall('/api/market-calendar');
   const data = res.data || {};
   const items = data.items || [];
-  box.innerHTML = items.map(event => `<div style="padding:10px 0;border-bottom:1px solid var(--glass-border)"><strong>${escapeRoutingText(event.date)}</strong> · ${escapeRoutingText(event.kind)}<br>${escapeRoutingText(event.title)} <a data-safe-url="${escapeRoutingText(event.source_url)}" style="color:var(--blue-400)">官方來源</a></div>`).join('')
-    || '<p>目前沒有可驗證的近期事件；官方資料可能尚未公告或暫時無法取得。</p>';
+  const eventHtml = event => `<li class="calendar-event"><time datetime="${escapeRoutingText(event.date)}">${escapeRoutingText(event.date)}</time><div class="calendar-event-body"><span class="badge badge-orange">${escapeRoutingText(event.kind)}</span><h3>${escapeRoutingText(event.title)}</h3><a class="calendar-source" data-safe-url="${escapeRoutingText(calendarReadableSourceUrl(event.source_url))}">查看官方公告 ⭧</a></div></li>`;
+  const additionalEvents = items.length > 6 ? `<details class="calendar-more"><summary><span class="calendar-expand-label">展開其餘 ${items.length - 6} 筆事件</span><span class="calendar-collapse-label">收合其餘事件</span></summary><ol class="calendar-list">${items.slice(6).map(eventHtml).join('')}</ol></details>` : '';
+  box.innerHTML = items.length ? `<ol class="calendar-list">${items.slice(0, 6).map(eventHtml).join('')}</ol>${additionalEvents}`
+    : '<p>目前沒有可驗證的近期事件；官方資料可能尚未公告或暫時無法取得。</p>';
   const note = document.createElement('div');
-  note.style.cssText = 'font-size:11px;margin-top:10px';
+  note.className = 'calendar-note';
   note.textContent = `台北日期 · 未來 60 天；範圍僅包含已公告的上市除權息與市場休市${(data.unavailable_sources || []).length ? '；部分來源暫缺' : ''}。`;
   box.appendChild(note);
   const retry = document.createElement('button'); retry.className = 'btn-outline';
@@ -1896,9 +2020,9 @@ async function runBacktest() {
       </div></div>
       ${trades.length > 0 ? `
       <div class="card"><div class="card-header">📋 交易紀錄（${trades.length} 筆）</div>
-        <table class="data-table"><thead><tr><th>動作</th><th>日期</th><th>股數</th><th>價格</th><th>手續費 / 稅</th><th>已平倉報酬</th></tr></thead><tbody>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="回測交易紀錄，可左右捲動"><table class="data-table"><thead><tr><th>動作</th><th>日期</th><th>股數</th><th>價格</th><th>手續費 / 稅</th><th>已平倉報酬</th></tr></thead><tbody>
           ${trades.map(t => `<tr><td>${escapeRoutingText(t.action)}</td><td>${escapeRoutingText(t.date)}</td><td>${numeric(t.shares) ?? '—'}</td><td>${money(t.price)}</td><td>${money(t.commission)} / ${money(t.tax)}</td><td>${percent(t.return_pct)}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="card"><div class="card-body">此窗口沒有成交；勝率不適用（—）。</div></div>'}
+        </tbody></table></div></div>` : '<div class="card"><div class="card-body">此窗口沒有成交；勝率不適用（—）。</div></div>'}
       <div class="card"><div class="card-body" style="color:var(--slate-400)">${limitations.map(item => `<div>• ${escapeRoutingText(item)}</div>`).join('')}</div></div>`;
     showToast('回測完成', 'success');
   } else {
@@ -1946,10 +2070,10 @@ async function fetchNewsAnalysis() {
           <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
             <span class="badge ${sBadge}" style="font-size:12px;padding:4px 12px">${escapeRoutingText(n.sentiment)}</span>
             <span class="badge ${iBadge}" style="font-size:12px;padding:4px 12px">影響:${escapeRoutingText(n.impact)}</span>
-            <span style="font-size:11px;color:var(--slate-600);font-family:monospace">${escapeRoutingText(n.source)} | ${escapeRoutingText(n.published)}</span>
+            <span class="news-meta">${escapeRoutingText(n.source)} | ${escapeRoutingText(n.published)}</span>
           </div>
-          <a data-safe-url="${escapeRoutingText(n.link)}" style="display:block;font-size:15px;font-weight:700;color:#fff;text-decoration:none;margin-bottom:10px;line-height:1.5">${escapeRoutingText(n.title)}</a>
-          <div style="font-size:13px;color:var(--blue-400);background:rgba(59,130,246,.06);padding:12px;border-radius:var(--radius-sm);line-height:1.7;border:1px solid rgba(59,130,246,0.1)">
+          <a class="news-headline" data-safe-url="${escapeRoutingText(n.link)}" style="margin-bottom:16px">${escapeRoutingText(n.title)}</a>
+          <div class="prose" style="background:rgba(59,130,246,.06);padding:18px;border-radius:var(--radius-md);border:1px solid rgba(59,130,246,0.1)">
             🤖 AI 解析：${escapeRoutingText(n.ai_reason || n.summary || '無特別說明')}
           </div>
         </div>`;
@@ -1993,7 +2117,7 @@ async function fetchSentiment() {
           <div class="stock-card">
             <div class="stock-card-header"><span style="font-size:16px;font-weight:700;color:#fff">${escapeRoutingText(r.ticker || r.name)}</span>
             <span class="badge badge-green">${escapeRoutingText(r.action || '觀察')}</span></div>
-            <div style="font-size:13px;color:var(--slate-400);line-height:1.6">${escapeRoutingText(r.reason || '')}</div>
+            <div class="prose">${escapeRoutingText(r.reason || '')}</div>
           </div>`).join('')}</div></div>`;
     }
 
@@ -2002,8 +2126,8 @@ async function fetchSentiment() {
         const tagColor = n.sentiment === '多' ? 'var(--green-500)' : (n.sentiment === '空' ? 'var(--red-500)' : 'var(--slate-500)');
         return `<div class="news-tile">
           <span class="sentiment-tag" style="background:${tagColor}">${escapeRoutingText(n.sentiment)}</span>
-          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:5px">${escapeRoutingText(n.title)}</div>
-          <div style="font-size:12px;color:var(--slate-400);line-height:1.5">${escapeRoutingText(n.summary)}</div>
+          <div class="news-headline">${escapeRoutingText(n.title)}</div>
+          <div class="prose">${escapeRoutingText(n.summary)}</div>
         </div>`;
       }).join('');
     }
