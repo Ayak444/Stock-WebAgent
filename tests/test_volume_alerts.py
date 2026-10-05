@@ -229,10 +229,12 @@ class BrowserAndMigrationTests(unittest.TestCase):
     def test_external_content_is_text_or_escaped_and_links_are_filtered(self):
         html = Path("static/index.html").read_text(encoding="utf-8")
         script = html.split("<script>", 1)[1].split("</script>", 1)[0]
-        rss = script.split("async function fetchWarData()", 1)[1].split("\nasync function ", 1)[0]
+        ai = script.split("function renderHomeAI(", 1)[1].split("async function fetchWarData()", 1)[0]
+        rss = script.split("async function fetchHomeNews()", 1)[1].split("\nasync function ", 1)[0]
         chat = script.split("function renderMarkdown(text)", 1)[1].split("\n}", 1)[0]
-        self.assertIn("description.textContent = aiRes.summary", rss)
-        self.assertIn("body.appendChild(document.createTextNode(n.summary", rss)
+        self.assertIn("raw.textContent = original", ai)
+        self.assertIn("appendHomeAIText(element, block.text)", ai)
+        self.assertIn("body.textContent = n.summary", rss)
         self.assertIn("safeNewsUrl(n.link)", rss)
         self.assertIn("escapeRoutingText(text)", chat)
         self.assertIn("escapeRoutingText(n.title)", script)

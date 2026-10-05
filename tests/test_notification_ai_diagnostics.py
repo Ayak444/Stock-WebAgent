@@ -419,8 +419,12 @@ class AIClientAndSummaryDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(internal, result["message"])
         environment["NewsCrawler"].fetch_all.assert_not_called()
         frontend = Path("static/index.html").read_text(encoding="utf-8")
-        self.assertIn("error.textContent = aiRes.message", frontend)
-        self.assertNotIn("innerHTML = aiRes.message", frontend)
+        # AI errors still use plain text after the independent homepage loader refactor.
+        handler = frontend.split("async function fetchWarData() {", 1)[1].split(
+            "async function fetchHomeNews()", 1
+        )[0]
+        self.assertIn("box.textContent = result.message", handler)
+        self.assertNotIn("innerHTML = result.message", handler)
 
     async def test_unexpected_client_and_summary_failures_are_static_and_redacted(self):
         environment, gateway = self.environment()
