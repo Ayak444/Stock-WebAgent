@@ -77,10 +77,11 @@ AMBIGUOUS_STOCK_NAMES = {
 }
 
 # Quantities and dates can coincide with a security code (e.g. 1236 points).
+# Stock compounds such as 股價 and 股息 are not share quantity units.
 # Keep patterns compiled outside the per-article/profile loop.
 NEWS_QUANTITY_AFTER = re.compile(
     r"^\s*(?:\.\d|,\d{3}(?!\d)|[-/]\d{1,2}(?!\d)|:\d{2}(?!\d)|點|年|月|日|元|美元|美金|港幣|人民幣|"
-    r"萬|億|兆|張|股|倍|人|件|家|戶|噸|公斤|公里|%|％)"
+    r"萬|億|兆|張|股(?![價票利息東權本])|倍|人|件|家|戶|噸|公斤|公里|%|％)"
 )
 NEWS_CURRENCY_BEFORE = re.compile(r"(?:[$＄]|新台幣|台幣|美元|美金|港幣|人民幣)\s*$")
 NEWS_DECIMAL_BEFORE = re.compile(r"\d\.$")

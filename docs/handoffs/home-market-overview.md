@@ -28,9 +28,24 @@ AC-04/05 postdeployment regression: only the heading-match line copy is trimmed;
 | Stage | Owner | Status | Started | Completed | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Product | /root/dashboard_fix_supervisor/product | Complete |  |  |  |
-| Developer | /root/dashboard_fix_supervisor/developer | Bounded postdeployment correction complete; frozen pending new gates |  |  | Sole production/handoff writer; no tests changed or run. |
-| Tester | /root/polish_completion_supervisor/tester | Fresh precommit PASS; final committed gate pending |  |  | Existing tests retained; independently verified identity; no repository writes in fresh Tester stage. |
-| Reviewer | Fresh independent Reviewer appointed by /root/polish_completion_supervisor | Pending final committed Tester PASS |  |  | Must review exact clean tested commit. |
+| Developer | /root/polish_completion_supervisor/developer_fix | Bounded review fix complete; frozen for Tester |  |  | Sole production/handoff writer; no test files changed or formal tests run. |
+| Tester | Fresh Tester appointed by /root/polish_completion_supervisor | Pending necessary regressions and full gate |  |  | Must add compound positives and quantity negative, then independently verify the new identity. |
+| Reviewer | Fresh independent Reviewer appointed by /root/polish_completion_supervisor | Mandatory re-review pending fixed committed Tester PASS |  |  | Must review exact clean tested commit; earlier pass evidence cannot certify this fix. |
+
+## Confirmed review rework: financial stock compounds
+
+This section supersedes all earlier gate status for the current revision. Reviewer found one blocking P2 at `market_insights.py:83` on clean commit `47a0e9cd8575ecfe74531a3df3a6d85edc6d3d1d`: bare 股 in the quantity pattern rejected legitimate ticker mentions before 股價, 股票 and 股利 (including whitespace). AC-09/V-09 therefore failed despite the prior passing suite. Independent report: `C:/Users/Ayak4-PC/.codex/visualizations/2026/09/13/01a099ee-c132-7790-bae7-1702ec9ba186/polish-reviewer-final-report.md` and `.json`. Blocking count: 1; no additional findings.
+
+Lead authorized the minimal correction and clarified that 股息, 股東, 股權 and 股本 are the same class. Developer changed only the compiled 股 alternative to `股(?![價票利息東權本])` and added an explanatory comment. Genuine `成交2330股` still reaches the quantity rejection; whitespace remains handled by the existing prefix. Other point/date/money/quantity alternatives, suffix/company/ETF/separator behavior, 72-hour window, deduplication, scoring, order and pattern compilation are unchanged. `static/index.html` remains byte-identical to the review baseline.
+
+Current rework changed files: `market_insights.py`, `docs/handoffs/home-market-overview.md`, `docs/handoffs/home-visual-polish.md`. Developer basic validation: in-memory AST parse (no imports/network/environment access) exit 0; `git diff --check --ignore-submodules=dirty` exit 0. No formal tests executed or test files modified. Known limitation: regression and review gates remain pending; this implementation is not a completion declaration. Required manual operation after passing gates: deploy the tested/reviewed revision and refresh the browser; no environment, database, migration or data-entry steps.
+
+Freeze protocol: Developer saves both handoffs, freezes all repository writes and supplies raw staged/unstaged binary-patch SHA-256 hashes plus compact sorted untracked manifest/manifest hash externally. Tester adds only necessary meaningful regressions (seven compounds with/without whitespace and genuine share-quantity negatives), independently captures the new identity and runs the full offline quality gate. Lead commits approved task files; final Tester reruns the full gate and Reviewer independently reviews that same clean fixed commit. Immutable evidence stays external; no post-gate handoff changes or self-hash recursion. HEAD/index gitlink remains `160000 aed9cfd3277740755f6bfc1155c7aa645403b760`; no submodule writes.
+
+| Acceptance criterion | Required case/check | Current result |
+| --- | --- | --- |
+| AC-09 / V-09 | 股價/股票/股利/股息/股東/股權/股本 with and without ticker whitespace; genuine `成交2330股` negative; prior ranking regressions | Developer fix applied; fresh Tester evidence pending |
+| AC-08 / V-10 | Full offline regression on fixed revision, then same-commit zero-blocking independent review | Pending; previous evidence invalidated for changed revision |
 
 ## Historical test-stage role exception
 
@@ -55,13 +70,13 @@ Developer validation for this correction: in-memory Python AST parse, Node inlin
 ## Revision identity
 
 - Baseline commit:497f9262d272adf0aaa5636c0e433eee643c82ba
-- Developer HEAD commit:497f9262d272adf0aaa5636c0e433eee643c82ba
+- Developer HEAD commit:47a0e9cd8575ecfe74531a3df3a6d85edc6d3d1d (current review-rework baseline)
 - Staged patch SHA-256:
 - Unstaged patch SHA-256:
 - Untracked files and content SHA-256 manifest:
 - Tested source-state ID (HEAD plus all three hashes):
 - Reviewed source-state ID (HEAD plus all three hashes):
-- Shared-workspace writer: Developer frozen; Tester completed without repository writes; Supervisor writes only these two handoffs before Lead commits six approved files.
+- Shared-workspace writer: /root/polish_completion_supervisor/developer_fix frozen after the production fix and both handoffs; Tester becomes sole test-file writer next, then Lead commits and fresh committed gates follow.
 
 Freeze hashes are supplied in the coordination message after saving this file to avoid self-referential hashes. Lead commits implementation and targeted tests before the formal full gate and review. Earlier revision evidence is not reused.
 
@@ -134,12 +149,12 @@ These hashes identify the candidate before this evidence-only handoff update. Le
 - Security:
 - Performance:
 - Maintainability:
-- Blocking-issue count: Pending independent review of final clean tested commit; final count is external.
+- Blocking-issue count: 1 confirmed P2 on 47a0e9c; Developer fix applied, mandatory fresh independent re-review pending. Final fixed-commit count is external.
 - Non-blocking findings and disposition:
 
 | Severity | File and line | Reason | Blocking | Disposition |
 | --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| P2 | market_insights.py:83 (reviewed 47a0e9c) | Bare 股 quantity alternative rejected legitimate financial compounds after tickers. | Yes | Fixed by bounded negative lookahead; fresh regression and re-review pending. |
 
 ## Manual operations
 

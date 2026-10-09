@@ -26,9 +26,24 @@
 | Stage | Owner | Status | Started | Completed | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Product | /root/dashboard_fix_supervisor/product | Complete |  |  |  |
-| Developer | /root/dashboard_fix_supervisor/developer | Complete; final candidate frozen pending downstream gates |  |  | Sole production/handoff writer; pending rank/heading fixes retained. |
-| Tester | /root/polish_completion_supervisor/tester | Fresh precommit PASS; final committed gate pending |  |  | Existing tests retained; independently verified identity; no repository writes in fresh Tester stage. |
-| Reviewer | Fresh independent Reviewer appointed by /root/polish_completion_supervisor | Pending final committed Tester PASS |  |  | Must review exact clean tested commit. |
+| Developer | /root/polish_completion_supervisor/developer_fix | Bounded review fix complete; frozen for Tester |  |  | Sole production/handoff writer; no visual source changed. |
+| Tester | Fresh Tester appointed by /root/polish_completion_supervisor | Pending necessary regressions and full gate |  |  | Must independently verify the changed revision; test-file writes only. |
+| Reviewer | Fresh independent Reviewer appointed by /root/polish_completion_supervisor | Mandatory re-review pending fixed committed Tester PASS |  |  | Must review exact clean tested commit; earlier gate evidence cannot certify this fix. |
+
+## Confirmed review rework: financial stock compounds
+
+This section supersedes all earlier gate status for the current revision. Reviewer reported one blocking P2 in `market_insights.py:83` on clean commit `47a0e9cd8575ecfe74531a3df3a6d85edc6d3d1d`: bare 股 quantity matching removed legitimate ticker mentions before 股價, 股票 and 股利, with and without whitespace. AC-09/V-09 fails until independently retested and reviewed. Report: `C:/Users/Ayak4-PC/.codex/visualizations/2026/09/13/01a099ee-c132-7790-bae7-1702ec9ba186/polish-reviewer-final-report.md` and `.json`. Blocking count: 1; additional findings: 0. Disposition: Developer fix applied, verification pending.
+
+Lead authorized the minimal fix and included same-class 股息/股東/股權/股本. Developer changed the compiled 股 alternative to `股(?![價票利息東權本])`, with an explanatory comment. Actual `成交2330股` still matches a quantity. All other rejection alternatives and positive suffix/company/ETF/list-separator paths, 72-hour filter, deduplication, scoring/order and compilation strategy remain intact. Current changed files are `market_insights.py` and these two handoffs. `static/index.html` remains byte-identical to `47a0e9c`; all accepted visual source is preserved.
+
+Developer basic validation: in-memory AST parse exit 0; `git diff --check --ignore-submodules=dirty` exit 0. No formal tests executed; no test or submodule files modified. Known limitation: all fresh gates remain pending. Manual operations after passing gates: deploy reviewed revision and refresh browser; no environment, SQL, migration or data-entry changes.
+
+Freeze protocol: after saving both handoffs, Developer freezes repository writes and sends external raw staged/unstaged binary-patch hashes and compact sorted untracked manifest/hash. Tester owns only necessary meaningful regressions (seven compounds with/without whitespace plus actual share-quantity negatives), independently captures identity and runs full offline gate. Lead then commits approved task files; final Tester and Reviewer rerun their stages against the same clean fixed commit. Final identity and immutable reports remain external without handoff self-hash recursion or post-gate edits. Required HEAD/index gitlink remains `160000 aed9cfd3277740755f6bfc1155c7aa645403b760`.
+
+| Acceptance criterion | Required case/check | Current result |
+| --- | --- | --- |
+| V-09 / AC-09 | Seven financial compounds with/without whitespace, genuine quantity negative and existing ranking behavior | Developer fix applied; fresh Tester evidence pending |
+| V-10 / AC-08 | Full offline regression on fix, then same-clean-commit independent review with zero blocking issues | Pending; earlier results are historical evidence only |
 
 ## Evidence protocol
 
@@ -37,13 +52,13 @@ The handoff is captured before final commit. Source identity includes all pendin
 ## Revision identity
 
 - Baseline commit: 497f9262d272adf0aaa5636c0e433eee643c82ba; pending uncommitted rank/heading fixes retained
-- Developer HEAD commit:497f9262d272adf0aaa5636c0e433eee643c82ba
+- Developer HEAD commit:47a0e9cd8575ecfe74531a3df3a6d85edc6d3d1d (current review-rework baseline)
 - Staged patch SHA-256:
 - Unstaged patch SHA-256:
 - Untracked files and content SHA-256 manifest:
 - Tested source-state ID (HEAD plus all three hashes):
 - Reviewed source-state ID (HEAD plus all three hashes):
-- Shared-workspace writer: Developer frozen; Tester completed without repository writes; Supervisor writes only these two handoffs before Lead commits six approved files.
+- Shared-workspace writer: /root/polish_completion_supervisor/developer_fix frozen after production fix and both handoffs; Tester becomes sole test-file writer next, then Lead commits and fresh committed gates follow.
 
 The staged hash covers `git diff --cached --binary`, and the unstaged hash covers `git diff --binary`. The untracked manifest lists every untracked path and its content hash in stable path order, then records the manifest hash. Empty patches still receive the SHA-256 of empty content. Do not use a timestamp as source identity. Tester and Reviewer must independently recompute the source-state ID; both IDs must match the Developer handoff state.
 
@@ -124,12 +139,12 @@ These hashes identify the candidate before this evidence-only handoff update. Le
 - Security:
 - Performance:
 - Maintainability:
-- Blocking-issue count: Pending independent review of final clean tested commit; final count is external.
+- Blocking-issue count: 1 confirmed P2 on 47a0e9c; Developer fix applied, mandatory fresh independent re-review pending. Final fixed-commit count is external.
 - Non-blocking findings and disposition:
 
 | Severity | File and line | Reason | Blocking | Disposition |
 | --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| P2 | market_insights.py:83 (reviewed 47a0e9c) | Bare 股 quantity alternative rejected legitimate financial compounds after tickers. | Yes | Fixed by bounded negative lookahead; fresh regression and re-review pending. |
 
 ## Manual operations
 

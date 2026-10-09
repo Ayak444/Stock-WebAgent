@@ -97,6 +97,29 @@ class IndustryAggregationTests(unittest.TestCase):
 
 
 class TrendingAggregationTests(unittest.TestCase):
+    def test_ticker_stock_compounds_are_not_share_quantities(self):
+        companies = [{"公司代號": "2330", "公司簡稱": "台積電"}]
+        now = 2_000_000
+
+        def tickers_for(title):
+            ranked = rank_trending_stocks(
+                [{"title": title, "source": "fixture", "published_ts": now - 60}],
+                companies, now_ts=now,
+            )
+            self.assertTrue(all(row["mention_count"] == 1 for row in ranked))
+            return [row["ticker"] for row in ranked]
+
+        # Omit the company name so a valid name match cannot hide a lost ticker.
+        for compound in ("股價", "股票", "股利", "股息", "股東", "股權", "股本"):
+            for spacing in ("", " ", "\t"):
+                with self.subTest(compound=compound, spacing=repr(spacing)):
+                    self.assertEqual(tickers_for(f"2330{spacing}{compound}資訊更新"), ["2330"])
+
+        for quantity in ("成交2330股", "成交2330 股", "成交2330\t股", "2330股成交"):
+            with self.subTest(quantity=quantity):
+                self.assertEqual(tickers_for(quantity), [])
+        self.assertEqual(tickers_for("成交2330股；2330股價更新"), ["2330"])
+
     def test_numeric_publisher_context_and_valid_later_tickers(self):
         companies = [{"公司代號": code, "公司簡稱": name} for code, name in (
             ("1236", "宏信"), ("2026", "年度公司"), ("2330", "台積電"),
