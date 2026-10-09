@@ -97,6 +97,40 @@ class IndustryAggregationTests(unittest.TestCase):
 
 
 class TrendingAggregationTests(unittest.TestCase):
+    def test_numeric_publisher_context_and_valid_later_tickers(self):
+        companies = [{"公司代號": code, "公司簡稱": name} for code, name in (
+            ("1236", "宏信"), ("2026", "年度公司"), ("2330", "台積電"),
+            ("2317", "鴻海"), ("0050", "元大台灣50"), ("6488", "環球晶"), ("8923", "時報"))]
+        negatives = ("指數上漲1236點", "成交1236張", "1236股", "售價1236元", "$1236",
+                     "新台幣 1236", "1236.50", "1.1236", "1236,000", "2026/10/08",
+                     "2026-10-08", "2026年", "工商時報報導半導體", "工商時報營收專題")
+        positives = {
+            "2330/2317": {"2330", "2317"}, "2330,2317": {"2330", "2317"},
+            "2330與2317": {"2330", "2317"}, "2330、0050": {"2330", "0050"},
+            "台積電法說": {"2330"}, "0050.TW ETF": {"0050"}, "6488.TWO": {"6488"},
+            "時報文化公布營收": {"8923"}, "8923 工商時報報導": {"8923"},
+            "上漲1236點，關注1236.TW": {"1236"}, "上漲1236點；1236公布財報": {"1236"},
+        }
+        now = 2_000_000
+        for title, expected in [(title, set()) for title in negatives] + list(positives.items()):
+            with self.subTest(title=title):
+                result = rank_trending_stocks([{"title": title, "source": "fixture", "published_ts": now - 60}],
+                                             companies, limit=10, now_ts=now)
+                self.assertEqual({row["ticker"] for row in result}, expected)
+                self.assertTrue(all(row["mention_count"] == 1 for row in result))
+        articles = [
+            {"title": "2330/2317", "source": "a", "published_ts": now - 60, "link": "https://example.invalid/one"},
+            {"title": "2330/2317", "source": "duplicate", "published_ts": now - 70},
+            {"title": "2330 投資展望", "source": "b", "published_ts": now - 72 * 3600},
+            {"title": "2330 過期", "source": "c", "published_ts": now - 72 * 3600 - 1},
+            {"title": "2317 未來", "source": "d", "published_ts": now + 1},
+        ]
+        ranked = rank_trending_stocks(articles, companies, now_ts=now)
+        self.assertEqual([row["ticker"] for row in ranked], ["2330", "2317"])
+        self.assertEqual([row["mention_count"] for row in ranked], [2, 1])
+        self.assertEqual(ranked[0]["source_count"], 2)
+        self.assertGreater(ranked[0]["heat_score"], ranked[1]["heat_score"])
+
     def test_counts_each_stock_once_per_article_and_boosts_multiple_sources(self):
         companies = [
             {"公司代號": "2330", "公司簡稱": "台積電"},

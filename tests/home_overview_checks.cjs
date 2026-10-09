@@ -109,9 +109,10 @@ const count = (text, pattern) => (text.match(pattern) || []).length;
   }
 
   // AC-04/05: Three substantive blocks, native closed details, exact original, safe bold and no executable HTML.
-  const original = '**市場**\n第一段 **重點** <img src=x onerror=evil>\n\n# 產業\n- 第二段\n- [危險](javascript:evil())\n\n## 風險\n第三段\n\n# 補充\n第四段<script>evil</script>';
+  const original = '**市場**  \t\r\n第一段 **重點** <img src=x onerror=evil>\r\n\r\n# 產業  \r\n- 第二段\r\n- [危險](javascript:evil())\r\n\r\n## 風險\r\n第三段\r\n\r\n# 補充\r\n第四段<script>evil</script>';
   context.renderHomeAI(original, {generated_at: '2025-01-01T04:00:00Z', news_published_from: '2024-12-31T04:00:00Z', news_published_to: '2025-01-01T03:00:00Z', sources_used: ['fixture']});
   const ai = el('war-ai-summary'), preview = ai.children[0];
+  assert.equal(preview.children[0].tag, 'h3'); assert.equal(preview.children[0].textContent, '市場');
   assert.equal(preview.children.filter(node => ['p', 'ul', 'ol'].includes(node.tag)).length, 3);
   assert.match(preview.textContent, /市場.*第一段.*產業.*第二段.*風險.*第三段/s);
   assert.doesNotMatch(preview.textContent, /第四段/);
@@ -134,5 +135,51 @@ const count = (text, pattern) => (text.match(pattern) || []).length;
   assert.equal(initCalls.filter(name => name === 'fetchHomeOverview').length, 1);
   assert.equal(initCalls.filter(name => name === 'fetchHomeNews').length, 1);
   assert.ok(!initCalls.includes('fetchWarData'));
+  // Execute actual motion/entry helpers. CDN failures and reduced motion cannot gate entry.
+  const motionSource = slice('let landingAnimationDone = false;', '// KEYBOARD SHORTCUTS');
+  for (const mode of ['no-gsap', 'reduced', 'active', 'throw', 'stalled']) {
+    const landing = new Element('div'), app = new Element('main'), nodes = [new Element('div'), new Element('div')];
+    let activations = 0; app.classList = {add: value => {assert.equal(value, 'active'); activations++;}};
+    const removed = [];
+    nodes.forEach(node => {node.style.removeProperty = name => removed.push(name);});
+    const motions = [], timers = [], scrolls = [];
+    const motion = {window: {matchMedia: () => ({matches: mode === 'reduced'})},
+      setTimeout: (callback, delay) => {assert.equal(delay, 650); timers.push(callback);},
+      document: {
+        getElementById: id => id === 'landing' ? landing : id === 'features' ? {scrollIntoView: options => scrolls.push(options)} : nodes[0],
+        querySelector: selector => {assert.equal(selector, '.app'); return app;},
+        querySelectorAll: () => nodes
+      },
+      apiCall: () => assert.fail('motion must never trigger API requests'),
+      fetch: () => assert.fail('motion must never trigger network requests')};
+    if (mode !== 'no-gsap') motion.gsap = {
+      matchMedia: () => ({add: (_query, callback) => callback()}),
+      fromTo: (selector, from, to) => {
+        if (mode === 'throw') throw new Error('fake animation failure');
+        motions.push({selector, from, to});
+      },
+      to: (_element, options) => {
+        if (mode === 'throw') throw new Error('fake animation failure');
+        motions.push({to: options});
+        if (mode !== 'stalled') options.onComplete();
+      }
+    };
+    vm.createContext(motion); vm.runInContext(motionSource, motion);
+    motion.initLanding(); motion.enterDashboard(); motion.enterDashboard();
+    timers.forEach(callback => callback()); motion.revealHomeOnce(); motion.startJourney();
+    assert.equal(landing.style.display, 'none'); assert.equal(activations, 1);
+    motion.scrollToFeatures(); assert.equal(scrolls[0].behavior, mode === 'reduced' ? 'auto' : 'smooth');
+    if (['no-gsap', 'reduced'].includes(mode)) {assert.equal(motions.length, 0); assert.equal(timers.length, 0);}
+    if (mode === 'throw') assert.ok(removed.includes('opacity') && removed.includes('transform'));
+    if (['active', 'stalled'].includes(mode)) {
+      assert.equal(motions.length, 3); // Landing entrance, one exit, one home entrance.
+      for (const {from, to} of motions) {
+        assert.ok(to.duration >= 0.35 && to.duration <= 0.55);
+        assert.ok(Math.abs(to.y) <= 16); assert.ok([0, 1].includes(to.opacity));
+        assert.equal(to.scrollTrigger, undefined); assert.equal(to.repeat, undefined);
+        if (from) assert.equal(to.clearProps, 'transform,opacity');
+      }
+    }
+  }
   console.log('Homepage AC-01..06/08: indicator hierarchy, limits, independent loads, partial/error recovery, dates, manual stock entry, three-block safe AI and exact original passed.');
 })().catch(error => {console.error(error); process.exitCode = 1;});
