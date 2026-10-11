@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="股金往來 — 台股日線、策略回測、新聞摘要與可降級的 AI 分析；資料與分析不構成投資建議">
-<title>股金往來 - 台股 AI 分析儀表板</title>
+<title>市場總覽 - 股金往來</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -658,6 +658,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
 }
 @media(prefers-reduced-motion:reduce){.status-dot{animation:none}.content{scroll-behavior:auto}}
 </style>
+<link rel="stylesheet" href="/static/workspace.css">
 </head>
 <body>
 
@@ -684,17 +685,17 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <!-- ===== Landing Page ===== -->
-<div id="landing" class="landing">
+<div id="landing" class="landing" hidden style="display:none">
   <nav class="landing-nav">
     <div class="logo"><svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><rect x="2" y="2" width="36" height="36" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 11v18M20 11v18M28 11v18M8 17h8M16 23h8M24 15h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> 股金往來</div>
-    <div class="nav-links"><button class="btn-ghost" onclick="scrollToFeatures()">功能總覽</button><button class="btn-analyze" id="landing-cta" onclick="startJourney()">進入研究室</button></div>
+    <div class="nav-links"><button class="btn-ghost" onclick="scrollToFeatures()">功能總覽</button><button class="btn-analyze" id="landing-cta" onclick="startJourney()">返回市場總覽</button></div>
   </nav>
   <div class="hero">
     <div class="hero-content">
       <div class="badge-pill hero-elem">MARKET INTELLIGENCE / 台股研究</div>
       <h1 class="hero-title hero-elem">從市場脈動，<br><span class="text-gradient">開始你的研究。</span></h1>
       <p class="hero-desc hero-elem">把市場指標、產業表現與新聞放在一起閱讀。透過 AI 摘要與策略回測，檢視你的觀察與假設；保留資料來源，也保留自己的判斷。</p>
-      <div class="hero-actions hero-elem"><button class="btn-analyze hero-btn-main" onclick="startJourney()" id="hero-main-btn">進入台股市場研究室 →</button></div>
+      <div class="hero-actions hero-elem"><button class="btn-analyze hero-btn-main" onclick="startJourney()" id="hero-main-btn">返回市場總覽 →</button></div>
       <p class="home-market-caption hero-elem" style="margin-top:20px;font-size:12px;line-height:1.8;color:#afbdd0">各來源更新時間不同；資料與 AI 分析不構成投資建議。</p>
     </div>
   </div>
@@ -710,7 +711,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
   <div class="scroll-section landing-end"><h2>帶著問題，<br><span class="text-gradient">回到資料裡找線索。</span></h2></div>
 </div>
 
-<div class="app">
+<div class="app active">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <span class="logo"><svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><rect x="2" y="2" width="36" height="36" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 11v18M20 11v18M28 11v18M8 17h8M16 23h8M24 15h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
@@ -718,21 +719,23 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       <span class="ver">v3.2</span>
     </div>
     <nav class="sidebar-nav" id="nav">
-      <div class="nav-section">總覽</div>
-      <button class="nav-btn active" data-page="war"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-home"></use></svg></span>首頁</button>
-      <button class="nav-btn" data-page="stress"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-risk"></use></svg></span>資產壓力測試</button>
-      <div class="nav-section">分析工具</div>
-      <button class="nav-btn" data-page="tech"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-data"></use></svg></span>異質技術分析</button>
-      <button class="nav-btn" data-page="kline"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-chart"></use></svg></span>個股 K 線圖</button>
-      <button class="nav-btn" data-page="backtest"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-cycle"></use></svg></span>策略回測</button>
-      <div class="nav-section">資訊</div>
-      <button class="nav-btn" data-page="news"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg></span>新聞知識圖譜</button>
+      <div class="nav-section">市場總覽</div>
+      <button class="nav-btn active" data-page="war"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-home"></use></svg></span>市場總覽</button>
+      <button class="nav-btn" data-page="tech"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-data"></use></svg></span>全市場技術分析</button>
+      <button class="nav-btn" data-page="news"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg></span>全市場新聞圖譜</button>
       <button class="nav-btn" data-page="sentiment"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-radar"></use></svg></span>市場情緒雷達</button>
-      <button class="nav-btn" data-page="insights"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-focus"></use></svg></span>市場洞察</button>
+      <div class="nav-section">個股研究</div>
+      <button class="nav-btn" data-page="insights"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-focus"></use></svg></span>個股概覽與市場洞察</button>
+      <button class="nav-btn" data-page="kline"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-chart"></use></svg></span>個股 K 線圖</button>
       <button class="nav-btn" data-page="screener"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-network"></use></svg></span>AI 關聯選股</button>
-      <button class="nav-btn" data-page="volume-settings"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-bell"></use></svg></span>成交量通知設定</button>
+      <div class="nav-section">策略與風險</div>
+      <button class="nav-btn" data-page="backtest"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-cycle"></use></svg></span>策略回測</button>
+      <button class="nav-btn" data-page="stress"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-risk"></use></svg></span>資產壓力測試</button>
+      <div class="nav-section">我的通知</div>
+      <button class="nav-btn" data-page="volume-settings"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-bell"></use></svg></span>我的成交量通知</button>
     </nav>
     <div class="sidebar-footer">
+      <button class="nav-btn" onclick="openAbout()">關於與功能介紹</button>
       <button class="nav-btn" onclick="checkHealth()"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-cycle"></use></svg></span>測試系統連線</button>
     </div>
   </aside>
@@ -745,16 +748,22 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
         <span id="market-dot" style="width:6px;height:6px;border-radius:50%;background:var(--slate-500);display:inline-block"></span>
         <span id="market-text">載入中</span>
       </div>
-      <span class="status-item"><span class="status-dot" id="dot-api"></span>API</span>
-      <span class="status-item"><span class="status-dot" id="dot-ai"></span>AI</span>
+      <span class="status-item"><span class="status-dot" id="dot-api" aria-hidden="true"></span><span id="api-status-text">API 待確認</span></span>
+      <span class="status-item"><span class="status-dot" id="dot-ai" aria-hidden="true"></span><span id="ai-status-text">AI 待確認</span></span>
     </header>
 
     <div class="content">
 
       <div class="page" id="page-volume-settings">
-        <div class="page-header"><div><h2>成交量 Discord 通知</h2><p class="sub">每個帳號分別管理股票與接收頻道；每日收盤後檢查。</p></div></div>
-        <div class="card" style="max-width:720px;padding:24px">
-          <p id="volume-settings-state" style="margin-bottom:16px">正在確認登入狀態…</p>
+        <div class="page-header"><div><h2>把關注的變化，帶到 Discord。</h2><p class="sub">每個帳號分別管理股票與接收頻道；每日收盤後檢查。</p></div></div>
+        <ol class="notification-steps" aria-label="已儲存通知設定進度">
+          <li><span class="section-kicker">01</span><strong>選擇股票</strong><p id="volume-step-stocks">尚未讀取已儲存清單</p></li>
+          <li><span class="section-kicker">02</span><strong>設定 Discord</strong><p id="volume-step-discord">尚未讀取</p></li>
+          <li><span class="section-kicker">03</span><strong>確認設定</strong><p id="volume-step-complete">登入並讀取設定後確認</p></li>
+        </ol>
+        <div class="notification-editor">
+          <h3 style="font-size:20px;color:var(--paper);margin-bottom:16px">我的追蹤清單與接收設定</h3>
+          <p role="status" aria-live="polite" id="volume-settings-state" style="margin-bottom:16px">正在確認登入狀態…</p>
           <div id="volume-settings-form" style="display:none">
             <label for="volume-tickers">股票代號（逗號分隔，最多 20 檔）</label>
             <input class="input" id="volume-tickers" type="text" placeholder="2330.TW,6488.TWO" autocomplete="off" style="width:100%;margin:8px 0 18px">
@@ -762,16 +771,18 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
             <input class="input" id="volume-webhook" type="password" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" style="width:100%;margin:8px 0">
             <p id="volume-webhook-state" style="font-size:12px;color:var(--slate-400);margin:4px 0 12px"></p>
             <label style="display:flex;gap:8px;align-items:center;margin-bottom:16px"><input id="volume-remove-webhook" type="checkbox">移除現有 Webhook</label>
+            <p class="notification-draft" id="volume-draft-state" aria-live="polite"></p>
             <button class="btn-analyze" id="volume-save-btn" onclick="saveVolumeSettings()">儲存通知設定</button>
           </div>
+          <details class="notification-explanation" open><summary>通知條件與設定說明</summary><p>每個帳號獨立管理，最多 20 檔股票。每日收盤後依既有成交量條件檢查，並由伺服器通知 Discord。儲存設定不代表排程已執行、頻道已驗證或訊息已送達。</p><p>Webhook 留空保留原設定；輸入新網址可更換，或勾選移除。網址只用於儲存，伺服器不會回傳原始值。</p></details>
         </div>
       </div>
 
       <!-- ========== PAGE: Home ========== -->
       <div class="page active" id="page-war">
         <header class="home-intro">
-          <div><p class="home-kicker">MARKET INTELLIGENCE <span>/ 台股研究</span></p><h2>台股市場研究室</h2><p class="sub">先讀市場，再看焦點。<br>從資料與新聞，建立自己的觀察。</p></div>
-          <div class="quick-search"><label class="home-search-label" for="quick-search-input">查詢股票代號</label><div class="home-search-field"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-search"></use></svg><input class="input" id="quick-search-input" aria-label="快速查詢股票代號" placeholder="例如 2330 或 0050" onkeydown="if(event.key==='Enter')quickSearch()"></div><p class="home-search-hint"><kbd>Enter</kbd> 查看個股 K 線與分析</p></div>
+          <div><p class="home-kicker">MARKET INTELLIGENCE <span>/ 台股研究</span></p><h2>先看市場，再追焦點。</h2><p class="sub">市場脈動、產業與新聞，放在一起閱讀。</p></div>
+          <div class="quick-search"><label class="home-search-label" for="quick-search-input">查詢股票代號</label><div class="home-search-field"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-search"></use></svg><input class="input" id="quick-search-input" aria-label="快速查詢股票代號" placeholder="2330 / 0050 / 6488.TWO" onkeydown="if(event.key==='Enter')quickSearch()"></div><p class="home-search-hint"><kbd>Enter</kbd> 開啟個股工作台；資料按需載入</p></div>
         </header>
         <section id="rankings-bar">
           <div class="home-section-heading"><h3 class="home-section-title"><span class="home-section-index" aria-hidden="true">01</span>市場指標</h3><button class="btn-outline" onclick="fetchRankings()">更新指標</button></div>
@@ -791,6 +802,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
           <section class="card"><div class="card-header"><span class="section-label"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-news"></use></svg>最新財經新聞</span><button class="btn-outline" id="btn-home-news" onclick="fetchHomeNews()">更新新聞</button></div><div class="card-body" id="war-news" aria-live="polite"><p class="home-empty">正在讀取最新新聞…</p></div></section>
           <section class="card"><div class="card-header"><span class="section-label"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-calendar"></use></svg>近期重點行事曆</span></div><div class="card-body" id="market-calendar">正在讀取官方除權息與休市行事曆…</div></section>
         </div>
+        <footer class="editorial-footer"><button class="btn-ghost" onclick="openAbout()">關於與功能介紹</button><span>資料與 AI 分析不構成投資建議。各來源的日期與方法分別顯示。</span></footer>
       </div>
 
       <!-- ========== PAGE: Stress Test ========== -->
@@ -798,8 +810,8 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
         <div class="page-header">
           <div><h2>資產壓力測試</h2><p class="sub">投資組合風險分析 × 停損點試算</p></div>
           <div style="display:flex;gap:12px">
-            <button class="btn-outline" onclick="fetchStressHistory()">📜 歷史紀錄</button>
-            <button class="btn-analyze" id="btn-stress" onclick="runStressTest()">⚡ 執行深度分析</button>
+            <button class="btn-outline" onclick="fetchStressHistory()"> 歷史紀錄</button>
+            <button class="btn-analyze" id="btn-stress" onclick="runStressTest()"> 執行深度分析</button>
           </div>
         </div>
         <div class="card">
@@ -818,13 +830,13 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       <!-- ========== PAGE: Tech Analysis ========== -->
       <div class="page" id="page-tech">
         <div class="page-header">
-          <div><h2>異質技術分析</h2><p class="sub">技術指標融合 × K線型態識別</p></div>
+          <div><h2>全市場技術分析</h2><p class="sub">熱門權值股技術指標融合與 K 線型態；此頁為全市場工具。</p></div>
           <label for="analysis-mode">分析模式</label>
           <select id="analysis-mode" style="padding:8px;background:#182235;color:white;border-radius:6px">
             <option value="quick">快速技術分析</option>
             <option value="deep">深度 AI 分析（較慢）</option>
           </select>
-          <button class="btn-analyze" id="btn-tech" onclick="fetchTechAnalysis()">⚡ 分析熱門權值股</button>
+          <button class="btn-analyze" id="btn-tech" onclick="fetchTechAnalysis()"> 分析熱門權值股</button>
         </div>
         <div class="card">
           <div class="card-header">熱門權值股技術分析總覽 <span style="font-weight:400;font-size:11px;color:var(--slate-500)">點擊欄位可排序</span></div>
@@ -850,7 +862,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
         <div class="kline-toolbar">
           <div class="input-group" style="flex:1;max-width:400px">
             <input class="input" id="kline-ticker" aria-label="K 線股票代號" placeholder="輸入股票代號 (如 2330.TW)" onkeydown="if(event.key==='Enter')fetchKline()">
-            <button class="btn-analyze" onclick="fetchKline()" style="flex-shrink:0">📊 載入圖表</button>
+            <button class="btn-analyze" onclick="fetchKline()" style="flex-shrink:0">載入圖表與既有分析</button>
           </div>
           
           <div style="display:flex; align-items:center; gap:10px;">
@@ -928,7 +940,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
               <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">最低手續費 NT$</label><input class="input" id="backtest-min-commission" aria-label="最低手續費，新台幣" type="number" min="0" max="100000" step="1" value="20"></div>
               <div style="width:130px"><label style="font-size:11px;color:var(--slate-500)">賣出稅率（%）</label><input class="input" id="backtest-sell-tax" aria-label="賣出稅率，百分比" type="number" min="0" max="10" step="0.0001" value="0.3"></div>
               <button class="btn-outline" onclick="resetBacktestCosts()">恢復預設成本</button>
-              <button class="btn-analyze" id="btn-backtest" onclick="runBacktest()">⚡ 執行回測</button>
+              <button class="btn-analyze" id="btn-backtest" onclick="runBacktest()"> 執行回測</button>
             </div>
             <p style="font-size:11px;color:var(--slate-400);margin-top:10px">以百分比輸入，例如 0.1425 代表 0.1425%。一般股票賣出稅率 0.3%；股票型 ETF 通常 0.1%，其他商品請依實際規則調整。</p>
           </div>
@@ -950,8 +962,8 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       <!-- ========== PAGE: News ========== -->
       <div class="page" id="page-news">
         <div class="page-header">
-          <div><h2>新聞知識圖譜</h2><p class="sub">MaiAgent 批次新聞情緒分析</p></div>
-          <button class="btn-analyze" id="btn-news" onclick="fetchNewsAnalysis()">⚡ 啟動 AI 批次解析</button>
+          <div><h2>全市場新聞知識圖譜</h2><p class="sub">MaiAgent 批次新聞情緒分析</p></div>
+          <button class="btn-analyze" id="btn-news" onclick="fetchNewsAnalysis()"> 啟動 AI 批次解析</button>
         </div>
         <div class="grid grid-3" style="margin-bottom:16px" id="news-stats"></div>
         <div class="card">
@@ -964,7 +976,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       <div class="page" id="page-sentiment">
         <div class="page-header">
           <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 × 新聞情感分析</p></div>
-          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()">⚡ 啟動雷達分析</button>
+          <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()"> 啟動雷達分析</button>
         </div>
         <div class="grid grid-2">
           <div>
@@ -998,25 +1010,25 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
             </div>
           </div>
         </div>
-        <h3 style="margin:24px 0 10px;font-size:16px;color:#fff;font-weight:700">📰 近五則新聞情緒摘要</h3>
+        <h3 style="margin:24px 0 10px;font-size:16px;color:#fff;font-weight:700"> 近五則新聞情緒摘要</h3>
         <div class="news-grid" id="sentiment-news-grid"></div>
       </div>
 
       <!-- ========== PAGE: Market Insights ========== -->
       <div class="page" id="page-insights">
         <div class="page-header">
-          <div><h2>市場洞察</h2><p class="sub">個股價格、產業相對表現、集保持股與新聞關注度</p></div>
+          <div><h2>個股概覽與市場洞察</h2><p class="sub">個股價格、產業相對表現、集保持股與新聞關注度</p></div>
           <button class="btn-analyze" id="btn-insights" onclick="fetchMarketInsights(true)">↻ 更新市場資料</button>
         </div>
 
         <div class="card">
           <div class="card-header">
-              <span>🧭 個股多訊號決策摘要</span>
+              <span> 個股多訊號決策摘要</span>
               <span class="badge badge-blue" id="stock-snapshot-status">輸入代號開始</span>
           </div>
           <div class="card-body">
             <div class="input-group" style="max-width:520px;margin-bottom:16px">
-              <input class="input" id="stock-snapshot-ticker" aria-label="市場洞察股票代號" value="2330" placeholder="輸入 2330、2330.TW 或 6488.TWO" onkeydown="if(event.key==='Enter')fetchStockSnapshot()">
+              <input class="input" id="stock-snapshot-ticker" aria-label="市場洞察股票代號" placeholder="輸入 2330、2330.TW 或 6488.TWO" onkeydown="if(event.key==='Enter')fetchStockSnapshot()">
               <button class="btn-outline" id="btn-stock-snapshot" onclick="fetchStockSnapshot()" style="flex-shrink:0">產生摘要</button>
             </div>
             <div id="stock-snapshot-result" style="color:var(--slate-500);font-size:13px">輸入股票代號後，一次查看價格、產業相對表現、大戶持股與最近 72 小時新聞關注度。</div>
@@ -1034,7 +1046,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
         <div class="grid grid-2">
           <div class="card">
             <div class="card-header">
-              <span>🏭 產業單日漲幅排行</span>
+              <span> 產業單日漲幅排行</span>
               <span id="industry-as-of" style="font-size:11px;color:var(--slate-500)">等待載入</span>
             </div>
             <div class="card-body" id="industry-ranking">
@@ -1043,7 +1055,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
           </div>
           <div class="card">
             <div class="card-header">
-              <span>🔥 最近話題最高 5 檔</span>
+              <span> 最近話題最高 5 檔</span>
               <span class="badge badge-orange">新聞提及熱度</span>
             </div>
             <div class="card-body" id="trending-stocks">
@@ -1074,7 +1086,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
             </div>
           </div>
         </div>
-        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%;justify-content:center;margin-bottom:20px;padding:14px;font-size:15px;letter-spacing:2px">⚡ 全面展開關聯股與亮點標籤</button>
+        <button class="btn-analyze" id="btn-screener" onclick="runScreener()" style="width:100%;justify-content:center;margin-bottom:20px;padding:14px;font-size:15px;letter-spacing:2px"> 全面展開關聯股與亮點標籤</button>
         <div id="screener-result"></div>
       </div>
 
@@ -1083,26 +1095,29 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
 </div>
 
 <!-- ===== Modals ===== -->
-<div class="modal-backdrop" id="stress-history-modal">
+<div class="modal-backdrop" id="stress-history-modal" role="dialog" aria-modal="true" aria-label="壓力測試歷史紀錄">
   <div class="card" style="width:800px;max-width:95vw;max-height:80vh;overflow-y:auto;background:var(--slate-900)">
     <div class="card-header" style="position:sticky;top:0;background:var(--slate-800);z-index:1">
-      <span style="font-size:16px">📜 壓力測試歷史紀錄</span>
-      <button class="btn-ghost" onclick="closeModal('stress-history-modal')" style="font-size:18px">✕</button>
+      <span style="font-size:16px"> 壓力測試歷史紀錄</span>
+      <button aria-label="關閉歷史紀錄" class="btn-ghost" onclick="closeModal('stress-history-modal')" style="font-size:18px">✕</button>
     </div>
     <div class="card-body" id="stress-history-content"></div>
   </div>
 </div>
 
-<div class="modal-backdrop" id="auth-modal">
+<div class="modal-backdrop" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
   <div class="card" style="width:420px;max-width:95vw;background:var(--slate-900)">
     <div class="card-header" style="background:var(--slate-800)">
       <span id="auth-modal-title" style="font-size:16px">登入</span>
-      <button class="btn-ghost" onclick="closeModal('auth-modal')" style="font-size:18px">✕</button>
+      <button aria-label="關閉登入視窗" class="btn-ghost" onclick="closeModal('auth-modal')" style="font-size:18px">✕</button>
     </div>
     <div class="card-body">
       <div id="auth-error" style="color:var(--red-400);font-size:13px;margin-bottom:12px;display:none;background:rgba(239,68,68,0.08);padding:10px;border-radius:var(--radius-sm)"></div>
+      <label class="auth-label" for="auth-email">電子郵件信箱</label>
       <input id="auth-email" aria-label="電子郵件信箱" class="input" type="email" placeholder="信箱" style="margin-bottom:12px">
+      <label class="auth-label" id="auth-name-label" for="auth-name" hidden>註冊暱稱</label>
       <input id="auth-name" aria-label="註冊暱稱" class="input" type="text" placeholder="暱稱 (僅註冊需要)" style="margin-bottom:12px;display:none">
+      <label class="auth-label" for="auth-password">密碼</label>
       <input id="auth-password" aria-label="登入或註冊密碼" class="input" type="password" placeholder="密碼" style="margin-bottom:16px" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
       <button id="auth-submit-btn" class="btn-analyze" style="width:100%;justify-content:center" onclick="handleAuthSubmit()">登入</button>
       <div style="text-align:center;margin-top:14px;font-size:13px">
@@ -1117,14 +1132,14 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
 
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
-    <span class="title">🤖 MaiAgent 投資助理</span>
+    <span class="title"> MaiAgent 投資助理</span>
     <div class="chat-header-actions">
-      <button class="btn-ghost" onclick="clearChat()" title="清除對話" style="font-size:13px">🗑️</button>
-      <button class="btn-ghost" onclick="toggleChat()" style="font-size:16px">✕</button>
+      <button class="btn-ghost" onclick="clearChat()" aria-label="清除對話" title="清除對話" style="font-size:13px"></button>
+      <button aria-label="關閉投資助理" class="btn-ghost" onclick="toggleChat()" style="font-size:16px">✕</button>
     </div>
   </div>
   <div class="chat-messages" id="chat-messages">
-    <div class="chat-msg bot">您好！我是股金往來的 AI 投資助理，已連線至您的後端分析引擎。有什麼可以幫您的？🚀</div>
+    <div class="chat-msg bot">您好！我是股金往來的 AI 投資助理，已連線至您的後端分析引擎。有什麼可以幫您的？</div>
   </div>
   <div class="chat-input-wrap">
     <input class="chat-input" id="chat-input" aria-label="投資助理問題" placeholder="輸入問題..." onkeydown="if(event.key==='Enter')sendChat()">
@@ -1135,6 +1150,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
 <!-- ===== Toast Container ===== -->
 <div class="toast-container" id="toast-container"></div>
 
+<script src="/static/workspace.js"></script>
 <script>
 // ============================
 // GLOBAL STATE
@@ -1256,7 +1272,7 @@ async function apiCall(endpoint, method = 'GET', body = null, attempt = 0) {
 // ============================
 function showToast(message, type = 'info', duration = 4000) {
   const container = document.getElementById('toast-container');
-  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  const icons = { success: '✅', error: '❌', warning: '⚠', info: 'ℹ' };
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   const body = document.createElement('span');
@@ -1277,7 +1293,7 @@ function showToast(message, type = 'info', duration = 4000) {
 // NAVIGATION
 // ============================
 const pageTitles = {
-  war: '首頁', stress: '資產壓力測試', tech: '異質技術分析',
+  war: '市場總覽', stress: '資產壓力測試', tech: '全市場技術分析',
   kline: '個股 K 線圖', backtest: '策略回測', news: '新聞知識圖譜',
   sentiment: '市場情緒雷達', insights: '市場洞察', screener: 'AI 關聯選股',
   'volume-settings': '成交量通知設定'
@@ -1286,6 +1302,10 @@ const pageTitles = {
 let marketInsightsLoaded = false;
 
 function navigateTo(pageName) {
+  if (!Object.prototype.hasOwnProperty.call(pageTitles, pageName)) return;
+  document.getElementById('landing').hidden = true;
+  document.getElementById('landing').style.display = 'none';
+  document.querySelector('.app').classList.add('active');
   document.querySelectorAll('#nav .nav-btn[data-page]').forEach(b => {
     b.classList.toggle('active', b.dataset.page === pageName);
   });
@@ -1294,12 +1314,16 @@ function navigateTo(pageName) {
   if (target) target.classList.add('active');
   document.title = `${pageTitles[pageName] || ''} - 股金往來`;
   if (pageName === 'insights' && !marketInsightsLoaded) fetchMarketInsights();
-  if (pageName === 'volume-settings') loadVolumeSettings();
+  if (pageName === 'volume-settings') openNotificationSettings();
+  renderWorkspace();
+  document.querySelector('.content').scrollTop = 0;
+  requestAnimationFrame(resizeWorkspaceCharts);
   // Close sidebar on mobile
   if (window.innerWidth <= 768) {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('visible');
     document.getElementById('sidebar-overlay').style.display = 'none';
+    document.getElementById('mobile-toggle').setAttribute('aria-expanded', 'false');
   }
 }
 
@@ -1315,6 +1339,7 @@ function toggleSidebar() {
   const overlay = document.getElementById('sidebar-overlay');
   const isOpen = sidebar.classList.contains('open');
   sidebar.classList.toggle('open');
+  document.getElementById('mobile-toggle').setAttribute('aria-expanded', String(!isOpen));
   if (!isOpen) {
     overlay.style.display = 'block';
     requestAnimationFrame(() => overlay.classList.add('visible'));
@@ -1330,11 +1355,14 @@ function toggleSidebar() {
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
   document.getElementById(id).style.display = 'none';
+  if (typeof modalReturnFocus !== 'undefined') modalReturnFocus.get(id)?.focus();
 }
 function openModal(id) {
   const el = document.getElementById(id);
+  if (typeof modalReturnFocus !== 'undefined') modalReturnFocus.set(id, document.activeElement);
   el.style.display = 'flex';
   el.classList.add('open');
+  el.querySelector('button, input, a[href]')?.focus();
 }
 
 // ============================
@@ -1384,14 +1412,20 @@ async function checkHealth() {
   const dotAi = document.getElementById('dot-ai');
   dotApi.className = 'status-dot';
   dotAi.className = 'status-dot';
+  document.getElementById('api-status-text').textContent = 'API 確認中';
+  document.getElementById('ai-status-text').textContent = 'AI 確認中';
   const res = await apiCall('/health');
   if (res.status === 'ok') {
     dotApi.classList.remove('err');
     if (!res.maiagent) dotAi.classList.add('err');
+    document.getElementById('api-status-text').textContent = 'API 正常';
+    document.getElementById('ai-status-text').textContent = res.maiagent ? 'AI 正常' : 'AI 暫缺';
     showToast('系統連線正常', 'success');
   } else {
     dotApi.classList.add('err');
     dotAi.classList.add('err');
+    document.getElementById('api-status-text').textContent = 'API 暫缺';
+    document.getElementById('ai-status-text').textContent = 'AI 待確認';
     showToast(`連線失敗: ${res.message} (${API_BASE})`, 'error');
   }
 }
@@ -1406,6 +1440,8 @@ function showAuthModal(mode = 'login') {
   const isSignup = mode === 'signup';
   document.getElementById('auth-modal-title').innerText = isSignup ? '註冊' : '登入';
   document.getElementById('auth-name').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('auth-name-label').hidden = !isSignup;
+  document.getElementById('auth-email').focus();
   document.getElementById('auth-submit-btn').innerText = isSignup ? '註冊' : '登入';
   document.getElementById('auth-toggle-link').innerText = isSignup ? '已有帳號？點此登入' : '還沒有帳號？點此註冊';
 }
@@ -1431,6 +1467,7 @@ async function handleAuthSubmit() {
     const res = await apiCall('/auth/login', 'POST', { email, password });
     if (res.status === 'success') {
       currentUser = res.user;
+      resetNotificationAccount();
       closeModal('auth-modal');
       updateAuthUI();
       loadPositionsFromServer();
@@ -1457,6 +1494,8 @@ async function logout() {
     return;
   }
   currentUser = null;
+  notificationCandidate = '';
+  resetNotificationAccount();
   positions = [];
   renderPositions();
   updateAuthUI();
@@ -1470,7 +1509,7 @@ function updateAuthUI() {
   if (currentUser) {
     const label = document.createElement('span');
     label.style.cssText = 'color:#fff;font-size:13px;font-weight:700';
-    label.textContent = `👤 ${currentUser.name || currentUser.email}`;
+    label.textContent = ` ${currentUser.name || currentUser.email}`;
     const button = document.createElement('button');
     button.className = 'btn-ghost';
     button.style.cssText = 'font-size:12px;color:var(--slate-400)';
@@ -1490,6 +1529,7 @@ function updateAuthUI() {
 async function restoreAuth() {
   const res = await apiCall('/auth/me');
   currentUser = res.status === 'success' ? res.user : null;
+  resetNotificationAccount();
   updateAuthUI();
   if (currentUser) loadPositionsFromServer();
   if (document.getElementById('page-volume-settings').classList.contains('active')) loadVolumeSettings();
@@ -1497,23 +1537,34 @@ async function restoreAuth() {
 
 async function loadVolumeSettings() {
   const state = document.getElementById('volume-settings-state');
+  const version = ++notificationLoadVersion;
+  const account = currentUser?.id || currentUser?.email || null;
   const form = document.getElementById('volume-settings-form');
   form.style.display = 'none';
   document.getElementById('volume-webhook').value = '';
   if (!currentUser) {
+    resetNotificationAccount();
     state.textContent = '請先登入，再設定專屬的股票與 Discord Webhook。';
+    const login = document.createElement('button'); login.className = 'btn-analyze'; login.textContent = '就地登入 / 註冊';
+    login.addEventListener('click', () => showAuthModal('login')); state.appendChild(login);
     return;
   }
   state.textContent = '正在讀取設定…';
   const result = await apiCall('/api/account/volume-alerts');
-  if (result.status === 'error') {
+  if (version !== notificationLoadVersion || account !== (currentUser?.id || currentUser?.email || null)) return false;
+  if (result.status === 'error' || !Array.isArray(result.tickers)) {
     state.textContent = result.message || '暫時無法讀取設定';
+    renderNotificationProgress();
     const retry = document.createElement('button');
     retry.className = 'btn-outline'; retry.textContent = '重新載入';
     retry.addEventListener('click', loadVolumeSettings); state.appendChild(retry);
-    return;
+    return false;
   }
-  document.getElementById('volume-tickers').value = (result.tickers || []).join(',');
+  notificationSaved = {tickers: Array.isArray(result.tickers) ? result.tickers.slice() : [], webhook_configured: !!result.webhook_configured, webhook_readable: result.webhook_readable, recovery_reason: result.recovery_reason};
+  notificationAccount = account;
+  document.getElementById('volume-tickers').value = notificationSaved.tickers.join(',');
+  document.getElementById('volume-draft-state').textContent = '';
+  renderNotificationProgress();
   const needsRecovery = result.webhook_readable === false;
   document.getElementById('volume-webhook-state').textContent = needsRecovery
     ? (result.recovery_reason === 'encryption_not_configured'
@@ -1522,8 +1573,10 @@ async function loadVolumeSettings() {
     : result.webhook_configured
     ? '目前已有 Webhook；伺服器不會回傳原始網址。' : '尚未設定 Webhook；可先儲存股票清單。';
   document.getElementById('volume-remove-webhook').checked = false;
-  state.textContent = needsRecovery ? '設定已載入，但 Webhook 需要重新設定或移除。' : '設定已載入';
+  state.textContent = needsRecovery ? '設定已載入，但 Webhook 需要重新設定或移除。' : notificationSaved.tickers.length ? '已讀取伺服器儲存設定；可編輯草稿。' : '追蹤清單目前是空的；先選擇股票，再設定接收方式。';
   form.style.display = 'block';
+  applyNotificationCandidate();
+  return true;
 }
 
 async function saveVolumeSettings() {
@@ -1531,23 +1584,30 @@ async function saveVolumeSettings() {
   const button = document.getElementById('volume-save-btn');
   const tickerText = document.getElementById('volume-tickers').value;
   const webhookInput = document.getElementById('volume-webhook');
+  if (!currentUser) { showAuthModal('login'); return; }
+  const tickers = tickerText.split(',').map(item => item.trim()).filter(Boolean);
+  if (tickers.length > 20) { state.textContent = '最多 20 檔股票；請先移除超出的代號。草稿尚未儲存。'; return; }
+  const account = currentUser.id || currentUser.email;
+  const version = notificationLoadVersion;
+  const saveVersion = ++notificationSaveVersion;
   button.disabled = true;
   state.textContent = '儲存中…';
   try {
     const result = await apiCall('/api/account/volume-alerts', 'PUT', {
-      tickers: tickerText.split(',').map(item => item.trim()).filter(Boolean),
+      tickers,
       webhook: webhookInput.value || null,
       remove_webhook: document.getElementById('volume-remove-webhook').checked
     });
+    if (account !== (currentUser?.id || currentUser?.email) || version !== notificationLoadVersion) return;
     webhookInput.value = '';
     if (result.status === 'error') {
       state.textContent = result.message || '儲存失敗';
     } else {
-      await loadVolumeSettings();
-      showToast('通知設定已儲存', 'success');
+      const confirmed = await loadVolumeSettings();
+      if (confirmed) showToast('通知設定已儲存並重新讀取', 'success');
     }
   } finally {
-    button.disabled = false;
+    if (saveVersion === notificationSaveVersion && account === (currentUser?.id || currentUser?.email)) button.disabled = false;
   }
 }
 
@@ -1893,13 +1953,12 @@ async function fetchMarketCalendar() {
 
 // Quick Search
 function quickSearch() {
-  let val = document.getElementById('quick-search-input').value.trim();
-  if (!val) return;
-  val = normalizeTicker(val);
-  document.getElementById('kline-ticker').value = val;
-  navigateTo('kline');
-  setTimeout(() => fetchKline(), 100);
-  document.getElementById('quick-search-input').value = '';
+  const input = document.getElementById('quick-search-input');
+  if (!setWorkspaceTicker(input.value)) return;
+  workspaceView = 'overview';
+  navigateTo('insights');
+  applySnapshotView();
+  input.value = '';
 }
 
 // ============================
@@ -1942,7 +2001,7 @@ async function runStressTest() {
     const totalPL = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
     resultDiv.innerHTML = `
       <div class="card">
-        <div class="card-header" style="font-size:16px">📊 投資組合總結</div>
+        <div class="card-header" style="font-size:16px"> 投資組合總結</div>
         <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
           <div><span style="color:var(--slate-400);font-size:13px">外匯狀態：</span><span style="color:#fff;font-size:15px;font-weight:600">${escapeRoutingText(res.fx)}</span></div>
           <div style="text-align:right">
@@ -2120,27 +2179,38 @@ function setKlineDays(days) {
 async function fetchKline() {
   let ticker = document.getElementById('kline-ticker').value.trim();
   if (!ticker) { showToast('請輸入股票代號', 'warning'); return; }
-  ticker = normalizeTicker(ticker);
+  if (!setWorkspaceTicker(ticker)) return;
+  ticker = workspaceTicker;
+  const request = researchRequest('kline');
+  const requestedDays = klineDays;
+  if (klineChart) { klineChart.dispose(); klineChart = null; }
+  currentKlineData = null;
   document.getElementById('kline-ticker').value = ticker;
   currentKlineTicker = ticker;
   const displayName = displayTicker(ticker);
-  document.getElementById('kline-chart-title').textContent = `📈 ${displayName} — 載入中...`;
+  document.getElementById('kline-chart-title').textContent = ` ${displayName} — 載入中...`;
   document.getElementById('kline-signals').innerHTML = '';
   document.getElementById('kline-fundamentals').style.display = 'none';
 
-  fetchFundamentalsAndChips(ticker);
+  fetchFundamentalsAndChips(ticker, request);
 
-  const res = await apiCall(`/kline/${ticker}?days=${klineDays}`);
+  const res = await apiCall(`/kline/${ticker}?days=${requestedDays}`);
+  if (!researchRequestCurrent(request)) return;
+  if (res.ticker && validWorkspaceTicker(res.ticker) !== ticker) {
+    document.getElementById('kline-chart-title').textContent = `${displayName} · 回傳股票不符，請重新載入`;
+    return;
+  }
   if (res.status !== 'success') {
-    document.getElementById('kline-chart-title').textContent = `📈 ${displayName} — 載入失敗`;
+    document.getElementById('kline-chart-title').textContent = ` ${displayName} — 載入失敗`;
     showToast(res.message || '無法載入 K 線資料', 'error');
     return;
   }
 
-  document.getElementById('kline-chart-title').textContent = `📈 ${displayName} K線圖 (${klineDays} 日)`;
+  document.getElementById('kline-chart-title').textContent = ` ${displayName} K線圖 (${requestedDays} 日)`;
 
   const chartDom = document.getElementById('kline-chart');
   if (klineChart) klineChart.dispose();
+  if (typeof echarts === 'undefined') { document.getElementById('kline-chart-title').textContent = `${displayName} · 圖表元件暫缺，請重新載入頁面`; return; }
   klineChart = echarts.init(chartDom, 'dark');
 
   currentKlineData = res;
@@ -2155,7 +2225,7 @@ async function fetchKline() {
 
   const option = {
     backgroundColor: 'transparent',
-    animation: true,
+    animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#475569' } },
       backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0', fontSize: 12 } },
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
@@ -2192,15 +2262,16 @@ async function fetchKline() {
   
   updateSubChart();
 
-  window.addEventListener('resize', () => klineChart && klineChart.resize());
+  resizeWorkspaceCharts();
 
   const sigRes = await apiCall('/analyze', 'POST', { targets: [{ id: ticker, name: '', type: '台股', cost: 0, shares: 0 }] });
+  if (!researchRequestCurrent(request)) return;
   if (sigRes.status === 'success' && sigRes.data[0]) {
     const s = sigRes.data[0];
     const advBadge = s.score >= 60 ? 'badge-green' : (s.score < 40 ? 'badge-red' : 'badge-orange');
     document.getElementById('kline-signals').innerHTML = `
       <div class="card">
-        <div class="card-header">🧠 ${escapeRoutingText(displayName)} 技術分析摘要</div>
+        <div class="card-header"> ${escapeRoutingText(displayName)} 技術分析摘要</div>
         <div class="card-body">
           <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
             <span style="font-size:20px;font-weight:800;color:#fff">$${fmt(s.price)}</span>
@@ -2299,11 +2370,15 @@ async function runBacktest() {
   if (!ticker) { showToast('請輸入股票代號', 'warning'); return; }
   let costs;
   try { costs = readBacktestCosts(); } catch (error) { showToast(error.message, 'warning'); return; }
-  ticker = normalizeTicker(ticker);
+  if (!setWorkspaceTicker(ticker)) return;
+  ticker = workspaceTicker;
+  const request = researchRequest('backtest');
   document.getElementById('backtest-ticker').value = ticker;
   btn.disabled = true;
   resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p class="loading-text">取得行情並計算成本中；首次啟動可能需要約一分鐘…</p></div>';
   const res = await apiCall('/backtest', 'POST', { ticker, days, ...costs });
+  if (!researchRequestCurrent(request)) return;
+  if (res.ticker && validWorkspaceTicker(res.ticker) !== ticker) { resultDiv.textContent = '回傳股票與查詢不符，請重新執行回測。'; btn.disabled = false; return; }
   const numeric = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
   const money = value => numeric(value) === null ? '—' : `NT$${numeric(value).toLocaleString('zh-TW', {maximumFractionDigits: 2})}`;
   const percent = (value, unit = '%') => numeric(value) === null ? '—' : `${numeric(value) >= 0 ? '+' : ''}${numeric(value).toFixed(2)}${unit}`;
@@ -2325,7 +2400,7 @@ async function runBacktest() {
         手續費率 ${percent(numeric(costs.commission_rate) === null ? null : costs.commission_rate * 100)}、最低 ${money(costs.min_commission)}；賣出稅率 ${percent(numeric(costs.sell_tax_rate) === null ? null : costs.sell_tax_rate * 100)}。共 ${trades.length} 筆成交、${numeric(res.closed_trade_count) ?? '—'} 筆已平倉交易。最後一日訊號 ${escapeRoutingText(res.latest_signal || 'NEUTRAL')}（尚未成交）。
       </div></div>
       ${trades.length > 0 ? `
-      <div class="card"><div class="card-header">📋 交易紀錄（${trades.length} 筆）</div>
+      <div class="card"><div class="card-header"> 交易紀錄（${trades.length} 筆）</div>
         <div class="table-scroll" tabindex="0" role="region" aria-label="回測交易紀錄，可左右捲動"><table class="data-table"><thead><tr><th>動作</th><th>日期</th><th>股數</th><th>價格</th><th>手續費 / 稅</th><th>已平倉報酬</th></tr></thead><tbody>
           ${trades.map(t => `<tr><td>${escapeRoutingText(t.action)}</td><td>${escapeRoutingText(t.date)}</td><td>${numeric(t.shares) ?? '—'}</td><td>${money(t.price)}</td><td>${money(t.commission)} / ${money(t.tax)}</td><td>${percent(t.return_pct)}</td></tr>`).join('')}
         </tbody></table></div></div>` : '<div class="card"><div class="card-body">此窗口沒有成交；勝率不適用（—）。</div></div>'}
@@ -2380,7 +2455,7 @@ async function fetchNewsAnalysis() {
           </div>
           <a class="news-headline" data-safe-url="${escapeRoutingText(n.link)}" style="margin-bottom:16px">${escapeRoutingText(n.title)}</a>
           <div class="prose" style="background:rgba(59,130,246,.06);padding:18px;border-radius:var(--radius-md);border:1px solid rgba(59,130,246,0.1)">
-            🤖 AI 解析：${escapeRoutingText(n.ai_reason || n.summary || '無特別說明')}
+             AI 解析：${escapeRoutingText(n.ai_reason || n.summary || '無特別說明')}
           </div>
         </div>`;
     }).join('');
@@ -2418,7 +2493,7 @@ async function fetchSentiment() {
 
     if (res.recommendations && res.recommendations.length > 0) {
       document.getElementById('sentiment-recommend').innerHTML = `
-        <div style="margin-top:16px"><div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:12px">📊 AI 推薦標的</div>
+        <div style="margin-top:16px"><div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:12px"> AI 推薦標的</div>
         <div class="recommendation-grid">${res.recommendations.map(r => `
           <div class="stock-card">
             <div class="stock-card-header"><span style="font-size:16px;font-weight:700;color:#fff">${escapeRoutingText(r.ticker || r.name)}</span>
@@ -2463,7 +2538,7 @@ function renderStockListHTML(title, emoji, stocks) {
           ${fs.main_force ? `
           <div style="margin-top:6px;background:rgba(15,23,42,0.45);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:10px">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-              <span style="font-size:12px;color:var(--slate-300)">🧠 主力動向：${escapeRoutingText(fs.main_force.bias || '無法判斷')}</span>
+              <span style="font-size:12px;color:var(--slate-300)"> 主力動向：${escapeRoutingText(fs.main_force.bias || '無法判斷')}</span>
               <span style="font-size:11px;color:var(--orange-400)">動能 ${escapeRoutingText(fs.main_force.score ?? 0)}/100</span>
             </div>
             <div style="font-size:11px;color:var(--slate-500);line-height:1.5;margin-bottom:6px">${escapeRoutingText(fs.main_force.summary || '無資料')}</div>
@@ -2522,7 +2597,7 @@ async function runScreener() {
                 </div>
               </div>
               <div style="background:rgba(15,23,42,0.3);padding:14px;border-radius:var(--radius-sm)">
-                <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">⚙️ 供應鏈</div>
+                <div style="color:var(--slate-500);font-size:11px;margin-bottom:8px;font-weight:600">⚙ 供應鏈</div>
                 <div style="font-size:13px;color:var(--slate-300);line-height:1.8">
                   上游：${(item.supply_chain.upstream || []).map(t => escapeRoutingText(displayTicker(t))).join('、') || '無'}<br>
                   中游：${(item.supply_chain.midstream || []).map(t => escapeRoutingText(displayTicker(t))).join('、') || '無'}<br>
@@ -2530,9 +2605,9 @@ async function runScreener() {
                 </div>
               </div>
             </div>
-            ${renderStockListHTML('🔥 強勢指標股', '🔥', strongStocks)}
+            ${renderStockListHTML(' 強勢指標股', '', strongStocks)}
             ${renderStockListHTML('📉 弱勢/錯殺股', '📉', weakStocks)}
-            ${renderStockListHTML('📋 其他關聯標的', '📋', otherStocks)}
+            ${renderStockListHTML(' 其他關聯標的', '', otherStocks)}
           </div>
         </details>`;
     }).join('');
@@ -2693,17 +2768,20 @@ async function fetchStockSnapshot() {
   const button = document.getElementById('btn-stock-snapshot');
   const box = document.getElementById('stock-snapshot-result');
   const statusBadge = document.getElementById('stock-snapshot-status');
-  const ticker = input.value.trim().toUpperCase();
-  if (!/^[0-9A-Z]{4,10}(?:\.(?:TW|TWO))?$/.test(ticker)) {
+  const ticker = validWorkspaceTicker(input.value);
+  if (!ticker) {
     showToast('請輸入有效的台股代號，例如 2330、2330.TW 或 6488.TWO', 'warning');
     return;
   }
+  if (!setWorkspaceTicker(ticker)) return;
+  const request = researchRequest('snapshot');
   input.value = ticker;
   button.disabled = true;
   statusBadge.className = 'badge badge-blue';
   statusBadge.textContent = '資料彙整中';
   box.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">正在彙整價格、產業、集保與新聞訊號...</div></div>';
   const res = await apiCall(`/api/market-insights/stock-snapshot/${encodeURIComponent(ticker)}`);
+  if (!researchRequestCurrent(request)) return;
   if (!['success', 'partial'].includes(res.status) || !res.data) {
     box.innerHTML = '<span style="color:var(--red-400)">個股決策摘要目前無法取得，請稍後再試。</span>';
     statusBadge.className = 'badge badge-red';
@@ -2713,6 +2791,7 @@ async function fetchStockSnapshot() {
   }
 
   const identity = res.data.identity || {};
+  if ((identity.ticker || res.ticker) && validWorkspaceTicker(identity.ticker || res.ticker) !== ticker) { box.textContent = '回傳股票與查詢不符，請重新產生摘要。'; statusBadge.textContent = '資料暫缺'; button.disabled = false; return; }
   const price = res.data.price || {};
   const industry = res.data.industry_context || {};
   const ownership = res.data.ownership || {};
@@ -2726,36 +2805,36 @@ async function fetchStockSnapshot() {
 
   let priceHtml;
   if (!price.available) {
-    priceHtml = snapshotUnavailable('📈 價格動能', price);
+    priceHtml = snapshotUnavailable(' 價格動能', price);
   } else {
     const change = Number(price.change);
     const changePercent = Number(price.change_percent);
     const priceColor = change >= 0 ? 'var(--red-400)' : 'var(--green-400)';
-    priceHtml = `<div class="card" style="margin:0"><div class="card-header">📈 價格動能<span class="badge badge-blue">單日</span></div><div class="card-body"><div style="font-size:28px;font-weight:800;color:#fff">${Number(price.close).toFixed(2)}</div><div style="color:${priceColor};font-weight:700;margin-top:5px">${change >= 0 ? '+' : ''}${change.toFixed(2)}（${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%）</div><div style="font-size:11px;color:var(--slate-500);margin-top:5px">前收 ${Number(price.previous_close).toFixed(2)}</div>${snapshotMeta(price)}</div></div>`;
+    priceHtml = `<div class="card" style="margin:0"><div class="card-header"> 價格動能<span class="badge badge-blue">單日</span></div><div class="card-body"><div style="font-size:28px;font-weight:800;color:#fff">${Number(price.close).toFixed(2)}</div><div style="color:${priceColor};font-weight:700;margin-top:5px">${change >= 0 ? '+' : ''}${change.toFixed(2)}（${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%）</div><div style="font-size:11px;color:var(--slate-500);margin-top:5px">前收 ${Number(price.previous_close).toFixed(2)}</div>${snapshotMeta(price)}</div></div>`;
   }
 
   let industryHtml;
   if (!industry.available) {
-    industryHtml = snapshotUnavailable('🏭 產業相對表現', industry);
+    industryHtml = snapshotUnavailable(' 產業相對表現', industry);
   } else {
     const delta = Number(industry.stock_minus_industry);
-    industryHtml = `<div class="card" style="margin:0"><div class="card-header">🏭 產業相對表現<span class="badge badge-blue">第 ${insightNumber(industry.rank)} / ${insightNumber(industry.total_industries)}</span></div><div class="card-body"><div style="font-size:18px;font-weight:800;color:#fff">${escapeRoutingText(industry.industry)}</div><div style="font-size:24px;font-weight:800;color:${delta >= 0 ? 'var(--red-400)' : 'var(--green-400)'};margin-top:8px">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-400)">個股減產業平均；平均 ${Number(industry.mean_change).toFixed(2)}%、中位 ${Number(industry.median_change).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500);margin-top:5px">上漲 ${insightNumber(industry.advancers)} / 樣本 ${insightNumber(industry.company_count)} · ${escapeRoutingText(industry.market_coverage || '')}</div>${snapshotMeta(industry)}</div></div>`;
+    industryHtml = `<div class="card" style="margin:0"><div class="card-header"> 產業相對表現<span class="badge badge-blue">第 ${insightNumber(industry.rank)} / ${insightNumber(industry.total_industries)}</span></div><div class="card-body"><div style="font-size:18px;font-weight:800;color:#fff">${escapeRoutingText(industry.industry)}</div><div style="font-size:24px;font-weight:800;color:${delta >= 0 ? 'var(--red-400)' : 'var(--green-400)'};margin-top:8px">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-400)">個股減產業平均；平均 ${Number(industry.mean_change).toFixed(2)}%、中位 ${Number(industry.median_change).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-500);margin-top:5px">上漲 ${insightNumber(industry.advancers)} / 樣本 ${insightNumber(industry.company_count)} · ${escapeRoutingText(industry.market_coverage || '')}</div>${snapshotMeta(industry)}</div></div>`;
   }
 
   let ownershipHtml;
   if (!ownership.available) {
-    ownershipHtml = snapshotUnavailable('🐋 集保持股結構', ownership);
+    ownershipHtml = snapshotUnavailable(' 集保持股結構', ownership);
   } else {
     const breakdown = (ownership.breakdown || []).map(group => {
       const ratio = Math.max(0, Math.min(100, Number(group.ratio) || 0));
-      return `<div style="display:grid;grid-template-columns:90px 1fr 58px;gap:8px;align-items:center;margin-top:7px"><span>${escapeRoutingText(group.label)}</span><div style="height:7px;background:var(--slate-800);border-radius:4px;overflow:hidden"><div style="height:100%;width:${ratio}%;background:linear-gradient(90deg,var(--blue-600),var(--orange-500))"></div></div><span style="text-align:right">${ratio.toFixed(2)}%</span></div>`;
+      return `<div style="display:grid;grid-template-columns:90px 1fr 58px;gap:8px;align-items:center;margin-top:7px"><span>${escapeRoutingText(group.label)}</span><div style="height:7px;background:var(--slate-800);border-radius:4px;overflow:hidden"><div style="height:100%;width:${ratio}%;background:var(--blue-400)"></div></div><span style="text-align:right">${ratio.toFixed(2)}%</span></div>`;
     }).join('');
-    ownershipHtml = `<div class="card" style="margin:0"><div class="card-header">🐋 集保持股結構<span class="badge badge-blue">400 張以上</span></div><div class="card-body"><div style="font-size:26px;font-weight:800;color:var(--red-400)">${Number(ownership.large_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-400)">${insightNumber(ownership.large_holder_accounts)} 戶 · 10 張以下 ${Number(ownership.small_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-300);margin-top:10px">${breakdown}</div>${snapshotMeta(ownership)}</div></div>`;
+    ownershipHtml = `<div class="card" style="margin:0"><div class="card-header"> 集保持股結構<span class="badge badge-blue">400 張以上</span></div><div class="card-body"><div style="font-size:26px;font-weight:800;color:var(--red-400)">${Number(ownership.large_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-400)">${insightNumber(ownership.large_holder_accounts)} 戶 · 10 張以下 ${Number(ownership.small_holder_ratio).toFixed(2)}%</div><div style="font-size:11px;color:var(--slate-300);margin-top:10px">${breakdown}</div>${snapshotMeta(ownership)}</div></div>`;
   }
 
   let newsHtml;
   if (!news.available) {
-    newsHtml = snapshotUnavailable('📰 新聞關注度', news);
+    newsHtml = snapshotUnavailable(' 新聞關注度', news);
   } else {
     const articleHtml = (news.articles || []).map(article => {
       const link = safeNewsUrl(article.link);
@@ -2766,11 +2845,12 @@ async function fetchStockSnapshot() {
       return `<div style="padding:7px 0;border-bottom:1px solid var(--glass-border)">${titleHtml}<div style="font-size:10px;color:var(--slate-500)">${escapeRoutingText(article.source || '')} ${escapeRoutingText(article.published || '')}</div></div>`;
     }).join('');
     const emptyNews = '<div style="color:var(--slate-400);margin-top:10px">最近 72 小時沒有偵測到明確個股提及。</div>';
-    newsHtml = `<div class="card" style="margin:0"><div class="card-header">📰 新聞關注度<span class="badge badge-orange">72 小時</span></div><div class="card-body"><div style="font-size:26px;font-weight:800;color:var(--orange-400)">${insightNumber(news.mention_count)} 則</div><div style="font-size:11px;color:var(--slate-400)">${insightNumber(news.source_count)} 個來源${news.cross_source ? ' · 跨來源提及' : ''}</div>${articleHtml || emptyNews}${snapshotMeta(news)}</div></div>`;
+    newsHtml = `<div class="card" style="margin:0"><div class="card-header"> 新聞關注度<span class="badge badge-orange">72 小時</span></div><div class="card-body"><div style="font-size:26px;font-weight:800;color:var(--orange-400)">${insightNumber(news.mention_count)} 則</div><div style="font-size:11px;color:var(--slate-400)">${insightNumber(news.source_count)} 個來源${news.cross_source ? ' · 跨來源提及' : ''}</div>${articleHtml || emptyNews}${snapshotMeta(news)}</div></div>`;
   }
 
-  box.innerHTML = `<div style="margin-bottom:14px"><strong style="font-size:19px;color:#fff">${escapeRoutingText(identity.symbol || normalizedTicker)} ${escapeRoutingText(displayName)}</strong><span style="margin-left:8px;color:var(--slate-500)">${escapeRoutingText(identity.market || '')}</span>${partialText}</div><div class="grid grid-2">${priceHtml}${industryHtml}${ownershipHtml}${newsHtml}</div>`;
+  box.innerHTML = `<div style="margin-bottom:14px"><strong style="font-size:19px;color:#fff">${escapeRoutingText(identity.symbol || normalizedTicker)} ${escapeRoutingText(displayName)}</strong><span style="margin-left:8px;color:var(--slate-500)">${escapeRoutingText(identity.market || '')}</span>${partialText}</div><div class="grid grid-2"><section data-snapshot-section="price">${priceHtml}</section><section data-snapshot-section="industry">${industryHtml}</section><section data-snapshot-section="ownership">${ownershipHtml}</section><section data-snapshot-section="news">${newsHtml}</section></div>`;
   bindSafeExternalLinks(box);
+  applySnapshotView();
   statusBadge.className = res.status === 'success' ? 'badge badge-green' : 'badge badge-orange';
   statusBadge.textContent = res.status === 'success' ? '資料完整' : '部分資料可用';
   button.disabled = false;
@@ -2804,7 +2884,7 @@ async function fetchRankings() {
   finally { homeMacroLoading = false; }
 }
 
-async function fetchFundamentalsAndChips(ticker) {
+async function fetchFundamentalsAndChips(ticker, request) {
   const fundDiv = document.getElementById('kline-fundamentals');
   fundDiv.style.display = 'block';
 
@@ -2817,19 +2897,21 @@ async function fetchFundamentalsAndChips(ticker) {
 
   // Fundamentals
   apiCall(`/api/fundamentals/${ticker}`).then(res => {
+    if (!researchRequestCurrent(request)) return;
     if(res.status === 'success' && res.data) {
-      document.getElementById('fund-eps').textContent = res.data.eps || '-';
-      document.getElementById('fund-pe').textContent = res.data.pe || '-';
-      document.getElementById('fund-yield').textContent = res.data.dividendYield ? (res.data.dividendYield * 100).toFixed(2) + '%' : '-';
-      document.getElementById('fund-rev').textContent = res.data.revenueGrowth ? (res.data.revenueGrowth * 100).toFixed(2) + '%' : '-';
-      document.getElementById('fund-cap').textContent = res.data.marketCap ? (res.data.marketCap / 100000000).toFixed(2) + ' 億' : '-';
+      document.getElementById('fund-eps').textContent = res.data.eps ?? '—';
+      document.getElementById('fund-pe').textContent = res.data.pe ?? '—';
+      document.getElementById('fund-yield').textContent = res.data.dividendYield != null ? (res.data.dividendYield * 100).toFixed(2) + '%' : '—';
+      document.getElementById('fund-rev').textContent = res.data.revenueGrowth != null ? (res.data.revenueGrowth * 100).toFixed(2) + '%' : '—';
+      document.getElementById('fund-cap').textContent = res.data.marketCap != null ? (res.data.marketCap / 100000000).toFixed(2) + ' 億' : '—';
     } else {
-      document.getElementById('fund-eps').textContent = '-';
+      ['fund-eps', 'fund-pe', 'fund-yield', 'fund-rev', 'fund-cap'].forEach(id => { document.getElementById(id).textContent = '來源暫缺'; });
     }
   });
 
   // Chips
   apiCall('/api/chips').then(res => {
+    if (!researchRequestCurrent(request)) return;
     if(res.data && res.data[ticker]) {
       const data = res.data[ticker];
       const forColor = data.Foreign > 0 ? 'var(--red-400)' : 'var(--green-400)';
@@ -2860,10 +2942,12 @@ function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chat-panel').classList.toggle('open', chatOpen);
   if (chatOpen) document.getElementById('chat-input').focus();
+  else document.getElementById('chat-fab').focus();
+  document.getElementById('chat-fab').setAttribute('aria-expanded', String(chatOpen));
 }
 
 function clearChat() {
-  document.getElementById('chat-messages').innerHTML = '<div class="chat-msg bot">對話已清除，隨時可以開始新的對話 🚀</div>';
+  document.getElementById('chat-messages').innerHTML = '<div class="chat-msg bot">對話已清除，隨時可以開始新的對話 </div>';
   currentChatbotId = null;
   showToast('對話已清除', 'info');
 }
@@ -2969,7 +3053,7 @@ async function sendChat() {
   } else {
     const error = document.createElement('div');
     error.className = 'chat-msg bot'; error.style.color = 'var(--red-400)';
-    error.textContent = `⚠️ ${res.message || '暫時無法回覆'}`;
+    error.textContent = `⚠ ${res.message || '暫時無法回覆'}`;
     messagesDiv.appendChild(error);
   }
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -2983,6 +3067,7 @@ async function sendChat() {
 let landingAnimationDone = false;
 
 function initLanding() {
+  if (document.getElementById('landing')?.hidden) return;
   if (typeof gsap === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   try {
     const media = gsap.matchMedia();
@@ -3022,7 +3107,8 @@ function scrollToFeatures() {
 }
 
 function startJourney() {
-  enterDashboard();
+  if (typeof closeAbout === 'function') closeAbout();
+  else enterDashboard();
 }
 
 function enterDashboard() {
@@ -3034,8 +3120,13 @@ function enterDashboard() {
   const forceEntry = () => {
     if (entered) return;
     entered = true;
-    if (landing) landing.style.display = 'none';
-    if (app) app.classList.add('active');
+    if (landing) { landing.style.display = 'none'; landing.hidden = true; }
+    if (app) {
+      app.hidden = false;
+      app.inert = false;
+      app.style.display = '';
+      app.classList.add('active');
+    }
     revealHomeOnce();
   };
   if (typeof gsap === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { forceEntry(); return; }
@@ -3050,24 +3141,29 @@ function enterDashboard() {
 // KEYBOARD SHORTCUTS
 // ============================
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (chatOpen) toggleChat();
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => closeModal(m.id));
+    if (document.getElementById('sidebar').classList.contains('open')) toggleSidebar();
+    return;
+  }
+  if (document.querySelector('.modal-backdrop.open')) return;
+  if (!document.getElementById('landing').hidden) return;
   // Don't trigger shortcuts when typing in inputs
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.target.isContentEditable || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
   const pageKeys = { '1': 'war', '2': 'stress', '3': 'tech', '4': 'kline', '5': 'backtest', '6': 'news', '7': 'sentiment', '8': 'insights', '9': 'screener' };
 
   if (pageKeys[e.key]) { navigateTo(pageKeys[e.key]); e.preventDefault(); }
-  else if (e.key === '/') { document.getElementById('quick-search-input').focus(); e.preventDefault(); }
+  else if (e.key === '/') { navigateTo('war'); document.getElementById('quick-search-input').focus(); e.preventDefault(); }
   else if (e.key === 'c' || e.key === 'C') { toggleChat(); e.preventDefault(); }
-  else if (e.key === 'Escape') {
-    if (chatOpen) toggleChat();
-    document.querySelectorAll('.modal-backdrop.open').forEach(m => { m.classList.remove('open'); m.style.display = 'none'; });
-  }
 });
 
 // ============================
 // INIT
 // ============================
 function init() {
+  if (typeof initWorkspace === 'function') initWorkspace();
   fetchMarketCalendar();
   fetchHomeOverview();
   fetchHomeNews();
