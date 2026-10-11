@@ -31,6 +31,14 @@ class Element {
     this.sections = [...this._html.matchAll(/data-snapshot-section="([^"]+)"/g)].map(match => {
       const node = new Element(); node.dataset.snapshotSection = match[1]; return node;
     });
+    this.rows = [...this._html.matchAll(/<tr(?:\s[^>]*)?>/g)].map(() => {
+      const row = new Element(); row.owner = this.owner;
+      row.cells = Array.from({length: 6}, () => new Element()); return row;
+    });
+    this.stockLinks = [...this._html.matchAll(/data-screener-ticker="([^"]+)"/g)].map(match => {
+      const node = new Element(); node.owner = this.owner;
+      node.dataset.screenerTicker = match[1]; return node;
+    });
   }
   get innerHTML() {return this._html;}
   appendChild(node) {this.children.push(node); return node;}
@@ -42,11 +50,11 @@ class Element {
   focus() {this.owner.activeElement = this;}
   getClientRects() {return this.hidden ? [] : [{}];}
   querySelector(selector) {return this.child || (this.child = new Element(selector));}
-  querySelectorAll() {return [];}
+  querySelectorAll(selector) {return selector === '[data-screener-ticker]' ? this.stockLinks || [] : [];}
 }
 const routes = ['war', 'stress', 'tech', 'kline', 'backtest', 'news', 'sentiment', 'insights', 'screener', 'volume-settings'];
 function harness() {
-  const nodes = new Map(), events = {}, calls = [], toasts = [], charts = [];
+  const nodes = new Map(), events = {}, calls = [], toasts = [], charts = [], timers = [];
   const document = {
     activeElement: null, title: '',
     getElementById(id) {if (!nodes.has(id)) {const node = new Element(id); node.owner = this; nodes.set(id, node);} return nodes.get(id);},
@@ -62,6 +70,8 @@ function harness() {
       if (selector === '.page') return routes.map(page => this.getElementById('page-' + page));
       if (selector === '#nav .nav-btn[data-page]') return nav;
       if (selector === '.workspace-tools button') return tools;
+      if (selector === '.workspace-ticker-input') return ['stock-snapshot-ticker', 'kline-ticker', 'backtest-ticker', 'workspace-ticker-screener'].map(id => this.getElementById(id));
+      if (selector === '#tech-table tr') return this.getElementById('tech-table').rows || [];
       if (selector === '#stock-snapshot-result [data-snapshot-section]') return this.getElementById('stock-snapshot-result').sections || [];
       if (selector === '.page.active [id]') return [this.getElementById('kline-chart')];
       return [];
@@ -80,6 +90,7 @@ function harness() {
     apiCall: async (endpoint, method = 'GET', body) => {calls.push({endpoint, method, body}); return ctx.response(endpoint, method, body);},
     response: () => ({status: 'error', message: 'fake unavailable'}),
     requestAnimationFrame: fn => fn(), window: {innerWidth: 1440, matchMedia: () => ({matches: false}), addEventListener() {}},
+    setTimeout: (fn, delay) => {timers.push({fn, delay}); return timers.length;},
     echarts: {
       init() {const chart = {options: [], disposed: false, resized: 0,
         setOption(option) {this.options.push(option);}, getOption() {return this.options[0];},
@@ -93,6 +104,8 @@ function harness() {
     + slice('async function loadVolumeSettings()', '// ============================\n// POSITIONS')
     + slice('async function logout()', 'function updateAuthUI()')
     + slice('function escapeRoutingText(', 'function renderTechTable(')
+    + slice('function renderTechTable(', 'function sortTechTable(')
+    + slice('function renderStockListHTML(', 'function insightNumber(')
     + slice('function safeNewsUrl(', 'async function fetchMarketInsights(')
     + slice('function insightNumber(', 'function safeNewsUrl(')
     + slice('function snapshotMeta(', 'function homeIndicatorHtml(')
@@ -101,7 +114,7 @@ function harness() {
   document.getElementById('page-war').classList.add('active');
   ctx.resetBacktestCosts(); document.getElementById('backtest-days').value = '365';
   document.getElementById('sub-indicator-select').value = 'volume';
-  return {ctx, document, el: id => document.getElementById(id), calls, toasts, charts, tools, nav, events,
+  return {ctx, document, el: id => document.getElementById(id), calls, toasts, charts, tools, nav, events, timers,
     run: code => vm.runInContext(code, ctx), emit: event => (events[event.type || 'keydown'] || []).forEach(fn => fn(event))};
 }
 const deferred = () => {let resolve; const promise = new Promise(done => {resolve = done;}); return {promise, resolve};};
@@ -129,6 +142,49 @@ const candles = ticker => ({status: 'success', ticker, candles: [{time: 17000000
   for (const id of ['stress-result', 'btn-stress', 'btn-news', 'btn-sentiment', 'btn-screener', 'auth-modal', 'stress-history-modal', 'chat-panel']) assert.ok(html.includes(`id="${id}"`), id);
   assert.match(css, /\.table-scroll\{[^}]*overflow(?:-x)?:\s*auto/); assert.match(css, /@media[^\n]*768/); assert.match(css, /prefers-reduced-motion/);
   assert.match(html, /'1': 'war'.*'9': 'screener'/); assert.match(html, /e.key === '\/'/);
+  const clearChatButton = html.match(/<button\b[^>]*onclick="clearChat\(\)"[^>]*>([\s\S]*?)<\/button>/);
+  assert.ok(clearChatButton, 'original clear-chat action retained');
+  assert.ok(clearChatButton[1].replace(/<[^>]*>/g, '').trim(), 'clear-chat action must have a visible label');
+
+  // Reviewer regression: invoke BOTH actual click handlers with the real moved
+  // input selector membership, rather than testing only the shared helper.
+  for (const entry of ['technical', 'screener']) {
+    for (const initial of ['', '6488.TWO']) {
+      const click = harness();
+      if (initial) click.ctx.setWorkspaceTicker(initial);
+      const clickedStock = {ticker: '2330.TW', name: 'fixture', price: 100, score: 50,
+        advice: 'fixture', valuation: 'fixture', signals: [], pct_5d: 1};
+      if (entry === 'technical') {
+        click.ctx.renderTechTable([clickedStock]);
+        click.el('tech-table').rows[0].listeners.click();
+      } else {
+        click.ctx.response = () => ({status: 'success', data: [{
+          target: {ticker: '6488.TWO'}, supply_chain: {}, evaluated_stocks: [clickedStock]
+        }]});
+        await click.ctx.runScreener();
+        click.calls.length = 0;
+        click.el('screener-result').stockLinks[0].listeners.click();
+      }
+      assert.equal(click.run('workspaceTicker'), '2330.TW', `${entry}: clicked ticker overrides ${initial || 'empty'} context`);
+      for (const id of ['stock-snapshot-ticker', 'kline-ticker', 'backtest-ticker', 'workspace-ticker-screener']) assert.equal(click.el(id).value, '2330.TW');
+      assert.ok(click.el('page-kline').classList.contains('active'));
+      assert.equal(click.calls.length, 0, 'manual result load remains deferred');
+      const queued = click.timers.find(timer => timer.delay === 100);
+      assert.ok(queued, 'actual result click queues original chart/analysis action');
+      click.ctx.response = endpoint => endpoint.startsWith('/kline/') ? candles('2330.TW') : {status: 'error'};
+      queued.fn(); for (let turn = 0; turn < 5; turn++) await flush();
+      assert.equal(click.calls.filter(call => call.endpoint === '/kline/2330.TW?days=180').length, 1);
+      const analysis = click.calls.filter(call => call.endpoint === '/analyze');
+      assert.equal(analysis.length, 1); assert.equal(analysis[0].body.targets[0].id, '2330.TW');
+    }
+  }
+  for (const nextTicker of ['6488.TWO', '2330.TW']) {
+    const rapid = harness(); rapid.ctx.openWorkspaceKline('2330.TW');
+    rapid.ctx.setWorkspaceTicker('6488.TWO');
+    if (nextTicker === '2330.TW') rapid.ctx.setWorkspaceTicker(nextTicker);
+    rapid.timers.find(timer => timer.delay === 100).fn(); await flush();
+    assert.equal(rapid.calls.length, 0, 'changed epoch cancels deferred action even after selecting the original ticker again');
+  }
 
   const h = harness(), {ctx, el, run, calls} = h;
   // About isolation, focus, and drafts retained without GSAP or an API request.

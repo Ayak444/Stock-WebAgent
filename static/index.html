@@ -1134,7 +1134,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
   <div class="chat-header">
     <span class="title"> MaiAgent 投資助理</span>
     <div class="chat-header-actions">
-      <button class="btn-ghost" onclick="clearChat()" aria-label="清除對話" title="清除對話" style="font-size:13px"></button>
+      <button class="btn-ghost" onclick="clearChat()" aria-label="清除對話" title="清除對話" style="font-size:13px">清除</button>
       <button aria-label="關閉投資助理" class="btn-ghost" onclick="toggleChat()" style="font-size:16px">✕</button>
     </div>
   </div>
@@ -2134,8 +2134,7 @@ function renderTechTable(data) {
   document.querySelectorAll('#tech-table tr').forEach((row, index) => {
     const item = data[index];
     row.addEventListener('click', () => {
-      document.getElementById('kline-ticker').value = item.ticker;
-      navigateTo('kline'); setTimeout(fetchKline, 100);
+      openWorkspaceKline(item.ticker);
     });
     const route = item.route || {};
     const ai = item.ai_route || {};
@@ -2614,8 +2613,7 @@ async function runScreener() {
 
     resBox.querySelectorAll('[data-screener-ticker]').forEach(link => {
       link.addEventListener('click', () => {
-        document.getElementById('kline-ticker').value = link.dataset.screenerTicker;
-        navigateTo('kline'); setTimeout(fetchKline, 100);
+        openWorkspaceKline(link.dataset.screenerTicker);
       });
     });
 

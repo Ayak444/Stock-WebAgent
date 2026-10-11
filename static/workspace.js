@@ -62,6 +62,19 @@ function switchWorkspaceTool(tool) {
   renderWorkspace();
 }
 
+function openWorkspaceKline(ticker) {
+  if (!setWorkspaceTicker(ticker)) return false;
+  navigateTo('kline');
+  const selectedTicker = workspaceTicker;
+  const selectedEpoch = workspaceEpoch;
+  // An explicit result click keeps its original chart/analysis action. A later
+  // stock selection cancels this queued action rather than analyzing that stock.
+  setTimeout(() => {
+    if (workspaceTicker === selectedTicker && workspaceEpoch === selectedEpoch) fetchKline();
+  }, 100);
+  return true;
+}
+
 function applySnapshotView() {
   document.getElementById('stock-snapshot-result').dataset.view = workspaceView;
   document.querySelectorAll('#stock-snapshot-result [data-snapshot-section]').forEach(el => {
