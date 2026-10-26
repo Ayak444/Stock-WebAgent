@@ -43,6 +43,7 @@ from database import Database, DuplicateEmailError, RegistrationStoreError, Acco
 from backtest import Backtester, SUPPORTED_BACKTEST_DAYS
 from screener_engine import analyze_related_stocks
 from market_insights import market_insights, recent_unique_news
+from valuation_service import valuation_service, calculate_valuation
 from notifier import DiscordNotifier
 from volume_alerts import AccountVolumeAlertConfig, AccountVolumeAlertMonitor, should_startup_catchup
 from account_alert_security import (SESSION_COOKIE, SESSION_AGE_SECONDS, issue_session,
@@ -1321,6 +1322,33 @@ def get_stock_names():
 async def get_market_insights():
     """Return industry leaders and the five most-mentioned recent stocks."""
     return await asyncio.to_thread(market_insights.overview)
+
+
+class ValuationAssumptionsRequest(BaseModel):
+    current_pe: dict | None = None
+    scenarios: list[dict] | None = None
+
+
+@app.get("/api/valuation/{ticker}")
+async def get_valuation(ticker: str):
+    try:
+        result = await asyncio.to_thread(valuation_service.snapshot, ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result["request_id"] = str(uuid4())
+    return JSONResponse(status_code=503 if result["status"] == "unavailable" else 200, content=result)
+
+
+@app.post("/api/valuation/{ticker}/assumptions")
+async def post_valuation_assumptions(ticker: str, body: ValuationAssumptionsRequest):
+    try:
+        result = await asyncio.to_thread(valuation_service.snapshot, ticker)
+        computed = calculate_valuation(result, body.current_pe, body.scenarios)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    result["data"].update(computed)
+    result["request_id"] = str(uuid4())
+    return JSONResponse(status_code=503 if result["status"] == "unavailable" else 200, content=result)
 
 
 @app.get("/api/market-calendar")

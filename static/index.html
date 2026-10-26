@@ -726,6 +726,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       <button class="nav-btn" data-page="sentiment"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-radar"></use></svg></span>市場情緒雷達</button>
       <div class="nav-section">個股研究</div>
       <button class="nav-btn" data-page="insights"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-focus"></use></svg></span>個股概覽與市場洞察</button>
+      <button class="nav-btn" data-page="valuation"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-data"></use></svg></span>價格與估值檢視</button>
       <button class="nav-btn" data-page="kline"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-chart"></use></svg></span>個股 K 線圖</button>
       <button class="nav-btn" data-page="screener"><span class="icon"><svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#icon-network"></use></svg></span>AI 關聯選股</button>
       <div class="nav-section">策略與風險</div>
@@ -1015,6 +1016,35 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       </div>
 
       <!-- ========== PAGE: Market Insights ========== -->
+      <div class="page" id="page-valuation">
+        <div class="page-header"><div><h2>目前價格檢視</h2><p class="sub">真實來源、季度 EPS 加總估算與可調整的估值假設</p></div></div>
+        <div class="valuation-toolbar"><button class="btn-analyze" id="btn-valuation" type="button" onclick="fetchValuation()">更新價格與財報</button><p id="valuation-status" role="status" aria-live="polite">選擇股票後，按更新取得資料。</p></div>
+        <div id="valuation-metrics"></div>
+        <section class="card"><div class="card-header">今日價格與假設區間</div><div class="card-body">
+          <p class="workspace-note">優先提供符合條件的同產業本益比分位參考；資料不足時可手動設定倍數。只有可用季度 EPS 估算、普通股與有效最新收盤價才產生今日分類。</p>
+          <form id="valuation-current-form" class="valuation-form" onsubmit="submitCurrentValuation(event)">
+            <label>倍數來源<select id="valuation-mode" class="input"><option value="auto">官方同產業 P25／P50／P75</option><option value="manual">我的手動假設</option></select></label>
+            <label>下界 P/E<input id="valuation-pe-low" class="input" type="number" min="0.01" max="10000" step="any" inputmode="decimal" placeholder="手動模式填寫"></label>
+            <label>中位 P/E<input id="valuation-pe-mid" class="input" type="number" min="0.01" max="10000" step="any" inputmode="decimal" placeholder="手動模式填寫"></label>
+            <label>上界 P/E<input id="valuation-pe-high" class="input" type="number" min="0.01" max="10000" step="any" inputmode="decimal" placeholder="手動模式填寫"></label>
+            <button class="btn-outline" id="btn-valuation-current" type="submit">檢視今日區間</button>
+          </form><div id="valuation-current-result" class="valuation-result" aria-live="polite">尚未載入資料。</div>
+          <details class="valuation-details"><summary>同產業樣本與估值方法</summary><div id="valuation-peer-source">尚未載入資料。</div></details>
+        </div></section>
+        <section class="card"><div class="card-header">未來 12 個月・手動情境</div><div class="card-body">
+          <p class="workspace-note">輸入自己的獲利與倍數假設；不預填預測、不代表法人共識或到價機率。情境價格 = 預估 EPS × 假設 P/E。</p>
+          <p id="valuation-horizon" class="workspace-note">NTM 獲利期間與價格觀察終點將在載入資料後顯示。</p>
+          <form id="valuation-scenario-form" onsubmit="submitValuationScenarios(event)"><div class="valuation-scenarios">
+            <fieldset><legend>悲觀情境</legend><label>預估 NTM EPS（元）<input id="valuation-bear-eps" class="input" type="number" min="0.0001" max="1000000" step="any" required inputmode="decimal"></label><label>假設情境 P/E<input id="valuation-bear-pe" class="input" type="number" min="0.0001" max="10000" step="any" required inputmode="decimal"></label></fieldset>
+            <fieldset><legend>基準情境</legend><label>預估 NTM EPS（元）<input id="valuation-base-eps" class="input" type="number" min="0.0001" max="1000000" step="any" required inputmode="decimal"></label><label>假設情境 P/E<input id="valuation-base-pe" class="input" type="number" min="0.0001" max="10000" step="any" required inputmode="decimal"></label></fieldset>
+            <fieldset><legend>樂觀情境</legend><label>預估 NTM EPS（元）<input id="valuation-bull-eps" class="input" type="number" min="0.0001" max="1000000" step="any" required inputmode="decimal"></label><label>假設情境 P/E<input id="valuation-bull-pe" class="input" type="number" min="0.0001" max="10000" step="any" required inputmode="decimal"></label></fieldset>
+          </div><button class="btn-outline" id="btn-valuation-scenarios" type="submit">計算三種情境</button></form>
+          <div id="valuation-scenario-result" class="valuation-result" aria-live="polite">等待手動輸入；尚未產生預測。</div>
+          <p class="workspace-note">價格變動未含股利、稅費與成本；過期收盤價僅作有日期的比較參考。今日 Forward P/E = 現價 ÷ 基準 NTM EPS，與假設情境倍數分開。</p>
+        </div></section>
+        <details class="valuation-details"><summary>財報期間、來源與使用限制</summary><div id="valuation-sources">載入後逐項顯示資料日期、抓取時間與方法。</div></details>
+      </div>
+
       <div class="page" id="page-insights">
         <div class="page-header">
           <div><h2>個股概覽與市場洞察</h2><p class="sub">個股價格、產業相對表現、集保持股與新聞關注度</p></div>
@@ -1150,7 +1180,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
 <!-- ===== Toast Container ===== -->
 <div class="toast-container" id="toast-container"></div>
 
-<script src="/static/workspace.js"></script>
+<script src="/static/workspace.js?v=price-inspector-20261026-2"></script>
 <script>
 // ============================
 // GLOBAL STATE
@@ -1296,6 +1326,7 @@ const pageTitles = {
   war: '市場總覽', stress: '資產壓力測試', tech: '全市場技術分析',
   kline: '個股 K 線圖', backtest: '策略回測', news: '新聞知識圖譜',
   sentiment: '市場情緒雷達', insights: '市場洞察', screener: 'AI 關聯選股',
+  valuation: '價格與估值檢視',
   'volume-settings': '成交量通知設定'
 };
 

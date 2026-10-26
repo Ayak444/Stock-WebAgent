@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-10-26.1",
+  "maintenance": "Only add a full-day closure after checking a dated exchange announcement and evidence for every affected market. Record announcement and verification dates honestly; retain source URLs. Annual holidays are still required. Do not infer a closure because quote feeds agree or appear old. Invalid or unsupported records are ignored. Unknown future exceptional closures can leave the latest day unconfirmed.",
+  "records": [
+    {
+      "date": "2026-10-23",
+      "market_scope": ["TW", "TWO"],
+      "kind": "full_day_closure",
+      "reason": "已核對公告的臨時全日休市；年度休市表未涵蓋",
+      "announced_at": "2026-10-22",
+      "verified_at": "2026-10-26",
+      "sources": [
+        {
+          "market_scope": ["TW"],
+          "source_url": "https://www.twse.com.tw/staticFiles/news/news/tsecnews/8a8216d6a0fa351b01a1638507940202.pdf"
+        },
+        {
+          "market_scope": ["TW", "TWO"],
+          "source_url": "https://stock.concords.com.tw/concordWeb_Mobile/news2.aspx?ID=4467"
+        }
+      ]
+    }
+  ]
+}

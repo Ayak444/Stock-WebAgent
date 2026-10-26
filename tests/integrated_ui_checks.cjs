@@ -44,6 +44,14 @@ class Element {
   appendChild(node) {this.children.push(node); return node;}
   append(...nodes) {nodes.forEach(node => this.appendChild(node));}
   replaceChildren(...nodes) {this.textContent = ''; this.append(...nodes);}
+  reset() {
+    // Model the standard HTMLFormElement reset now used by the shared workspace.
+    const ids = this.id === 'valuation-current-form'
+      ? ['valuation-pe-low', 'valuation-pe-mid', 'valuation-pe-high']
+      : ['bear', 'base', 'bull'].flatMap(name => [`valuation-${name}-eps`, `valuation-${name}-pe`]);
+    ids.forEach(id => {this.owner.getElementById(id).value = '';});
+    if (this.id === 'valuation-current-form') this.owner.getElementById('valuation-mode').value = 'auto';
+  }
   setAttribute(name, value) {this.attributes[name] = String(value);}
   removeAttribute(name) {delete this.attributes[name];}
   addEventListener(name, fn) {this.listeners[name] = fn;}
