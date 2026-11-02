@@ -257,6 +257,42 @@ def percentile(values, p):
     return ordered[lo] + (ordered[hi] - ordered[lo]) * (position - lo)
 
 
+def dated_twse_rows(payload, expected):
+    """Validate both response date and the report's own dated table title."""
+    required = ("證券代號", "證券名稱", "收盤價", "本益比")
+    if (not isinstance(payload, dict) or payload.get("stat") != "OK"
+            or iso_date(payload.get("date")) != expected or not isinstance(payload.get("tables"), list)):
+        raise ValueError("invalid dated TWSE report")
+    candidates = [table for table in payload["tables"] if isinstance(table, dict)
+                  and isinstance(table.get("fields"), list)
+                  and all(table["fields"].count(field) == 1 for field in required)]
+    if len(candidates) != 1:
+        raise ValueError("ambiguous dated TWSE table")
+    table = candidates[0]
+    title = re.search(r"(\d{3,4})年(\d{1,2})月(\d{1,2})日\s*每日收盤行情", str(table.get("title", "")))
+    if not title:
+        raise ValueError("undated TWSE table")
+    year, month, day = map(int, title.groups())
+    year = year + 1911 if year < 1911 else year
+    if f"{year:04d}-{month:02d}-{day:02d}" != expected:
+        raise ValueError("dated TWSE title mismatch")
+    fields, data = table["fields"], table.get("data")
+    if not isinstance(data, list) or not 0 < len(data) <= 20000:
+        raise ValueError("empty dated TWSE table")
+    result, seen = [], set()
+    for values in data:
+        if not isinstance(values, list) or len(values) != len(fields):
+            raise ValueError("invalid dated TWSE row")
+        row = dict(zip(fields, values))
+        code = str(row["證券代號"]).strip()
+        if not code or code in seen:
+            raise ValueError("ambiguous dated TWSE security")
+        seen.add(code)
+        result.append({"Code": code, "Name": str(row["證券名稱"]).strip(), "Date": expected,
+                       "ClosingPrice": number(row["收盤價"]), "PEratio": number(row["本益比"])})
+    return result
+
+
 def peer_reference(code, profile, companies, rows, quote_date, pe_date, market, freshness):
     industry = str((profile or {}).get("產業別", "")).strip().zfill(2)
     base = {"origin": "official_industry_pe_percentiles", "industry_code": industry,
@@ -352,11 +388,12 @@ def calculate_valuation(snapshot, current_pe=None, scenarios=None):
 
 class ValuationService:
     """Fixed-size work pool, single-flight source cache and a caller deadline."""
-    def __init__(self, json_loader=None, yahoo_loader=None, now=None, exception_calendar=None):
+    def __init__(self, json_loader=None, yahoo_loader=None, now=None, exception_calendar=None, dated_loader=None):
         self.json_loader = json_loader or self._json
         self.yahoo_loader = yahoo_loader or self._yahoo
         self.now = now or (lambda: datetime.now(TAIPEI))
         self.exception_calendar = exception_calendar
+        self.dated_loader = dated_loader or self._dated_json
         self._executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="valuation")
         self._slots = threading.BoundedSemaphore(10)
         self._lock = threading.Lock()
@@ -370,6 +407,18 @@ class ValuationService:
         if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
             raise ValueError("invalid official dataset")
         return rows
+
+    @staticmethod
+    def _dated_json(url):
+        with requests.get(url, timeout=(2, 5), stream=True,
+                          headers={"Accept": "application/json", "User-Agent": "Stock-WebAgent/valuation"}) as response:
+            response.raise_for_status()
+            data = bytearray()
+            for chunk in response.iter_content(65536):
+                data.extend(chunk)
+                if len(data) > 4 * 1024 * 1024:
+                    raise ValueError("dated TWSE payload too large")
+            return json.loads(data.decode("utf-8-sig"))
 
     @staticmethod
     def _yahoo(ticker):
@@ -428,6 +477,7 @@ class ValuationService:
             return future, None
 
     def snapshot(self, ticker, deadline_seconds=12):
+        start = time.monotonic()
         code, requested_market = normalize_taiwan_ticker(ticker)
         now = self.now()
         jobs, loaded = {}, {}
@@ -444,8 +494,7 @@ class ValuationService:
             loaded[("all", "holiday")] = cached
         elif future:
             jobs[("all", "holiday")] = future
-        start = time.monotonic()
-        wait(list(jobs.values()), timeout=max(0, deadline_seconds - 3))
+        wait(list(jobs.values()), timeout=max(0, deadline_seconds - 3 - (time.monotonic() - start)))
         for key, future in jobs.items():
             if future.done():
                 try:
@@ -469,6 +518,10 @@ class ValuationService:
         eps_row = next((r for r in rows(market, "eps") if str(r.get("公司代號") or r.get("SecuritiesCompanyCode") or "").strip() == code), {})
         symbol = f"{code}.{market}"
         ordinary = ordinary_company(code, profile)
+        # Start financial work before a possible dated-market fallback so both
+        # share the same caller deadline instead of serial timeout budgets.
+        if ordinary:
+            self._start("yahoo:" + symbol, 3600, lambda: self.yahoo_loader(symbol))
         name = (profile or {}).get("公司簡稱") or quote_row.get("Name") or quote_row.get("CompanyName") or code
         quote_date = iso_date(quote_row.get("Date"))
         price = number(quote_row.get("ClosingPrice") or quote_row.get("Close"))
@@ -476,8 +529,32 @@ class ValuationService:
             price = None
         exceptions = self.exception_calendar() if callable(self.exception_calendar) else self.exception_calendar
         calendar_evidence = quote_calendar_evidence(quote_date, rows("all", "holiday"), now, market, exceptions)
+        quote_url, pe_url = OFFICIAL[market]["quote"], OFFICIAL[market]["pe"]
+        expected = calendar_evidence["expected_completed_trading_day"]
+        if market == "TW" and expected and (price is None or calendar_evidence["freshness"] != "fresh"):
+            url = "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=" + expected.replace("-", "") + "&type=ALLBUT0999"
+            def load_dated():
+                return dated_twse_rows(self.dated_loader(url), expected)
+            future, cached = self._start(url, 600, load_dated)
+            dated = cached
+            if future:
+                wait([future], timeout=max(0, deadline_seconds - (time.monotonic() - start)))
+                if future.done():
+                    try:
+                        dated = future.result()
+                    except Exception:
+                        pass
+            if dated:
+                target = next((row for row in dated["payload"] if row["Code"] == code), {})
+                candidate_price = number(target.get("ClosingPrice"))
+                if candidate_price is not None and candidate_price > 0:
+                    quote_row = pe_row = target
+                    price, quote_date = candidate_price, expected
+                    loaded[(market, "quote")] = loaded[(market, "pe")] = dated
+                    quote_url = pe_url = url
+                    calendar_evidence = quote_calendar_evidence(quote_date, rows("all", "holiday"), now, market, exceptions)
         quote = section(price, reason=None if price is not None else "quote_unavailable", currency="TWD", kind="close",
-                        source="TWSE 每日行情" if market == "TW" else "TPEx 每日行情", source_url=OFFICIAL[market]["quote"],
+                        source=("TWSE 指定日期每日收盤行情" if quote_url != OFFICIAL[market]["quote"] else "TWSE 每日行情") if market == "TW" else "TPEx 每日行情", source_url=quote_url,
                         as_of=quote_date, fetched_at=loaded.get((market, "quote"), {}).get("fetched_at"),
                         freshness=calendar_evidence["freshness"], calendar_evidence=calendar_evidence,
                         methodology="交易所日收盤價；非即時行情")
@@ -486,7 +563,7 @@ class ValuationService:
             pe = None
         pe_date = iso_date(pe_row.get("Date"))
         official_pe = section(pe, reason=None if pe is not None else "official_pe_unavailable", source="交易所公告參考本益比",
-            source_url=OFFICIAL[market]["pe"], as_of=pe_date, fetched_at=loaded.get((market, "pe"), {}).get("fetched_at"),
+            source_url=pe_url, as_of=pe_date, fetched_at=loaded.get((market, "pe"), {}).get("fetched_at"),
             methodology="官方參考 EPS 口徑可能與季度稀釋 EPS 加總不同；不反推公布 EPS")
         year, quarter = number(eps_row.get("年度") or eps_row.get("Year")), number(eps_row.get("季別"))
         period_start = period_end = None
@@ -522,6 +599,8 @@ class ValuationService:
         if yahoo and yahoo.get("quote_currency") != "TWD":
             ttm = section(reason="quote_currency_unverified")
         peers = peer_reference(code, profile, profiles[market], rows(market, "pe"), quote_date, pe_date, market, quote["freshness"])
+        peers["source_url"] = pe_url
+        peers["fetched_at"] = loaded.get((market, "pe"), {}).get("fetched_at")
         data = {"identity": {"ticker": symbol, "code": code, "name": name, "market": market, "ordinary": ordinary,
                              "reason_code": None if ordinary else "ordinary_company_unverified", "currency": "TWD"},
                 "quote": quote, "official_pe": official_pe, "official_ytd_eps": official_ytd,

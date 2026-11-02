@@ -116,11 +116,22 @@ class Recommendation(BaseModel):
 
 class NewsDigest(BaseModel):
     title: str
-    sentiment: str 
-    summary: str 
+    sentiment: str = "尚未評分"
+    summary: str
+    id: Optional[int] = None
+    score: Optional[float] = None
+    source: Optional[str] = None
+    link: Optional[str] = None
+    published_at: Optional[str] = None
 
 class SentimentResponse(BaseModel):
-    score: int
+    score: Optional[int]
+    status: str = "available"
+    weights: dict = Field(default_factory=dict)
+    contributions: dict = Field(default_factory=dict)
+    components: dict = Field(default_factory=dict)
+    methodology: dict = Field(default_factory=dict)
+    as_of: Optional[str] = None
     label: str
     definition: str
     reasoning: str

@@ -29,6 +29,7 @@ import websocket_system
 _analysis_save_tasks = set()
 # 原有模塊
 from routing_policy import get_sentiment_analysis
+from sentiment_service import sentiment_service
 from models import (
     TargetItem, AnalyzeRequest, ChatRequest, NewsRequest,
     BacktestRequest, NewsSourceRequest, StockTarget, SentimentResponse,
@@ -1278,16 +1279,7 @@ def put_account_volume_alerts(payload: AccountVolumeSettingsRequest,
 
 @app.get("/api/sentiment", response_model=SentimentResponse)
 async def get_sentiment():
-    news_list = (await asyncio.to_thread(NewsCrawler.fetch_all, limit_per_source=3))[:5]
-    if not news_list:
-        return {
-            "score": 50, "label": "中立", "definition": "無數據",
-            "reasoning": "目前無新聞", "recommendations": [], "news_analysis": []
-        }
-
-    combined_news = "\n".join([f"新聞{i+1}: {n['title']} - {n['summary']}" for i, n in enumerate(news_list)])
-    result = await asyncio.to_thread(get_sentiment_analysis, combined_news)
-    return result
+    return await asyncio.to_thread(sentiment_service.snapshot)
 
 @app.get("/market_status")
 def market_status():

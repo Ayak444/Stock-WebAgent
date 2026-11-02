@@ -976,7 +976,7 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
       <!-- ========== PAGE: Sentiment ========== -->
       <div class="page" id="page-sentiment">
         <div class="page-header">
-          <div><h2>市場情緒雷達</h2><p class="sub">AI 多空探測 × 新聞情感分析</p></div>
+          <div><h2>市場情緒雷達</h2><p class="sub">VIX 80% × 財經新聞／消息 20%</p></div>
           <button class="btn-analyze" id="btn-sentiment" onclick="fetchSentiment()"> 啟動雷達分析</button>
         </div>
         <div class="grid grid-2">
@@ -986,28 +986,29 @@ body{background:#08111f;color:#d2dbe7;letter-spacing:.01em}
               <div id="sentiment-label" style="font-size:20px;font-weight:800;letter-spacing:1px">等待掃描</div>
             </div>
             <div class="card">
-              <div class="card-header">貪婪指數等級參考表</div>
+              <div class="card-header">專案情緒分數參考表（0 偏恐懼，100 偏樂觀）</div>
               <div class="card-body">
                 <table class="index-table">
                   <thead><tr><th>區間</th><th>狀態</th><th>市場意義</th></tr></thead>
                   <tbody>
-                    <tr style="color:var(--red-400)"><td>0-25</td><td>極度恐懼</td><td>超跌區，反彈機率高</td></tr>
-                    <tr style="color:#fbbf24"><td>26-45</td><td>恐懼</td><td>市場保守，量能縮減</td></tr>
+                    <tr style="color:var(--red-400)"><td>0-25</td><td>極度恐懼</td><td>風險情緒偏緊張，不預測反彈</td></tr>
+                    <tr style="color:#fbbf24"><td>26-45</td><td>恐懼</td><td>風險情緒偏保守</td></tr>
                     <tr style="color:var(--slate-400)"><td>46-55</td><td>中立</td><td>多空拉鋸，等待表態</td></tr>
-                    <tr style="color:var(--green-400)"><td>56-75</td><td>樂觀</td><td>買盤轉強，注意追高</td></tr>
-                    <tr style="color:#22c55e"><td>76-100</td><td>極度貪婪</td><td>過熱訊號，宜減碼獲利</td></tr>
+                    <tr style="color:var(--green-400)"><td>56-75</td><td>樂觀</td><td>風險情緒偏樂觀</td></tr>
+                    <tr style="color:#22c55e"><td>76-100</td><td>極度樂觀</td><td>風險情緒偏平靜，不代表應買賣</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
           <div class="card">
-            <div class="card-header">AI 情緒判斷成因</div>
+            <div class="card-header">加權情緒判斷與資料依據</div>
             <div class="card-body">
               <div id="sentiment-reasoning" class="reasoning-box">
-                尚未進行分析，請點擊上方按鈕。AI 將根據最新的五則財經新聞進行加權判斷。
+                尚未分析。以最近可得 VIX 日收盤標準化分數 80%，加上 72 小時內財經新聞情緒 20%；兩部分皆有效才產生總分。
               </div>
               <div id="sentiment-recommend" style="margin-top:15px"></div>
+              <div id="sentiment-components" aria-live="polite"></div>
             </div>
           </div>
         </div>
@@ -2499,51 +2500,65 @@ async function fetchNewsAnalysis() {
 // ============================
 // SENTIMENT
 // ============================
+let sentimentRequestVersion = 0;
 async function fetchSentiment() {
+  const version = ++sentimentRequestVersion;
   const btn = document.getElementById('btn-sentiment');
   const scoreEl = document.getElementById('sentiment-score');
   const labelEl = document.getElementById('sentiment-label');
   const reasonEl = document.getElementById('sentiment-reasoning');
-  const newsGrid = document.getElementById('sentiment-news-grid');
+  const grid = document.getElementById('sentiment-news-grid');
+  const details = document.getElementById('sentiment-components');
   btn.disabled = true;
-  scoreEl.innerText = '⏳';
-  reasonEl.innerText = '分析中，請稍候...';
-  newsGrid.innerHTML = '';
-
-  const res = await apiCall('/api/sentiment', 'GET');
-  if (res && res.score !== undefined) {
-    let color = '#94a3b8';
-    if (res.score >= 56) color = '#22c55e';
-    if (res.score <= 45) color = '#ef4444';
-    scoreEl.style.color = color;
-    scoreEl.style.textShadow = `0 0 40px ${color}40`;
-    scoreEl.innerText = res.score;
-    labelEl.innerText = res.label;
-    reasonEl.innerText = res.reasoning || '分析完成。';
-
-    if (res.recommendations && res.recommendations.length > 0) {
-      document.getElementById('sentiment-recommend').innerHTML = `
-        <div style="margin-top:16px"><div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:12px"> AI 推薦標的</div>
-        <div class="recommendation-grid">${res.recommendations.map(r => `
-          <div class="stock-card">
-            <div class="stock-card-header"><span style="font-size:16px;font-weight:700;color:#fff">${escapeRoutingText(r.ticker || r.name)}</span>
-            <span class="badge badge-green">${escapeRoutingText(r.action || '觀察')}</span></div>
-            <div class="prose">${escapeRoutingText(r.reason || '')}</div>
-          </div>`).join('')}</div></div>`;
-    }
-
-    if (res.news_analysis) {
-      newsGrid.innerHTML = res.news_analysis.map(n => {
-        const tagColor = n.sentiment === '多' ? 'var(--green-500)' : (n.sentiment === '空' ? 'var(--red-500)' : 'var(--slate-500)');
-        return `<div class="news-tile">
-          <span class="sentiment-tag" style="background:${tagColor}">${escapeRoutingText(n.sentiment)}</span>
-          <div class="news-headline">${escapeRoutingText(n.title)}</div>
-          <div class="prose">${escapeRoutingText(n.summary)}</div>
-        </div>`;
-      }).join('');
-    }
+  scoreEl.innerText = '…';
+  scoreEl.style.color = '#94a3b8';
+  scoreEl.style.textShadow = 'none';
+  labelEl.innerText = '資料讀取中';
+  reasonEl.innerText = '讀取最近可得 VIX 日收盤與 72 小時內財經新聞…';
+  grid.innerHTML = '';
+  details.innerHTML = '';
+  document.getElementById('sentiment-recommend').innerHTML = '';
+  const num = value => typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '—';
+  const link = (url, label) => {
+    try {
+      const parsed = new URL(url);
+      if (!['https:', 'http:'].includes(parsed.protocol)) return escapeRoutingText(label);
+      return '<a target="_blank" rel="noopener noreferrer" href="' + escapeRoutingText(parsed.href) + '">' + escapeRoutingText(label) + '</a>';
+    } catch (_) { return escapeRoutingText(label); }
+  };
+  try {
+    const res = await apiCall('/api/sentiment', 'GET');
+    if (version !== sentimentRequestVersion) return;
+    if (!res || !res.components) throw new Error('unavailable');
+    const valid = typeof res.score === 'number' && Number.isFinite(res.score);
+    scoreEl.innerText = valid ? res.score : '—';
+    scoreEl.style.color = valid && res.score >= 56 ? '#22c55e' : valid && res.score <= 45 ? '#ef4444' : '#94a3b8';
+    labelEl.innerText = valid ? res.label : '資料不足，暫不評分';
+    reasonEl.innerText = (res.reasoning || '') + '\n' + (res.methodology?.description || '');
+    const v = res.components.vix || {}, n = res.components.news || {}, c = res.contributions || {};
+    const status = item => item.status === 'available' ? '可用' : '暫缺：' + (item.reason_code || '來源未提供');
+    details.innerHTML = '<div class="card"><div class="card-body">' +
+      '<h3>VIX 80%</h3><p>最近可得 VIX 日收盤：' + num(v.raw_value) + '；日期 ' + escapeRoutingText(v.as_of || '未知') + '（美國紐約日期，非即時）</p>' +
+      '<p>標準化分數 ' + num(v.score) + '；加權貢獻 ' + num(c.vix) + '；' + escapeRoutingText(status(v)) + '</p>' +
+      '<p>' + link(v.source_url || '', v.source || 'Cboe VIX') + ' · 抓取時間 ' + escapeRoutingText(v.fetched_at || '未知') + '</p>' +
+      '<h3>新聞／消息 20%</h3><p>72 小時內有效新聞 ' + escapeRoutingText(n.eligible_count ?? 0) + ' 則；成功評分 ' + escapeRoutingText(n.scored_count ?? 0) + ' 則</p>' +
+      '<p>新聞分數 ' + num(n.score) + '；加權貢獻 ' + num(c.news) + '；' + escapeRoutingText(status(n)) + '</p>' +
+      '<p>合成公式：VIX 標準化分數 × 0.8 ＋ 新聞分數 × 0.2，四捨五入。</p>' +
+      '<p>專案換算節點（VIX→分數）：10→100、15→75、20→50、30→25、40→0；節點間線性換算，超出截於 0–100。</p>' +
+      '<p>VIX 為四個日曆日內的最近可得日收盤；此可用性規則不代表核對最新美國交易日。兩部分皆有效才產生總分。</p></div></div>';
+    grid.innerHTML = (res.news_analysis || []).map(n => '<div class="news-tile">' +
+      '<span class="sentiment-tag">' + escapeRoutingText(n.sentiment || '尚未評分') + '</span>' +
+      '<div class="news-headline">' + escapeRoutingText(n.title || '') + '</div>' +
+      '<div class="prose">' + escapeRoutingText(n.summary || '') + '</div>' +
+      '<p>' + link(n.link || '', n.source || '原始新聞') + ' · ' + escapeRoutingText(n.published_at || '日期未提供') + '</p></div>').join('');
+  } catch (_) {
+    if (version !== sentimentRequestVersion) return;
+    scoreEl.innerText = '—';
+    labelEl.innerText = '暫時無法取得資料';
+    reasonEl.innerText = '來源或分析暫時不可用，請稍後重試；未使用中立分數補值。';
+  } finally {
+    if (version === sentimentRequestVersion) btn.disabled = false;
   }
-  btn.disabled = false;
 }
 
 // ============================
