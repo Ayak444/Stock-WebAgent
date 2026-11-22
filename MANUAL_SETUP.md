@@ -47,6 +47,24 @@
 
 每日 20:30 Asia/Taipei 執行，20:30–21:30 內啟動可補跑。同一帳號、股票、交易日的成功發送由資料庫去重；發送失敗可重試。Discord 已接受訊息、但資料庫尚未記錄成功時，仍可能因重試重送。Render Free 休眠可能錯過排程；需要準時通知應使用常駐服務或外部排程。
 
+## ETF 低檔黃金交叉 Email 通知
+
+1. 到 [Resend](https://resend.com/) 建立具有寄信權限的 API Key。只寄到自己的 Resend 註冊信箱時，可使用 `onboarding@resend.dev` 作為寄件地址。若要寄到其他地址，先在 Resend 驗證自己的寄件網域。
+2. 在本機 `.env` 或 Render Environment 設定 `ETF_ALERT_EMAIL_FROM`、`ETF_ALERT_EMAIL_TO`、`ETF_ALERT_RESEND_API_KEY`，再把 `ETF_ALERT_TICKERS` 設為要追蹤的台灣 ETF，例如 `0050.TW,00878.TW,00937B.TWO`。清單以逗號分隔、去重後最多 20 檔。純代號會加上 `.TW`，上櫃標的請填 `.TWO`。
+3. 設定完成後將 `ETF_ALERT_ENABLED` 由預設的 `false` 改成 `true` 並重啟或重新部署。此功能由伺服器管理一個收件地址。
+
+台北時間 20:30 掃描當日未還原的收盤日線。兩個交叉須同一交易日發生，且當日 MACD(12,26,9) 與訊號線都低於零，前一根交易日線的 K 與 D 都低於 20。KD 使用 9 期與 1/3 平滑，郵件附收盤價、MACD、訊號線、K、D 及 J（3K−2D）。行情先取 180 天，無資料時改取 60 天；仍需通過既有行情完整度檢查並取得至少 35 根日線。遇休市、行情日期落後或新上市標的資料不足會略過。
+
+平日 20:30 後重啟會補跑當天。Resend 以相同 ETF、交易日及收件地址合併重試，避免同日重複寄信。可在伺服器執行 `python -m etf_golden_cross_alerts` 手動掃描，符合條件時會寄信。日誌可搜尋 `etf_golden_cross` 查看設定與掃描摘要。若只要在本機以模擬行情及郵件服務驗證功能，執行 `python scripts/quality_gate.py`。
+
+### 使用 Render Free 每日執行
+
+將本版部署到 Render Free，並把 [GitHub Actions workflow](.github/workflows/etf-render-wake.yml) 放到 GitHub 儲存庫的預設分支。確認儲存庫已啟用 Actions。此流程每天台北時間 20:30（UTC 12:30）呼叫公開的 `/health` 喚醒部署服務，寄信設定只需保存在 Render。
+
+服務已醒著時，由原有的 20:30 排程掃描。服務正在休眠時，喚醒後會在台北時間當天午夜前補跑，週末或無當日交易資料時會略過。可從 GitHub **Actions → Wake Render for ETF alerts → Run workflow** 在 20:30 後手動喚醒。服務本來就醒著時，手動執行 workflow 只會檢查健康狀態，若要重新掃描當日訊號可在已配置環境執行前述 Python 指令。
+
+Actions 成功表示正式服務的健康檢查通過。要確認掃描與 Resend 是否接受郵件，請查 Render Logs 的 `etf_golden_cross` 執行摘要。GitHub 排程可能延遲或略過，公開儲存庫連續 60 天沒有活動時也會停用排程。
+
 ## 本次儀表板修正的部署與排錯
 
 主要網站為 https://ayak4-trading-strategy-bot-l4oa.onrender.com/ 。請在 **對應這個網址的 Render Web Service** 部署 GitHub 最新版，Environment 也必須儲存在這個服務；另一個 Render 服務的健康狀態不代表此服務設定相同。

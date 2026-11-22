@@ -1,0 +1,38 @@
+name: Wake Render for ETF alerts
+
+on:
+  schedule:
+    - cron: '30 12 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Wait for the Render health endpoint
+        shell: bash
+        run: |
+          response_file="$(mktemp)"
+          trap 'rm -f -- "$response_file"' EXIT
+
+          for attempt in 1 2 3 4 5; do
+            if status=$(curl --disable --silent --proto '=https' --connect-timeout 10 --max-time 20 \
+              --output "$response_file" --write-out '%{http_code}' \
+              https://ayak4-trading-strategy-bot-l4oa.onrender.com/health) &&
+              [[ "$status" == 200 ]] &&
+              jq -es 'length == 1 and .[0].status == "ok"' "$response_file" >/dev/null 2>&1; then
+              printf 'Render health check passed on attempt %s.\n' "$attempt"
+              exit 0
+            fi
+
+            printf 'Render health check did not pass on attempt %s of 5.\n' "$attempt"
+            if [[ "$attempt" != 5 ]]; then
+              sleep 15
+            fi
+          done
+
+          echo 'Render did not return a healthy response.' >&2
+          exit 1

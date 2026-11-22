@@ -47,6 +47,7 @@ from market_insights import market_insights, recent_unique_news
 from valuation_service import valuation_service, calculate_valuation
 from notifier import DiscordNotifier
 from volume_alerts import AccountVolumeAlertConfig, AccountVolumeAlertMonitor, should_startup_catchup
+from etf_golden_cross_alerts import ETFAlertConfig, ETFGoldenCrossMonitor, SCAN_TIME, is_etf_alert_time
 from account_alert_security import (SESSION_COOKIE, SESSION_AGE_SECONDS, issue_session,
                                     read_session, encrypt_webhook)
 from account_alert_security import decrypt_webhook
@@ -242,6 +243,19 @@ async def lifespan(app: FastAPI):
                 run_volume_alert_startup_catchup,
             )
 
+    if etf_alert_config.ready:
+        job_runner.schedule_daily(
+            "daily_etf_golden_cross", "ETF 低檔黃金交叉 Email 通知",
+            etf_alert_monitor.run, hour=SCAN_TIME.hour, minute=SCAN_TIME.minute,
+            timezone_name="Asia/Taipei",
+        )
+        if is_etf_alert_time():
+            await job_runner.run_high_priority(
+                "ETF 低檔黃金交叉 Email 通知（啟動補跑）", etf_alert_monitor.run,
+            )
+    elif etf_alert_config.errors:
+        logger.warning("etf_golden_cross configuration_invalid reasons=%s", etf_alert_config.errors)
+
     logger.info("✓ 定時任務已排程（每日 22:00；監控視設定啟用）")
     
     yield
@@ -273,6 +287,9 @@ holder_alert_monitor = HolderVolumeAlertMonitor(
 )
 volume_alert_config = AccountVolumeAlertConfig.from_env()
 volume_alert_monitor = AccountVolumeAlertMonitor(volume_alert_config, db, _load_holder_alert_market)
+
+etf_alert_config = ETFAlertConfig.from_env()
+etf_alert_monitor = ETFGoldenCrossMonitor(etf_alert_config)
 
 async def _analyze_targets_async(targets, mode="quick"):
     """
