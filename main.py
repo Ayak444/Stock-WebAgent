@@ -245,13 +245,17 @@ async def lifespan(app: FastAPI):
 
     if etf_alert_config.ready:
         job_runner.schedule_daily(
-            "daily_etf_golden_cross", "ETF 低檔黃金交叉 Email 通知",
+            "daily_etf_golden_cross", "ETF 低檔黃金交叉 Discord 通知",
             etf_alert_monitor.run, hour=SCAN_TIME.hour, minute=SCAN_TIME.minute,
             timezone_name="Asia/Taipei",
         )
         if is_etf_alert_time():
             await job_runner.run_high_priority(
-                "ETF 低檔黃金交叉 Email 通知（啟動補跑）", etf_alert_monitor.run,
+                "ETF 低檔黃金交叉 Discord 通知（啟動補跑）", etf_alert_monitor.run,
+            )
+        else:
+            await job_runner.run_background(
+                "驗證 ETF Discord 通知設定", etf_alert_monitor.check_destination,
             )
     elif etf_alert_config.errors:
         logger.warning("etf_golden_cross configuration_invalid reasons=%s", etf_alert_config.errors)
@@ -289,7 +293,7 @@ volume_alert_config = AccountVolumeAlertConfig.from_env()
 volume_alert_monitor = AccountVolumeAlertMonitor(volume_alert_config, db, _load_holder_alert_market)
 
 etf_alert_config = ETFAlertConfig.from_env()
-etf_alert_monitor = ETFGoldenCrossMonitor(etf_alert_config)
+etf_alert_monitor = ETFGoldenCrossMonitor(etf_alert_config, db)
 
 async def _analyze_targets_async(targets, mode="quick"):
     """
