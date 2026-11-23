@@ -17,6 +17,8 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 PASSWORD_SCHEME = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 600_000
 logger = logging.getLogger(__name__)
+# HTTPX request URLs include private PostgREST filters. Use the safe store logs below.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Only these static labels may reach notification-store diagnostics. Never log
 # exception messages or PostgREST details: they can contain user settings.
@@ -208,6 +210,22 @@ class Database:
             return dict(result.data[0]) if result.data else None
         except Exception as exc:
             raise RuntimeError("account_alert_store_unavailable") from exc
+
+    def get_account_user_id_by_email(self, email: str) -> str | None:
+        """Find a single existing account without reading its other fields."""
+        normalized = email.strip().lower()
+        if not normalized:
+            return None
+        try:
+            rows = self._require_account_store().table("users").select("id").eq(
+                "email", normalized
+            ).limit(2).execute().data or []
+            if len(rows) != 1:
+                return None
+            user_id = rows[0].get("id")
+            return user_id if isinstance(user_id, str) and user_id else None
+        except Exception as exc:
+            raise AccountAlertStoreError(account_store_failure_category(exc)) from None
 
     def get_account_volume_settings(self, user_id: str) -> dict:
         # Retry only an idempotent read, once, for transient transport failures.
